@@ -134,11 +134,15 @@
   }
 
   .plan-card-popular {
-    @apply plan-card border-emerald-500/60 bg-emerald-500/5 shadow-xl shadow-emerald-900/20;
+    @apply relative bg-emerald-500/5 border border-emerald-500/60 rounded-3xl p-6 transition-all duration-500
+           hover:bg-zinc-900/50 hover:border-zinc-700 hover:shadow-2xl hover:shadow-emerald-900/10
+           hover:-translate-y-1 cursor-pointer shadow-xl shadow-emerald-900/20;
   }
 
   .plan-card-elite {
-    @apply plan-card border-amber-500/60 bg-amber-500/5 shadow-xl shadow-amber-900/20;
+    @apply relative bg-amber-500/5 border border-amber-500/60 rounded-3xl p-6 transition-all duration-500
+           hover:bg-zinc-900/50 hover:border-zinc-700 hover:shadow-2xl hover:shadow-amber-900/10
+           hover:-translate-y-1 cursor-pointer shadow-xl shadow-amber-900/20;
   }
 
   /* ── Badges ── */
@@ -147,24 +151,24 @@
   }
 
   .badge-popular {
-    @apply badge bg-emerald-500 text-zinc-950;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-zinc-950;
   }
 
   .badge-elite {
-    @apply badge text-zinc-950;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-zinc-950;
     background: linear-gradient(135deg, #f59e0b, #f97316);
   }
 
   .badge-status-pending {
-    @apply badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20;
   }
 
   .badge-status-paid {
-    @apply badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
   }
 
   .badge-status-rejected {
-    @apply badge bg-red-500/10 text-red-400 border border-red-500/20;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20;
   }
 
   /* ── Typography ── */
