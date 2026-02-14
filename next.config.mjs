@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /* Force clean rebuild */
   reactStrictMode: true,
-  webpack: (config) => {
-    return config;
-  },
 };
 
 export default nextConfig;
