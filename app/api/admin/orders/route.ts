@@ -1,34 +1,43 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isAdmin } from "@/lib/adminAuth";
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+// Usamos Service Role para poder ver todo sin restricciones RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const q = searchParams.get('q');
+
+    // IMPORTANTE: .select('*, plans(name)') hace el join para traer el nombre del plan
+    let query = supabase
+      .from('orders')
+      .select('*, plans(name)') 
+      .order('created_at', { ascending: false });
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    if (q) {
+      query = query.or(`order_id.ilike.%${q}%,customer_email.ilike.%${q}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching orders:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ orders: data });
+  } catch (e) {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
-
-  const url = new URL(req.url);
-  const status = (url.searchParams.get("status") || "under_review").trim();
-  const q = (url.searchParams.get("q") || "").trim();
-
-  let query = supabaseAdmin
-    .from("orders")
-    .select(
-      `
-      id, order_id, customer_name, customer_email, customer_ref,
-      payment_method, amount_ars, status, created_at,
-      plans:plan_id (code,name,cadence,days,price_ars)
-    `
-    )
-    .order("created_at", { ascending: false });
-
-  if (status !== "all") query = query.eq("status", status);
-  if (q) query = query.or(`order_id.ilike.%${q}%,customer_email.ilike.%${q}%`);
-
-  const { data, error } = await query;
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-
-  return Response.json({ orders: data || [] });
 }

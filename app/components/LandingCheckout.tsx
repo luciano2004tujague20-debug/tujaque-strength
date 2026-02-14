@@ -151,14 +151,22 @@ export default function LandingCheckout() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "No se pudo crear la orden.");
 
-      const orderId = json?.orderId;
+      // --- CAMBIO PARA MERCADO PAGO ---
+      const { orderId, paymentUrl } = json;
+
       if (!orderId) throw new Error("Respuesta inválida: falta orderId.");
 
-      router.push(`/order/${orderId}`);
+      // Si el servidor nos devolvió un link de pago (Mercado Pago), vamos ahí.
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        // Si no (ej: pagó con Transferencia Manual o USD), vamos a la página de orden interna
+        router.push(`/order/${orderId}`);
+      }
+
     } catch (e: any) {
       setSubmitError(e?.message || "Error inesperado.");
-    } finally {
-      setSubmitLoading(false);
+      setSubmitLoading(false); // Solo bajamos el loading si hubo error
     }
   }
 

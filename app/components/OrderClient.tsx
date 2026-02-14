@@ -81,13 +81,15 @@ export default function OrderClient({ orderId }: { orderId: string }) {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
+  // Estado para MP
+  const [payingMP, setPayingMP] = useState(false);
+
   useEffect(() => {
     const lastEmail = localStorage.getItem("ts_last_email") || "";
     if (lastEmail && !email) setEmail(lastEmail);
   }, [email]);
 
   useEffect(() => {
-    // cargar info de pago una vez
     let cancelled = false;
     (async () => {
       try {
@@ -97,21 +99,14 @@ export default function OrderClient({ orderId }: { orderId: string }) {
         if (!cancelled) setPayInfo(json);
       } catch {}
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function loadOrder() {
     setLoadError(null);
     setUploadMsg(null);
-
     const e = email.trim().toLowerCase();
-    if (!e) {
-      setLoadError("Ingresá el email usado en la orden.");
-      return;
-    }
+    if (!e) return setLoadError("Ingresá el email usado en la orden.");
 
     setLoading(true);
     try {
@@ -132,18 +127,40 @@ export default function OrderClient({ orderId }: { orderId: string }) {
 
   const methodLabel = useMemo(() => {
     if (!order) return "";
-    if (order.payment_method === "ars") return "Transferencia ARS";
+    if (order.payment_method === "ars") return "Mercado Pago / Transferencia";
     if (order.payment_method === "usd") return "USD / Wire / ACH";
     return "Crypto";
   }, [order]);
 
+  // Función para manejar pago con MP
+  async function handleMercadoPago() {
+    if (!order) return;
+    setPayingMP(true);
+    try {
+      const res = await fetch("/api/mp/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.order_id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // Redirigir a Mercado Pago
+      } else {
+        alert("Error generando pago: " + (data.error || "Desconocido"));
+      }
+    } catch (e) {
+      alert("Error de conexión con Mercado Pago");
+    } finally {
+      setPayingMP(false);
+    }
+  }
+
   async function uploadReceipt() {
     setUploadMsg(null);
     setLoadError(null);
-
     if (!order) return setLoadError("Primero cargá la orden con tu email.");
     if (!email.trim()) return setLoadError("Falta email.");
-    if (!file) return setLoadError("Elegí un archivo (PNG/JPG/WEBP/PDF).");
+    if (!file) return setLoadError("Elegí un archivo.");
 
     setUploading(true);
     try {
@@ -156,7 +173,6 @@ export default function OrderClient({ orderId }: { orderId: string }) {
         method: "POST",
         body: fd,
       });
-
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "No pude subir el comprobante");
 
@@ -175,179 +191,136 @@ export default function OrderClient({ orderId }: { orderId: string }) {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-50">
       <section className="mx-auto max-w-4xl px-6 py-12">
-        <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Volver a planes
-        </a>
+        <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200">← Volver a planes</a>
 
         <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h1 className="text-2xl font-bold">Tu orden</h1>
-          <p className="mt-2 text-zinc-300">
-            ID: <span className="font-mono font-semibold text-emerald-300">{orderId}</span>
-          </p>
+          <p className="mt-2 text-zinc-300">ID: <span className="font-mono font-semibold text-emerald-300">{orderId}</span></p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-sm text-zinc-300">Email (el mismo que usaste al crear la orden)</label>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 outline-none focus:border-emerald-500"
-                placeholder="test@mail.com"
-              />
-            </div>
-
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={loadOrder}
-                disabled={loading}
-                className="w-full rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-60"
-              >
-                {loading ? "Cargando…" : "Ver mi orden"}
-              </button>
-            </div>
-          </div>
-
-          {loadError && (
-            <div className="mt-5 rounded-xl border border-red-900/60 bg-red-950/40 p-4 text-red-200">
-              {loadError}
-            </div>
+          {!order && (
+             <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-zinc-300">Email de la orden</label>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 outline-none focus:border-emerald-500" placeholder="tu@email.com" />
+                </div>
+                <div className="flex items-end">
+                  <button type="button" onClick={loadOrder} disabled={loading} className="w-full rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-60">
+                    {loading ? "Cargando…" : "Ver mi orden"}
+                  </button>
+                </div>
+             </div>
           )}
+          
+          {loadError && <div className="mt-5 rounded-xl border border-red-900/60 bg-red-950/40 p-4 text-red-200">{loadError}</div>}
 
           {order && (
             <>
+              {/* DETALLE ORDEN */}
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
                   <p className="text-sm text-zinc-400">Plan</p>
                   <p className="mt-1 text-lg font-semibold">{order.plans?.name}</p>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    {order.plans?.cadence === "weekly" ? "Semanal" : "Mensual"} • {order.plans?.days} días
-                  </p>
-                  <p className="mt-3 text-sm text-zinc-400">Total</p>
-                  <p className="mt-1 text-xl font-bold text-emerald-300">{formatARS(order.amount_ars)}</p>
+                  <p className="mt-3 text-sm text-zinc-400">Total a Pagar</p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-300">{formatARS(order.amount_ars)}</p>
                 </div>
 
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
                   <p className="text-sm text-zinc-400">Estado</p>
-                  <p className="mt-1 text-lg font-semibold">{badge(order.status)}</p>
+                  <p className={`mt-1 text-lg font-semibold ${order.status === 'paid' ? 'text-emerald-400' : 'text-white'}`}>
+                    {badge(order.status)}
+                  </p>
                   <p className="mt-3 text-sm text-zinc-400">Método</p>
                   <p className="mt-1 font-semibold">{methodLabel}</p>
-
-                  <div className="mt-4 text-xs text-zinc-500">
-                    Recordatorio: Solo hombres • Requisitos mínimos: constancia, sueño, registro de cargas.
-                  </div>
                 </div>
               </div>
 
-              {/* INSTRUCCIONES DE PAGO */}
-              <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                <h2 className="text-lg font-bold">Instrucciones de pago</h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Realizá el pago y luego subí el comprobante (PNG/JPG/WEBP/PDF).
-                </p>
+              {/* SECCIÓN DE PAGO (SOLO SI NO ESTÁ PAGADA) */}
+              {order.status !== 'paid' && (
+                  <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+                    <h2 className="text-lg font-bold mb-4">Realizar Pago</h2>
 
-                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4 text-sm">
-                  <p className="text-zinc-300">
-                    Monto: <span className="font-semibold text-emerald-300">{formatARS(order.amount_ars)}</span>
-                  </p>
-
-                  {order.payment_method === "ars" && (
-                    <div className="mt-4 grid gap-2 text-zinc-200">
-                      <p><span className="text-zinc-400">Alias:</span> <span className="font-mono">{payInfo?.ars?.alias || "-"}</span></p>
-                      <p><span className="text-zinc-400">CBU:</span> <span className="font-mono">{payInfo?.ars?.cbu || "-"}</span></p>
-                      <p><span className="text-zinc-400">Titular:</span> {payInfo?.ars?.holder || "-"}</p>
-                    </div>
-                  )}
-
-                  {order.payment_method === "usd" && (
-                    <div className="mt-4 grid gap-2 text-zinc-200">
-                      <p><span className="text-zinc-400">Banco:</span> {payInfo?.usd?.bank || "-"}</p>
-                      <p><span className="text-zinc-400">Alias:</span> <span className="font-mono">{payInfo?.usd?.alias || "-"}</span></p>
-                      <p><span className="text-zinc-400">CBU:</span> <span className="font-mono">{payInfo?.usd?.cbu || "-"}</span></p>
-
-                      <details className="mt-2 rounded-lg border border-zinc-800 bg-zinc-950/20 p-3">
-                        <summary className="cursor-pointer select-none text-zinc-200">
-                          Ver datos ACH/Wire
-                        </summary>
-                        <div className="mt-3 grid gap-2 text-zinc-200">
-                          <p><span className="text-zinc-400">Nombre:</span> {payInfo?.usd?.ach?.name || "-"}</p>
-                          <p><span className="text-zinc-400">Routing:</span> <span className="font-mono">{payInfo?.usd?.ach?.routing || "-"}</span></p>
-                          <p><span className="text-zinc-400">Account:</span> <span className="font-mono">{payInfo?.usd?.ach?.account || "-"}</span></p>
-                          <p><span className="text-zinc-400">Type:</span> {payInfo?.usd?.ach?.type || "-"}</p>
-                          <p><span className="text-zinc-400">Bank:</span> {payInfo?.usd?.ach?.bank || "-"}</p>
-                          <p><span className="text-zinc-400">Address:</span> {payInfo?.usd?.ach?.address || "-"}</p>
+                    {/* OPCIÓN MERCADO PAGO AUTOMÁTICO */}
+                    {order.payment_method === 'ars' && (
+                        <div className="mb-8 p-5 rounded-xl bg-emerald-900/10 border border-emerald-500/30">
+                            <h3 className="font-semibold text-emerald-100 mb-2">Opción Recomendada: Pago Automático</h3>
+                            <p className="text-sm text-zinc-300 mb-4">Pagá con dinero en cuenta, tarjetas o efectivo. La aprobación es inmediata.</p>
+                            
+                            <button 
+                                onClick={handleMercadoPago}
+                                disabled={payingMP}
+                                className="w-full py-4 bg-[#009EE3] hover:bg-[#008ED6] text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 flex justify-center items-center gap-2"
+                            >
+                                {payingMP ? (
+                                    <span>Generando...</span>
+                                ) : (
+                                    <>
+                                        <span>Pagar con Mercado Pago</span>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                    </>
+                                )}
+                            </button>
                         </div>
-                      </details>
-
-                      <p className="mt-3 text-xs text-zinc-500">
-                        Si pagás en USD, enviá el equivalente al momento del pago (tipo de cambio del día).
-                      </p>
-                    </div>
-                  )}
-
-                  {order.payment_method === "crypto" && (
-                    <div className="mt-4 grid gap-2 text-zinc-200">
-                      <p><span className="text-zinc-400">BTC:</span> <span className="font-mono break-all">{payInfo?.crypto?.btc || "-"}</span></p>
-                      <p><span className="text-zinc-400">USDT:</span> <span className="font-mono break-all">{payInfo?.crypto?.usdt || "-"}</span></p>
-                      <p><span className="text-zinc-400">USDC:</span> <span className="font-mono break-all">{payInfo?.crypto?.usdc || "-"}</span></p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* SUBIR COMPROBANTE */}
-              <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                <h2 className="text-lg font-bold">Subir comprobante</h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  Subí el comprobante para que se revise tu pago. (Max 8MB)
-                </p>
-
-                <div className="mt-5 grid gap-4">
-                  <div>
-                    <label className="text-sm text-zinc-300">Referencia (opcional)</label>
-                    <input
-                      value={reference}
-                      onChange={(e) => setReference(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 outline-none focus:border-emerald-500"
-                      placeholder="Ej: Pago 11/02 14:40 AR"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-zinc-300">Archivo</label>
-                    <input
-                      type="file"
-                      accept="application/pdf,image/png,image/jpeg,image/webp"
-                      onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3"
-                    />
-                    {file && (
-                      <p className="mt-2 text-xs text-zinc-500">
-                        Seleccionado: <span className="font-mono">{file.name}</span>
-                      </p>
                     )}
+
+                    {/* DATOS MANUALES (SIEMPRE VISIBLES COMO ALTERNATIVA) */}
+                    <details className="group">
+                        <summary className="cursor-pointer text-zinc-400 hover:text-white text-sm font-medium flex items-center gap-2 select-none">
+                            <span>Ver datos para transferencia manual / Crypto</span>
+                            <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        
+                        <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4 text-sm animate-in fade-in slide-in-from-top-2">
+                            {order.payment_method === "ars" && (
+                                <div className="grid gap-2 text-zinc-200">
+                                    <p><span className="text-zinc-400">Alias:</span> <span className="font-mono text-white select-all">{payInfo?.ars?.alias || "-"}</span></p>
+                                    <p><span className="text-zinc-400">CBU:</span> <span className="font-mono text-white select-all">{payInfo?.ars?.cbu || "-"}</span></p>
+                                    <p><span className="text-zinc-400">Titular:</span> {payInfo?.ars?.holder || "-"}</p>
+                                </div>
+                            )}
+
+                             {order.payment_method === "usd" && (
+                                <div className="grid gap-2 text-zinc-200">
+                                    <p><span className="text-zinc-400">Banco:</span> {payInfo?.usd?.bank || "-"}</p>
+                                    <p><span className="text-zinc-400">Alias:</span> <span className="font-mono">{payInfo?.usd?.alias || "-"}</span></p>
+                                    <p className="text-xs text-zinc-500 mt-2">Para datos ACH completos, contactanos.</p>
+                                </div>
+                             )}
+
+                             {order.payment_method === "crypto" && (
+                                <div className="grid gap-2 text-zinc-200">
+                                    <p><span className="text-zinc-400">USDT (TRC20):</span> <span className="font-mono break-all text-xs select-all">{payInfo?.crypto?.usdt || "-"}</span></p>
+                                </div>
+                             )}
+                        </div>
+                    </details>
                   </div>
+              )}
 
-                  {uploadMsg && (
-                    <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/30 p-4 text-emerald-200">
-                      {uploadMsg}
+              {/* SUBIDA DE COMPROBANTE (SOLO SI NO ESTA PAGADO) */}
+              {order.status !== 'paid' && (
+                  <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+                    <h2 className="text-lg font-bold">Subir comprobante (Solo manual)</h2>
+                    <p className="mt-1 text-sm text-zinc-400">Si pagaste por Mercado Pago, no hace falta que subas nada.</p>
+
+                    <div className="mt-5 grid gap-4">
+                      <input value={reference} onChange={(e) => setReference(e.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 outline-none" placeholder="Referencia (opcional)" />
+                      <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3" />
+                      
+                      {uploadMsg && <div className="rounded-xl bg-emerald-950/30 p-4 text-emerald-200 border border-emerald-900/50">{uploadMsg}</div>}
+
+                      <button type="button" disabled={uploading} onClick={uploadReceipt} className="rounded-xl bg-zinc-700 px-5 py-3 font-semibold text-white hover:bg-zinc-600 disabled:opacity-60">
+                        {uploading ? "Subiendo…" : "Enviar comprobante manual"}
+                      </button>
                     </div>
-                  )}
+                  </div>
+              )}
 
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={uploadReceipt}
-                    className="rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-60"
-                  >
-                    {uploading ? "Subiendo…" : "Enviar comprobante"}
-                  </button>
-
-                  <p className="text-xs text-zinc-500">
-                    Consejo: guardá tu ID de orden y tu email para volver más tarde.
-                  </p>
-                </div>
-              </div>
+              {order.status === 'paid' && (
+                  <div className="mt-6 p-8 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                      <h2 className="text-2xl font-bold text-emerald-400 mb-2">¡Todo listo! 🎉</h2>
+                      <p className="text-zinc-300">Tu pago ya fue registrado. Recibirás tu plan en breve al email <strong>{email}</strong>.</p>
+                  </div>
+              )}
             </>
           )}
         </div>

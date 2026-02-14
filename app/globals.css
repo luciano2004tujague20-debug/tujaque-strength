@@ -1,62 +1,14 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
-
-  html,
-  body {
-    height: 100%;
-  }
-
-  body {
-    @apply bg-zinc-950 text-zinc-100 antialiased;
-  }
-
-  /* Mejoras de legibilidad */
-  ::selection {
-    @apply bg-emerald-400/30;
-  }
+:root {
+  --background: #0a0a0a;
+  --foreground: #ffffff;
 }
 
-@layer utilities {
-  .container-pad {
-    @apply mx-auto w-full max-w-6xl px-4;
-  }
-
-  .card {
-    @apply rounded-2xl border border-zinc-800/80 bg-zinc-900/40 shadow-lg shadow-black/30 backdrop-blur;
-  }
-
-  .muted {
-    @apply text-zinc-400;
-  }
-
-  .btn {
-    @apply inline-flex items-center justify-center rounded-xl px-4 py-3 font-semibold transition
-      focus:outline-none focus:ring-4 focus:ring-emerald-500/20 disabled:opacity-60 disabled:cursor-not-allowed;
-  }
-
-  .btn-primary {
-    @apply bg-emerald-500 text-zinc-950 hover:bg-emerald-400 active:bg-emerald-500;
-  }
-
-  .btn-ghost {
-    @apply border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900/60;
-  }
-
-  .input {
-    @apply w-full rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-zinc-100 placeholder:text-zinc-500
-      outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/15;
-  }
-
-  .tab {
-    @apply rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-sm font-semibold text-zinc-200
-      transition hover:bg-zinc-900/60 focus:outline-none focus:ring-4 focus:ring-emerald-500/15;
-  }
-
-  .tab-active {
-    @apply border-emerald-400/60 bg-emerald-500/10 text-emerald-300;
-  }
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
 }

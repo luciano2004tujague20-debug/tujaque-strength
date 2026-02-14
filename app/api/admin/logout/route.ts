@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
-import { ADMIN_COOKIE_NAME } from "@/lib/adminAuth";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server';
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE_NAME, "", { path: "/", maxAge: 0 });
-  return res;
+  const response = NextResponse.json({ success: true });
+  
+  // Eliminar cookie
+  response.cookies.delete('admin_session');
+  
+  return response;
 }

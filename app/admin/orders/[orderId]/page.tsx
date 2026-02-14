@@ -1,303 +1,238 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 
-type Plan = {
-  code: string;
-  name: string;
-  days: number;
-  cadence: "weekly" | "monthly" | string;
-  price_ars?: number;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const formatMoney = (amount: number) => {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+  }).format(amount);
 };
 
-type Receipt = {
-  id: string;
-  order_id: string;
-  email: string | null;
-  reference: string | null;
-  file_path: string | null;
-  file_url?: string | null;
-  created_at?: string | null;
-};
-
-type Order = {
-  id: string;
-  order_id: string;
-  customer_name: string;
-  customer_email: string;
-  customer_ref?: string | null;
-  payment_method: "ars" | "usd" | "crypto" | string;
-  amount_ars: number;
-  status: "awaiting_payment" | "paid" | "rejected" | string;
-  created_at?: string | null;
-
-  // 👇 Estos son los que te interesan:
-  extra_video?: boolean | null;
-  extra_video_price_ars?: number | null;
-
-  plans?: Plan | null;
-};
-
-function formatARS(n: number) {
-  try {
-    return new Intl.NumberFormat("es-AR").format(n);
-  } catch {
-    return String(n);
-  }
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === "paid"
-      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-      : status === "rejected"
-        ? "bg-red-500/15 text-red-300 border-red-500/30"
-        : "bg-amber-500/15 text-amber-300 border-amber-500/30";
-
-  const label =
-    status === "paid" ? "Pagada" : status === "rejected" ? "Rechazada" : "Pendiente";
-
-  return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${cls}`}>
-      <span className="h-2 w-2 rounded-full bg-current opacity-70" />
-      {label}
-    </span>
-  );
-}
-
-export default function AdminOrderDetailPage({ params }: { params: { orderId: string } }) {
-  const orderId = params.orderId;
-
+export default function OrderDetail() {
+  const params = useParams();
+  const router = useRouter();
+  const [order, setOrder] = useState<any>(null);
+  const [plan, setPlan] = useState<any>(null);
+  const [receipt, setReceipt] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [actionLoading, setActionLoading] = useState<"paid" | "rejected" | null>(null);
-
-  async function load() {
-    setLoading(true);
-    setErr(null);
-    try {
-      const res = await fetch(`/api/admin/orders/${orderId}`, { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) throw new Error(data?.error || `Error ${res.status}`);
-
-      setOrder(data?.order ?? null);
-      setReceipts(Array.isArray(data?.receipts) ? data.receipts : []);
-    } catch (e: any) {
-      setErr(e?.message || "Error cargando la orden");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+    const fetchDetail = async () => {
+      // 1. Fetch Order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', params.orderId) // Usamos el UUID de la URL
+        .single();
 
-  // ✅ Calculamos “extra video” aunque el backend no lo mande (fallback)
-  const extra = useMemo(() => {
-    if (!order) return { has: false, price: 0 };
+      if (orderError) {
+        alert('Orden no encontrada');
+        router.push('/admin/orders');
+        return;
+      }
+      setOrder(orderData);
 
-    const explicitHas = order.extra_video === true || (order.extra_video_price_ars ?? 0) > 0;
-    const planPrice = order.plans?.price_ars ?? 0;
+      // 2. Fetch Plan
+      if (orderData.plan_id) {
+        const { data: planData } = await supabase
+          .from('plans')
+          .select('*')
+          .eq('id', orderData.plan_id)
+          .single();
+        setPlan(planData);
+      }
 
-    const inferredHas = !explicitHas && planPrice > 0 && order.amount_ars > planPrice;
-    const has = explicitHas || inferredHas;
+      // 3. Fetch Receipt (Comprobante)
+      const { data: receiptData } = await supabase
+        .from('receipts')
+        .select('*')
+        .eq('order_uuid', orderData.id) // Usar order_uuid que relaciona con orders.id
+        .single();
+      
+      setReceipt(receiptData);
+      setLoading(false);
+    };
 
-    const price =
-      (order.extra_video_price_ars ?? 0) > 0
-        ? (order.extra_video_price_ars as number)
-        : has && planPrice > 0
-          ? Math.max(0, order.amount_ars - planPrice)
-          : 0;
+    if (params.orderId) fetchDetail();
+  }, [params.orderId, router]);
 
-    return { has, price };
-  }, [order]);
-
-  async function setStatus(nextStatus: "paid" | "rejected") {
-    if (!order) return;
-
-    setActionLoading(nextStatus);
-    setErr(null);
+  const updateStatus = async (newStatus: 'paid' | 'rejected') => {
+    if (!confirm(`¿Estás seguro de marcar esta orden como ${newStatus}?`)) return;
+    setProcessing(true);
 
     try {
-      // OJO: este endpoint es el más común.
-      // Si en tu proyecto se llama distinto, cambiás SOLO esta URL.
-      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
+      const res = await fetch(`/api/admin/orders/${order.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Error ${res.status}`);
-
-      await load();
-    } catch (e: any) {
-      setErr(e?.message || "No se pudo actualizar el estado");
+      if (res.ok) {
+        setOrder({ ...order, status: newStatus });
+      } else {
+        alert('Error al actualizar');
+      }
+    } catch (e) {
+      alert('Error de conexión');
     } finally {
-      setActionLoading(null);
+      setProcessing(false);
     }
-  }
+  };
+
+  if (loading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-emerald-500">Cargando detalle...</div>;
+
+  // Calculos
+  const basePrice = order.amount_ars || 0;
+  const extraPrice = order.extra_video ? (order.extra_video_price_ars || 0) : 0;
+  const total = basePrice + extraPrice;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-2">
-          <Link href="/admin/orders" className="text-sm text-zinc-400 hover:text-zinc-200">
-            ← Volver a órdenes
-          </Link>
-          <h1 className="text-2xl font-semibold text-zinc-100">Orden</h1>
-          <div className="text-sm text-emerald-300">{orderId}</div>
-        </div>
+    <div className="min-h-screen bg-zinc-950 text-white pb-20">
+       {/* Nav Back */}
+       <div className="max-w-5xl mx-auto px-6 pt-8 mb-6">
+        <Link href="/admin/orders" className="text-zinc-400 hover:text-white flex items-center gap-2 text-sm">
+            ← Volver al listado
+        </Link>
+       </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStatus("paid")}
-            disabled={actionLoading !== null}
-            className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
-          >
-            {actionLoading === "paid" ? "Aprobando..." : "Aprobar"}
-          </button>
-          <button
-            onClick={() => setStatus("rejected")}
-            disabled={actionLoading !== null}
-            className="rounded-xl bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-200 ring-1 ring-red-500/30 hover:bg-red-500/20 disabled:opacity-50"
-          >
-            {actionLoading === "rejected" ? "Rechazando..." : "Rechazar"}
-          </button>
-        </div>
-      </div>
-
-      {err && (
-        <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {err}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-zinc-300">
-          Cargando...
-        </div>
-      ) : !order ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-zinc-300">
-          No se encontró la orden.
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm text-zinc-400">Estado</div>
-                <StatusBadge status={order.status} />
-              </div>
-
-              <div className="grid gap-3 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-zinc-400">Cliente</span>
-                  <span className="text-zinc-100">{order.customer_name}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-zinc-400">Email</span>
-                  <span className="text-zinc-100">{order.customer_email}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-zinc-400">Referencia</span>
-                  <span className="text-zinc-100">{order.customer_ref || "-"}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-zinc-400">Método</span>
-                  <span className="text-zinc-100">{order.payment_method}</span>
-                </div>
-
-                <div className="mt-2 rounded-xl border border-zinc-800 bg-black/20 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-300">Total</span>
-                    <span className="text-lg font-semibold text-emerald-300">
-                      $ {formatARS(order.amount_ars)}
+      <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* COLUMNA IZQUIERDA: DETALLES PRINCIPALES */}
+        <div className="lg:col-span-2 space-y-6">
+            
+            {/* Header de Orden */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-white mb-1">Orden {order.order_id}</h1>
+                        <p className="text-zinc-400 text-sm">Creada el {new Date(order.created_at).toLocaleDateString()} a las {new Date(order.created_at).toLocaleTimeString()}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold border
+                        ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                          order.status === 'rejected' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                        {order.status === 'paid' ? 'PAGADO' : order.status === 'rejected' ? 'RECHAZADO' : 'PENDIENTE'}
                     </span>
-                  </div>
-
-                  {/* ✅ ACÁ ESTÁ LO QUE PEDÍS */}
-                  <div className="mt-3 flex items-center justify-between text-sm">
-                    <span className="text-zinc-400">Revisión técnica por video</span>
-                    {extra.has ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-emerald-200">
-                        Sí {extra.price > 0 ? `(+ $ ${formatARS(extra.price)})` : ""}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800/40 px-3 py-1 text-zinc-200">
-                        No
-                      </span>
-                    )}
-                  </div>
                 </div>
-              </div>
+
+                {/* Cliente */}
+                <div className="border-t border-zinc-800 pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Cliente</label>
+                        <p className="text-white font-medium">{order.customer_name}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Email</label>
+                        <p className="text-white">{order.customer_email}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Referencia / Objetivo</label>
+                        <p className="text-zinc-300 text-sm mt-1 p-3 bg-zinc-950 rounded border border-zinc-800">
+                            {order.customer_ref || 'Sin referencia'}
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-              <div className="mb-3 text-sm text-zinc-400">Plan</div>
-              <div className="text-lg font-semibold text-zinc-100">{order.plans?.name ?? "-"}</div>
-              <div className="mt-2 text-sm text-zinc-300">
-                {order.plans?.cadence === "weekly" ? "Semanal" : "Mensual"} • {order.plans?.days ?? "-"}{" "}
-                días
-              </div>
-
-              <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-zinc-400">Precio plan</span>
-                  <span className="text-zinc-100">
-                    {order.plans?.price_ars ? `$ ${formatARS(order.plans.price_ars)}` : "-"}
-                  </span>
-                </div>
-                <div className="mt-2 flex justify-between gap-4">
-                  <span className="text-zinc-400">Extra video</span>
-                  <span className="text-zinc-100">{extra.has ? `$ ${formatARS(extra.price)}` : "-"}</span>
-                </div>
-              </div>
+            {/* Comprobante */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <h3 className="text-lg font-semibold mb-4">Comprobante de Pago</h3>
+                {receipt ? (
+                    <div className="flex items-center gap-4 bg-zinc-950 p-4 rounded-lg border border-zinc-800">
+                        <div className="h-10 w-10 bg-indigo-500/20 rounded flex items-center justify-center text-indigo-400">
+                            📄
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-sm font-medium text-white truncate">{receipt.original_name}</p>
+                            <p className="text-xs text-zinc-500">Subido: {new Date(receipt.uploaded_at).toLocaleDateString()}</p>
+                        </div>
+                        <a 
+                            href={receipt.file_path} /* Asumiendo que file_path es una URL firmada o pública, si es bucket privado, necesitaría una función para generar URL firmada */
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white text-xs rounded transition-colors"
+                        >
+                            Ver Archivo
+                        </a>
+                    </div>
+                ) : (
+                    <p className="text-zinc-500 text-sm italic">El cliente aún no ha subido comprobante.</p>
+                )}
             </div>
-          </div>
+        </div>
 
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-            <div className="mb-3 text-lg font-semibold text-zinc-100">Comprobantes</div>
-
-            {receipts.length === 0 ? (
-              <div className="text-sm text-zinc-400">No hay comprobantes.</div>
-            ) : (
-              <div className="space-y-3">
-                {receipts.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex flex-col gap-2 rounded-xl border border-zinc-800 bg-black/20 p-4 md:flex-row md:items-center md:justify-between"
-                  >
-                    <div className="text-sm">
-                      <div className="text-zinc-100">
-                        {r.reference ? `Ref: ${r.reference}` : "Sin referencia"}
-                      </div>
-                      <div className="text-zinc-400">{r.created_at ? r.created_at : ""}</div>
+        {/* COLUMNA DERECHA: DESGLOSE Y ACCIONES */}
+        <div className="space-y-6">
+            
+            {/* DESGLOSE FINANCIERO (LO QUE PEDISTE) */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                <h3 className="text-lg font-bold mb-4 relative z-10">Detalle del Plan</h3>
+                
+                <div className="space-y-3 relative z-10">
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-zinc-400">Plan Base ({plan?.name || '---'})</span>
+                        <span className="text-white">{formatMoney(basePrice)}</span>
                     </div>
 
-                    {(r.file_url || r.file_path) && (
-                      <a
-                        className="inline-flex w-fit items-center justify-center rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
-                        href={(r.file_url || "") as string}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Ver archivo
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                    {/* BLOQUE EXTRA VISIBLE */}
+                    <div className={`flex justify-between items-center text-sm p-2 rounded ${order.extra_video ? 'bg-indigo-500/10 border border-indigo-500/20' : ''}`}>
+                        <div className="flex items-center gap-2">
+                             <span className={order.extra_video ? 'text-indigo-400' : 'text-zinc-500'}>
+                                {order.extra_video ? '✅ Revisión Video' : '❌ Sin Revisión'}
+                             </span>
+                        </div>
+                        <span className={order.extra_video ? 'text-indigo-300 font-medium' : 'text-zinc-600'}>
+                            {order.extra_video ? formatMoney(extraPrice) : '$ 0'}
+                        </span>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-3 mt-3 flex justify-between items-center">
+                        <span className="font-bold text-white">Total a Cobrar</span>
+                        <span className="font-bold text-xl text-emerald-400">{formatMoney(total)}</span>
+                    </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Método de pago</p>
+                    <p className="text-white font-medium capitalize">{order.payment_method}</p>
+                </div>
+            </div>
+
+            {/* ACCIONES */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-4">Acciones de Admin</h3>
+                <div className="space-y-3">
+                    <button
+                        onClick={() => updateStatus('paid')}
+                        disabled={processing || order.status === 'paid'}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:bg-zinc-800 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-900/20"
+                    >
+                        Aprobar Orden
+                    </button>
+                    <button
+                        onClick={() => updateStatus('rejected')}
+                        disabled={processing || order.status === 'rejected'}
+                        className="w-full py-3 bg-zinc-800 hover:bg-red-900/30 hover:text-red-400 hover:border-red-900/50 border border-transparent disabled:opacity-50 text-zinc-300 rounded-lg font-medium transition-all"
+                    >
+                        Rechazar Orden
+                    </button>
+                </div>
+            </div>
+
+        </div>
+      </div>
     </div>
   );
 }

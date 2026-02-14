@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
-import { ADMIN_COOKIE_NAME, adminCookieOptions, makeAdminToken } from "@/lib/adminAuth";
+import { setAdminSession } from "@/lib/adminAuth";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { email, password } = body;
 
-export async function POST(req: Request) {
-  const { password } = await req.json().catch(() => ({}));
-  const real = process.env.ADMIN_PASSWORD || "";
+    // 1. Verificación básica (Email opcional, Pass obligatorio)
+    // Usamos la variable de entorno que definimos antes
+    const correctPassword = process.env.ADMIN_PASSWORD;
 
-  if (!real) {
-    return NextResponse.json({ error: "ADMIN_PASSWORD no configurado" }, { status: 500 });
+    if (!correctPassword) {
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    // 2. Comparamos la contraseña
+    if (password !== correctPassword) {
+      return NextResponse.json({ error: "Contraseña incorrecta" }, { status: 401 });
+    }
+
+    // 3. Si es correcta, creamos la cookie de sesión
+    await setAdminSession();
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-  if (!password || password !== real) {
-    return NextResponse.json({ error: "Contraseña incorrecta" }, { status: 401 });
-  }
-
-  const token = makeAdminToken();
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE_NAME, token, adminCookieOptions());
-  return res;
 }
