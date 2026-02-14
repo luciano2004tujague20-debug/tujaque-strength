@@ -13,6 +13,10 @@ export async function POST(req: Request) {
     
     // paymentMethod puede ser: 'mercado_pago', 'transfer_ars', 'crypto', 'international_usd'
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+    }
+
     // 1. Buscar el plan en la DB para saber el precio
     const { data: plan, error: planErr } = await supabaseAdmin
       .from("plans")

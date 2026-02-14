@@ -16,6 +16,15 @@ export async function GET() {
   let dbError = null;
   let columnsCheck = null;
 
+  if (!supabaseAdmin) {
+    return NextResponse.json({
+      diagnostico: checks,
+      base_de_datos: "No configurado - faltan variables de entorno",
+      error_detalle: "NEXT_PUBLIC_SUPABASE_URL y/o SUPABASE_SERVICE_ROLE_KEY no están definidos",
+      columnas: null
+    }, { status: 200 });
+  }
+
   try {
     // Intentamos leer 1 orden para ver si tenemos permiso
     const { data, error } = await supabaseAdmin.from("orders").select("*").limit(1);

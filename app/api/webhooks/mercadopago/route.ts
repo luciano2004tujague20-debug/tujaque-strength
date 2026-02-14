@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     console.log(`Webhook recibido: Topic: ${topic}, ID: ${paymentId}`);
 
-    if (topic === 'payment' && paymentId) {
+    if (topic === 'payment' && paymentId && supabaseAdmin) {
       // 2. Consultar a Mercado Pago el estado real del pago
       const payment = await mpPayment.get({ id: paymentId });
       

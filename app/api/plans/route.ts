@@ -4,6 +4,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!supabaseAdmin) {
+    return Response.json({ error: "Database not configured" }, { status: 503 });
+  }
+
   const { data, error } = await supabaseAdmin
     .from("plans")
     .select("*")

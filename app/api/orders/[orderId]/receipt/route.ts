@@ -30,6 +30,7 @@ export async function POST(req: Request, ctx: { params: any }) {
 
   if (!email) return Response.json({ error: "Falta email" }, { status: 400 });
   if (!(file instanceof File)) return Response.json({ error: "Falta archivo" }, { status: 400 });
+  if (!supabaseAdmin) return Response.json({ error: "Database not configured" }, { status: 503 });
 
   if (file.size > MAX_BYTES) {
     return Response.json({ error: "Archivo demasiado grande (max 8MB)" }, { status: 400 });

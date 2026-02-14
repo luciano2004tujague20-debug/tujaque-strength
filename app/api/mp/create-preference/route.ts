@@ -9,6 +9,10 @@ export async function POST(req: Request) {
     const { orderId } = await req.json();
     const appUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+    }
+
     const { data: order, error } = await supabaseAdmin
       .from('orders')
       .select('*, plans(*)')

@@ -11,6 +11,14 @@ export default async function AdminOrdersPage() {
   if (!isAuth) redirect("/admin/login");
 
   // 2. Recuperar datos de Supabase
+  if (!supabaseAdmin) {
+    return (
+      <div className="min-h-screen bg-black text-yellow-500 p-10 font-mono">
+        Base de datos no configurada. Conecta Supabase desde el sidebar de v0.
+      </div>
+    );
+  }
+
   const { data: orders, error } = await supabaseAdmin
     .from("orders")
     .select(`*, plans(name)`)

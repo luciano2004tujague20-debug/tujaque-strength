@@ -12,6 +12,7 @@ export async function GET(req: Request, ctx: { params: any }) {
 
   if (!email) return Response.json({ error: "Falta email" }, { status: 400 });
   if (!orderId) return Response.json({ error: "Falta orderId" }, { status: 400 });
+  if (!supabaseAdmin) return Response.json({ error: "Database not configured" }, { status: 503 });
 
   const { data, error } = await supabaseAdmin
     .from("orders")

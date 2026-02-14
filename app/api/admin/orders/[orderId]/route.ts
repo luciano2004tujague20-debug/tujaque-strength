@@ -9,6 +9,10 @@ export async function PATCH(
     const { status } = await request.json();
     const id = params.orderId;
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+    }
+
     // Esto aparecerá en tu terminal negra para confirmar que el dato llegó
     console.log(`Petición recibida - ID: ${id} - Nuevo Estado: ${status}`);
 

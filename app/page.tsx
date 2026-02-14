@@ -18,13 +18,17 @@ type Plan = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const { data: allPlans } = await supabaseAdmin
-    .from("plans")
-    .select("*")
-    .eq("active", true)
-    .order("price_ars", { ascending: true });
+  let plans: Plan[] = [];
 
-  const plans = (allPlans as Plan[]) || [];
+  if (supabaseAdmin) {
+    const { data: allPlans } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("active", true)
+      .order("price_ars", { ascending: true });
+
+    plans = (allPlans as Plan[]) || [];
+  }
 
   const weeklyPlans = plans.filter((p) => p.cadence === "weekly");
   const monthlyPlans = plans.filter((p) => p.cadence === "monthly");
