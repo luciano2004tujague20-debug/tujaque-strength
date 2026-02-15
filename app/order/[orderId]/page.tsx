@@ -9,7 +9,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// DATOS DE PAGO (Mismos que el checkout)
+// DATOS DE PAGO
 const PAYMENT_CONFIG = {
   brubank: {
     alias: "lucianotujague",
@@ -25,7 +25,6 @@ export default function OrderStatusPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   
-  // CORRECCIÓN CLAVE: Usamos 'orderId' porque así se llama tu carpeta
   const orderId = params.orderId as string; 
   
   const [order, setOrder] = useState<any>(null);
@@ -82,7 +81,8 @@ export default function OrderStatusPage() {
           <div className="flex justify-between items-end border-b border-zinc-800 pb-6 mb-6">
             <div>
               <p className="text-xs font-bold text-zinc-500 uppercase">Total a Pagar</p>
-              <p className="text-4xl font-black text-emerald-400 tracking-tighter">${order.total_amount?.toLocaleString()}</p>
+              {/* ACÁ LEEMOS LA COLUMNA CORRECTA 'amount_ars' */}
+              <p className="text-4xl font-black text-emerald-400 tracking-tighter">${order.amount_ars?.toLocaleString()}</p>
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-zinc-500 uppercase">Cliente</p>
@@ -90,16 +90,16 @@ export default function OrderStatusPage() {
             </div>
           </div>
 
-          {/* ZONA DE PAGO SEGÚN EL MÉTODO ELEGIDO */}
+          {/* ZONA DE PAGO */}
           <div className="space-y-6">
             <h3 className="text-center text-sm font-bold uppercase tracking-widest text-zinc-500">Instrucciones de Pago</h3>
 
-            {/* SI ES MERCADO PAGO */}
+            {/* MERCADO PAGO */}
             {order.payment_method === 'mercadopago' && (
               <div className="text-center space-y-4">
                 <p className="text-zinc-300">Para completar tu pago con tarjeta o dinero en cuenta, contactanos para enviarte el link de pago personalizado.</p>
                 <a 
-                  href={`https://wa.me/5491123021760?text=Hola! Quiero pagar mi orden ${order.order_id} de $${order.total_amount} con Mercado Pago.`}
+                  href={`https://wa.me/5491123021760?text=Hola! Quiero pagar mi orden ${order.order_id} de $${order.amount_ars} con Mercado Pago.`}
                   target="_blank"
                   className="block w-full bg-[#009EE3] hover:bg-[#008ED6] text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all"
                 >
@@ -108,7 +108,7 @@ export default function OrderStatusPage() {
               </div>
             )}
 
-            {/* SI ES TRANSFERENCIA */}
+            {/* TRANSFERENCIA */}
             {(order.payment_method === 'transferencia' || order.payment_method === 'ars') && (
               <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-4">
                 <div className="flex justify-between items-center group cursor-pointer" onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)}>
@@ -131,7 +131,7 @@ export default function OrderStatusPage() {
               </div>
             )}
 
-            {/* SI ES CRYPTO */}
+            {/* CRYPTO */}
             {order.payment_method === 'crypto' && (
               <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-4 text-center">
                 <p className="text-xs font-bold text-zinc-500 uppercase">USDT (Red Tron / TRC20)</p>

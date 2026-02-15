@@ -75,7 +75,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     if (paymentMethod === "mercadopago") {
       try {
         // ─── INSERT DIRECTO A SUPABASE ───
-        // Esto evita el error de autorización de la API
+        // CORRECCIÓN: Usamos 'amount_ars' en lugar de 'total_amount'
         const { error: supabaseError } = await supabase.from("orders").insert([
           {
             order_id: orderId,
@@ -83,7 +83,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
             customer_email: formData.email.trim(),
             customer_ref: formData.instagram.trim() || null,
             plan_id: selectedPlan.id,
-            total_amount: totalAmount,
+            amount_ars: totalAmount, // <--- CORREGIDO AQUÍ
             status: "pending",
             payment_method: "mercadopago",
             extra_video: extraVideo
