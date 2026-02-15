@@ -1,269 +1,290 @@
+"use client";
+
 import Link from "next/link";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { useEffect, useMemo, useRef, useState } from "react";
+import CheckoutClient from "@/app/components/CheckoutClient";
+
+type Cadence = "weekly" | "monthly";
 
 type Plan = {
   id: string;
   code: string;
   name: string;
-  cadence: "weekly" | "monthly";
   days: number;
+  cadence: Cadence;
   price_ars: number;
-  benefits: {
+  benefits?: {
     includes?: string[];
-    highlight?: string;
-    ideal_for?: string;
   };
 };
 
-export const dynamic = "force-dynamic";
+const COPY_BY_PLAN: Record<string, { title: string; description: string }> = {
+  "weekly-3": {
+    title: "3 Días — Fuerza Base",
+    description: "Ideal para probar el sistema.",
+  },
+  "weekly-5": {
+    title: "5 Días — Powerbuilding",
+    description: "Volumen alto, pago flexible.",
+  },
+  "monthly-3": {
+    title: "3 Días — Fuerza Híbrida Pro",
+    description: "Ciclo de mesociclo completo.",
+  },
+  "monthly-5": {
+    title: "5 Días — Elite Powerbuilding",
+    description: "La experiencia total (Peaking + Hipertrofia).",
+  },
+};
 
-export default async function HomePage() {
-  const { data: allPlans } = await supabaseAdmin
-    .from("plans")
-    .select("*")
-    .eq("active", true)
-    .order("price_ars", { ascending: true });
+const FALLBACK_PRICES: Record<string, number> = {
+  "weekly-3": 18000,
+  "weekly-5": 32000,
+  "monthly-3": 50000,
+  "monthly-5": 100000,
+};
 
-  const plans = (allPlans as Plan[]) || [];
+function formatARS(n: number) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(n || 0);
+}
 
-  const weeklyPlans = plans.filter((p) => p.cadence === "weekly");
-  const monthlyPlans = plans.filter((p) => p.cadence === "monthly");
+export default function HomePage() {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [cadence, setCadence] = useState<Cadence>("weekly");
+  const [selectedPlanCode, setSelectedPlanCode] = useState<string>("");
+  const [extraVideo, setExtraVideo] = useState(false);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+
+  const checkoutRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoadingPlans(true);
+      try {
+        const res = await fetch("/api/plans", { cache: "no-store" });
+        const json = await res.json();
+        const fetchedPlans = (Array.isArray(json.plans) ? json.plans : []) as Plan[];
+        setPlans(fetchedPlans);
+
+        const firstWeeklyPlan = fetchedPlans.find((p) => p.cadence === "weekly" && p.days === 3);
+        if (firstWeeklyPlan) setSelectedPlanCode(firstWeeklyPlan.code);
+      } finally {
+        setLoadingPlans(false);
+      }
+    })();
+  }, []);
+
+  const plansByCadence = useMemo(
+    () => plans.filter((p) => p.cadence === cadence).sort((a, b) => a.days - b.days),
+    [plans, cadence]
+  );
+
+  useEffect(() => {
+    const stillVisible = plansByCadence.some((p) => p.code === selectedPlanCode);
+    if (!stillVisible && plansByCadence[0]) {
+      setSelectedPlanCode(plansByCadence[0].code);
+    }
+  }, [plansByCadence, selectedPlanCode]);
+
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.code === selectedPlanCode) ?? null,
+    [plans, selectedPlanCode]
+  );
+
+  const handleSelectPlan = (plan: Plan) => {
+    setSelectedPlanCode(plan.code);
+    checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="fixed inset-0 -z-10 tech-grid opacity-20" />
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[100px]" />
-      </div>
+    <main className="relative min-h-screen overflow-x-hidden bg-zinc-950 text-zinc-100">
+      <div className="aurora-bg" />
+      <div className="tech-grid pointer-events-none fixed inset-0 -z-10 opacity-30" />
 
-      <nav className="fixed top-0 w-full z-50 bg-black/60 backdrop-blur-xl border-b border-zinc-800/50">
-        <div className="container-pad flex items-center justify-between h-20">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-black text-black text-sm shadow-lg shadow-emerald-900/30">
-              TS
-            </div>
-            <div>
-              <div className="text-sm font-black tracking-tight">TUJAQUE STRENGTH</div>
-              <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Elite Strength Coaching</div>
-            </div>
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/75 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-emerald-400">Tujaque Strength</p>
+            <p className="text-sm text-zinc-400">Programación de fuerza para hombres +18</p>
           </div>
-          <Link href="/admin/login" className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors">
-            Staff
-          </Link>
-        </div>
-      </nav>
-
-      <header className="relative pt-32 md:pt-40 pb-20 px-6">
-        <div className="container-pad">
-          <div className="max-w-4xl mx-auto text-center animate-fade-in">
-            <div className="inline-block mb-6 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-              Sistema de Entrenamiento Profesional
-            </div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 tracking-tighter leading-[0.95]">
-              FUERZA QUE <span className="gradient-text">SE MIDE</span> EN KILOS
-            </h1>
-            <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Programación de Powerlifting para hombres que entrenan en serio. Sentadilla, Banca y Peso Muerto con progresión real.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="#planes-semanales" className="btn-premium">
-                Ver Planes
-              </a>
-              <a href="#como-funciona" className="btn-ghost">
-                Cómo Funciona
-              </a>
-            </div>
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-zinc-500">
-              <div className="flex items-center gap-2">
-                <div className="status-indicator status-indicator-green" />
-                <span>Sistema Activo</span>
-              </div>
-              <div>+100 atletas</div>
-            </div>
-          </div>
+          <a href="#precios" className="btn-primary px-4 py-2 text-sm">
+            Ver Planes
+          </a>
         </div>
       </header>
 
-      <section id="planes-semanales" className="py-20 px-6">
-        <div className="container-pad">
-          <div className="text-center mb-12 animate-slide-up">
-            <h2 className="section-title mb-3">PLANES SEMANALES</h2>
-            <p className="section-subtitle mx-auto">
-              Programación con ajustes cada 7 días. Ideal para comenzar o mantener progresión constante.
-            </p>
-          </div>
+      <section className="mx-auto w-full max-w-6xl px-6 py-20 md:py-24" aria-labelledby="hero-title">
+        <article className="glass-card space-y-6 p-8 md:p-12">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">Sistema Tujaque Strength</p>
+          <h1 id="hero-title" className="text-4xl font-black leading-tight md:text-6xl">
+            Forjando Fuerza Real.
+          </h1>
+          <p className="max-w-3xl text-lg text-zinc-300 md:text-xl">
+            Programación de fuerza y estética para hombres +18. Sin humo, solo hierro.
+          </p>
+          <a href="#precios" className="btn-premium inline-flex">
+            Ver Planes
+          </a>
+        </article>
+      </section>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {weeklyPlans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </div>
+      <section id="matriz" className="mx-auto w-full max-w-6xl px-6 py-16" aria-labelledby="matriz-title">
+        <header className="mb-10 space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">Diferenciación Técnica</p>
+          <h2 id="matriz-title" className="text-3xl font-black md:text-4xl">
+            La Matriz de Entrenamiento
+          </h2>
+          <p className="max-w-3xl text-zinc-300">
+            Antes de hablar de precios, elegí tu camino según tu objetivo y tu disponibilidad real.
+          </p>
+        </header>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <article className="glass-card p-6">
+            <h3 className="text-2xl font-bold">Camino A (3 Días - Eficiencia)</h3>
+            <p className="mt-4 text-zinc-300">
+              Fuerza Base con intensidad alta. Ideal si tenés poco tiempo, pero querés mover muchos kilos en los
+              básicos: Squat, Bench y Deadlift.
+            </p>
+          </article>
+
+          <article className="glass-card p-6">
+            <h3 className="text-2xl font-bold">Camino B (5 Días - Estética/Volumen)</h3>
+            <p className="mt-4 text-zinc-300">
+              Powerbuilding real. Más días de entrenamiento significa más accesorios, más bombeo y foco fuerte en
+              hipertrofia y corrección de puntos débiles.
+            </p>
+          </article>
         </div>
       </section>
 
-      <section id="planes-mensuales" className="py-20 px-6 bg-zinc-950/50">
-        <div className="container-pad">
-          <div className="text-center mb-12 animate-slide-up">
-            <h2 className="section-title mb-3">PLANES MENSUALES</h2>
-            <p className="section-subtitle mx-auto">
-              Periodización de 30 días con seguimiento intensivo. Para atletas que compiten o buscan máximo rendimiento.
-            </p>
+      <section id="precios" className="mx-auto w-full max-w-6xl px-6 py-16" aria-labelledby="precios-title">
+        <header className="mb-10 space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">El Core del Negocio</p>
+          <h2 id="precios-title" className="text-3xl font-black md:text-4xl">
+            Elegí tu inversión
+          </h2>
+          <p className="max-w-3xl text-zinc-300">Alterná entre modalidad semanal o mensual y activá tu plan hoy.</p>
+        </header>
+
+        <div className="glass-card p-6">
+          <div className="mx-auto mb-8 grid w-full max-w-sm grid-cols-2 rounded-xl border border-white/10 bg-zinc-900/70 p-1">
+            <button
+              type="button"
+              onClick={() => setCadence("weekly")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                cadence === "weekly" ? "bg-emerald-500 text-zinc-950" : "text-zinc-300 hover:bg-white/5"
+              }`}
+            >
+              Semanal
+            </button>
+            <button
+              type="button"
+              onClick={() => setCadence("monthly")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                cadence === "monthly" ? "bg-emerald-500 text-zinc-950" : "text-zinc-300 hover:bg-white/5"
+              }`}
+            >
+              Mensual
+            </button>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {monthlyPlans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </div>
-        </div>
-      </section>
+          <div className="grid gap-6 md:grid-cols-2">
+            {plansByCadence.map((plan) => {
+              const key = `${plan.cadence}-${plan.days}`;
+              const copy = COPY_BY_PLAN[key];
+              const price = plan.price_ars || FALLBACK_PRICES[key] || 0;
+              const isActive = selectedPlanCode === plan.code;
 
-      <section id="extra-video" className="py-20 px-6">
-        <div className="container-pad max-w-4xl mx-auto">
-          <div className="glass-card p-8 md:p-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 mb-6 shadow-xl shadow-emerald-900/30">
-              <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-2xl md:text-3xl font-black mb-4">Revisión Técnica por Video</h3>
-            <p className="text-zinc-400 mb-6 max-w-2xl mx-auto">
-              Servicio extra opcional. Enviás tu video de Sentadilla, Banca o Peso Muerto y recibís un análisis detallado con correcciones específicas.
-            </p>
-            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <span className="text-emerald-400 font-bold">Costo adicional:</span>
-              <span className="text-2xl font-black text-white">$15.000</span>
-            </div>
-            <p className="mt-4 text-sm text-zinc-500">
-              Podés agregar este servicio al momento de contratar cualquier plan.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="como-funciona" className="py-20 px-6 bg-zinc-950/50">
-        <div className="container-pad max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="section-title mb-3">CÓMO FUNCIONA</h2>
-            <p className="section-subtitle mx-auto">
-              Proceso simple y directo. De la orden al entrenamiento en menos de 48 horas.
-            </p>
+              return (
+                <article
+                  key={plan.code}
+                  className={`rounded-xl border p-6 transition ${
+                    isActive
+                      ? "border-emerald-400 bg-emerald-500/10 shadow-[0_0_24px_rgba(16,185,129,0.25)]"
+                      : "border-white/10 bg-zinc-900/50 hover:border-emerald-400/40"
+                  }`}
+                >
+                  <h3 className="text-xl font-bold">{copy?.title ?? plan.name}</h3>
+                  <p className="mt-2 text-3xl font-black text-emerald-400">{formatARS(price)}</p>
+                  <p className="mt-3 text-zinc-300">{copy?.description ?? "Programación inteligente para progresar."}</p>
+                  <button type="button" onClick={() => handleSelectPlan(plan)} className="btn-secondary mt-5 w-full">
+                    Elegir este plan
+                  </button>
+                </article>
+              );
+            })}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <Step
-              number="01"
-              title="Elegís tu Plan"
-              desc="Seleccionás entre planes semanales o mensuales según tu objetivo y disponibilidad de entrenamiento."
+          {loadingPlans && <p className="mt-6 text-sm text-zinc-400">Cargando planes reales desde la API...</p>}
+
+          <div className="mt-8 rounded-xl border border-white/10 bg-zinc-900/60 p-5">
+            <label htmlFor="extra-tecnica" className="flex cursor-pointer items-start gap-3">
+              <input
+                id="extra-tecnica"
+                type="checkbox"
+                checked={extraVideo}
+                onChange={(e) => setExtraVideo(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-zinc-100">Revisión de Técnica por Video (+$5.000)</span>
+                <span className="block text-sm text-zinc-400">Servicio opcional para análisis técnico de tus levantamientos.</span>
+              </span>
+            </label>
+          </div>
+
+          <div ref={checkoutRef} className="mt-8">
+            <CheckoutClient
+              selectedPlan={selectedPlan}
+              hidePlanSelector
+              initialExtraVideo={extraVideo}
             />
-            <Step
-              number="02"
-              title="Realizás el Pago"
-              desc="Transferencia, Mercado Pago o Cripto. Subís el comprobante y validamos tu orden en minutos."
-            />
-            <Step
-              number="03"
-              title="Recibís tu Programa"
-              desc="Dentro de 48hs tenés tu rutina personalizada y comenzás a entrenar con seguimiento según tu plan."
-            />
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-zinc-800 py-12 px-6">
-        <div className="container-pad">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-center md:text-left">
-              <div className="font-black text-lg mb-1">TUJAQUE STRENGTH</div>
-              <div className="text-sm text-zinc-500">Coaching Profesional de Fuerza</div>
-            </div>
+      <section className="mx-auto w-full max-w-6xl px-6 py-16" aria-labelledby="coach-title">
+        <article className="glass-card p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">Autoridad</p>
+          <h2 id="coach-title" className="mt-3 text-3xl font-black md:text-4xl">
+            Luciano (Tujaque Strength)
+          </h2>
+          <p className="mt-4 max-w-4xl text-zinc-300">
+            Entrenador especializado en fuerza. Mi objetivo no es entretenerte, es hacerte fuerte. No hago coaching 1
+            a 1 de niñera; te doy las herramientas profesionales para que entrenes como un atleta.
+          </p>
+        </article>
+      </section>
 
-            <div className="flex gap-6 text-sm text-zinc-400">
-              <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
+      <footer className="border-t border-white/10 bg-zinc-950/80">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 md:grid-cols-2">
+          <section>
+            <h2 className="text-lg font-bold">Footer & Contacto</h2>
+            <nav className="mt-4 flex flex-col gap-2 text-sm text-zinc-300">
+              <Link href="/legal/terms" className="hover:text-emerald-300">
                 Términos y Condiciones
               </Link>
-              <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
-                Privacidad
+              <Link href="/legal/privacy" className="hover:text-emerald-300">
+                Política de Privacidad
               </Link>
-            </div>
-          </div>
+            </nav>
+          </section>
 
-          <div className="mt-8 pt-8 border-t border-zinc-900 text-center text-xs text-zinc-600">
-            <p>2026 Tujaque Strength. Buenos Aires, Argentina.</p>
-            <p className="mt-2">Servicio exclusivo para hombres mayores de 18 años.</p>
-          </div>
+          <section>
+            <h2 className="text-lg font-bold">Contacto</h2>
+            <ul className="mt-4 space-y-2 text-sm text-zinc-300">
+              <li>WhatsApp: +54 9 XXX XXX XXXX</li>
+              <li>Email: contacto@tujaquestrength.com</li>
+              <li>Instagram: @tujaquestrength</li>
+            </ul>
+          </section>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function PlanCard({ plan }: { plan: Plan }) {
-  const isPopular = plan.benefits?.highlight === "popular";
-  const isElite = plan.benefits?.highlight === "elite";
-  const includes = plan.benefits?.includes || [];
-
-  return (
-    <div className={`relative group ${isElite ? "plan-card-elite" : isPopular ? "plan-card-popular" : "plan-card"}`}>
-      {isPopular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 badge-popular">
-          Más Elegido
-        </div>
-      )}
-
-      {isElite && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 badge-elite">
-          Elite
-        </div>
-      )}
-
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h3 className="text-2xl font-black mb-2">{plan.name}</h3>
-          <p className="text-sm text-zinc-400">{plan.days} días por semana</p>
-        </div>
-        <div className="text-right">
-          <div className="text-3xl font-black text-emerald-400">
-            ${(plan.price_ars / 1000).toFixed(0)}K
-          </div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wider">ARS</div>
-        </div>
-      </div>
-
-      {plan.benefits?.ideal_for && (
-        <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
-          {plan.benefits.ideal_for}
-        </p>
-      )}
-
-      <ul className="space-y-3 mb-8">
-        {includes.slice(0, 4).map((item, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-zinc-300">
-            <svg className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href={`/checkout?plan=${plan.code}`}
-        className={isElite ? "btn-premium w-full text-center" : isPopular ? "btn-primary w-full" : "btn-secondary w-full text-center"}
-      >
-        ELEGIR PLAN
-      </Link>
-    </div>
-  );
-}
-
-function Step({ number, title, desc }: { number: string; title: string; desc: string }) {
-  return (
-    <div className="relative">
-      <div className="text-6xl font-black text-emerald-500/10 mb-4">{number}</div>
-      <h4 className="text-xl font-bold mb-3">{title}</h4>
-      <p className="text-zinc-400 text-sm leading-relaxed">{desc}</p>
-    </div>
+    </main>
   );
 }

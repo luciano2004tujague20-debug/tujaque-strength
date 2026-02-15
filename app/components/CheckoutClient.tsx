@@ -18,6 +18,12 @@ type Plan = {
   };
 };
 
+type CheckoutClientProps = {
+  selectedPlan?: Plan | null;
+  hidePlanSelector?: boolean;
+  initialExtraVideo?: boolean;
+};
+
 function formatARS(n: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -26,14 +32,19 @@ function formatARS(n: number) {
   }).format(n || 0);
 }
 
-export default function CheckoutClient() {
+export default function CheckoutClient({
+  selectedPlan: selectedPlanProp,
+  hidePlanSelector = false,
+  initialExtraVideo = false,
+}: CheckoutClientProps) {
   const router = useRouter();
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
-
-  const [selectedPlanCode, setSelectedPlanCode] = useState<string>("");
+  const [selectedPlanCode, setSelectedPlanCode] = useState<string>(
+    selectedPlanProp?.code ?? ""
+  );
 
   const [paymentMethod, setPaymentMethod] = useState<"ars" | "usd" | "crypto">(
     "ars"
@@ -42,41 +53,49 @@ export default function CheckoutClient() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [customerRef, setCustomerRef] = useState("");
-
-  // Checkboxes del cliente
   const [confirmAdultMan, setConfirmAdultMan] = useState(false);
   const [acceptReq, setAcceptReq] = useState(false);
-
-  // ✅ EXTRA VIDEO
-  const [extraVideo, setExtraVideo] = useState(false);
+  const [extraVideo, setExtraVideo] = useState(initialExtraVideo);
 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (selectedPlanProp) {
+      setPlans([selectedPlanProp]);
+      setSelectedPlanCode(selectedPlanProp.code);
+      setLoadingPlans(false);
+      setPlansError(null);
+      return;
+    }
+
     (async () => {
       setLoadingPlans(true);
       setPlansError(null);
       try {
         const res = await fetch("/api/plans", { cache: "no-store" });
         const json = await res.json();
-        setPlans(Array.isArray(json.plans) ? json.plans : []);
-        // seleccionar primero por defecto
-        if (Array.isArray(json.plans) && json.plans.length > 0) {
-          setSelectedPlanCode(json.plans[0].code);
+        const fetchedPlans = Array.isArray(json.plans) ? json.plans : [];
+        setPlans(fetchedPlans);
+        if (fetchedPlans.length > 0) {
+          setSelectedPlanCode(fetchedPlans[0].code);
         }
-      } catch (e: any) {
+      } catch {
         setPlansError("No se pudieron cargar los planes.");
       } finally {
         setLoadingPlans(false);
       }
     })();
-  }, []);
+  }, [selectedPlanProp]);
 
-  const selectedPlan = useMemo(
-    () => plans.find((p) => p.code === selectedPlanCode),
-    [plans, selectedPlanCode]
-  );
+  useEffect(() => {
+    setExtraVideo(initialExtraVideo);
+  }, [initialExtraVideo]);
+
+  const selectedPlan = useMemo(() => {
+    if (selectedPlanProp) return selectedPlanProp;
+    return plans.find((p) => p.code === selectedPlanCode);
+  }, [plans, selectedPlanCode, selectedPlanProp]);
 
   const includes = useMemo(() => {
     const arr = selectedPlan?.benefits?.includes;
@@ -89,7 +108,7 @@ export default function CheckoutClient() {
   async function createOrder() {
     setCreateError(null);
 
-    if (!selectedPlanCode) return setCreateError("Seleccioná un plan.");
+    if (!selectedPlan?.code) return setCreateError("Seleccioná un plan.");
     if (!name.trim()) return setCreateError("Ingresá tu nombre.");
     if (!email.trim()) return setCreateError("Ingresá tu email.");
     if (!confirmAdultMan)
@@ -103,13 +122,11 @@ export default function CheckoutClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planCode: selectedPlanCode,
+          planCode: selectedPlan.code,
           paymentMethod,
           name: name.trim(),
           email: email.trim(),
           customerRef: customerRef.trim() || null,
-
-          // ✅ EXTRA
           extraVideo,
         }),
       });
@@ -129,10 +146,10 @@ export default function CheckoutClient() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-zinc-100">Elegí tu plan</h1>
+    <div className="glass-card mx-auto max-w-3xl px-4 py-8">
+      <h3 className="text-2xl font-black text-zinc-100">Checkout</h3>
       <p className="mt-2 text-zinc-400">
-        Seleccioná plan + método de pago y generá tu orden.
+        Confirmá tus datos y generá tu orden de pago.
       </p>
 
       {loadingPlans && (
@@ -149,61 +166,42 @@ export default function CheckoutClient() {
 
       {!loadingPlans && !plansError && (
         <>
-          {/* Planes */}
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {plans.map((p) => {
-              const active = p.code === selectedPlanCode;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedPlanCode(p.code)}
-                  className={[
-                    "text-left rounded-2xl border p-5 transition",
-                    active
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60",
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-lg font-semibold text-zinc-100">
-                        {p.name}
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {p.cadence === "weekly" ? "Semanal" : "Mensual"} •{" "}
-                        {p.days} días
-                      </p>
+          {!hidePlanSelector && (
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {plans.map((p) => {
+                const active = p.code === selectedPlanCode;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedPlanCode(p.code)}
+                    className={[
+                      "text-left rounded-2xl border p-5 transition",
+                      active
+                        ? "border-emerald-500 bg-emerald-500/10"
+                        : "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-semibold text-zinc-100">{p.name}</p>
+                        <p className="mt-1 text-sm text-zinc-400">
+                          {p.cadence === "weekly" ? "Semanal" : "Mensual"} • {p.days} días
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-zinc-100">{formatARS(p.price_ars)}</p>
+                        <p className="text-xs text-zinc-400">ARS</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-zinc-100">
-                        {formatARS(p.price_ars)}
-                      </p>
-                      <p className="text-xs text-zinc-400">ARS</p>
-                    </div>
-                  </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-                  {Array.isArray(p.benefits?.includes) &&
-                    p.benefits!.includes!.length > 0 && (
-                      <ul className="mt-4 grid gap-2 text-sm text-zinc-300">
-                        {p.benefits!.includes!.slice(0, 4).map((x, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400/80" />
-                            <span>{x}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Método de pago */}
-          <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <p className="text-sm font-semibold text-zinc-200">
-              Método de pago
-            </p>
+          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+            <p className="text-sm font-semibold text-zinc-200">Método de pago</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {(["ars", "usd", "crypto"] as const).map((m) => (
                 <button
@@ -217,35 +215,29 @@ export default function CheckoutClient() {
                       : "border-zinc-800 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-900/60",
                   ].join(" ")}
                 >
-                  {m === "ars"
-                    ? "Transferencia ARS"
-                    : m === "usd"
-                    ? "Internacional (USD)"
-                    : "Cripto"}
+                  {m === "ars" ? "Transferencia ARS" : m === "usd" ? "Internacional (USD)" : "Cripto"}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Datos */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
             <p className="text-sm font-semibold text-zinc-200">Tus datos</p>
-
             <div className="mt-4 grid gap-3">
               <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
+                className="glass-input"
                 placeholder="Tu nombre"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
+                className="glass-input"
                 placeholder="Tu email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
+                className="glass-input"
                 placeholder="Referencia (opcional) — DNI / IG / etc"
                 value={customerRef}
                 onChange={(e) => setCustomerRef(e.target.value)}
@@ -253,7 +245,7 @@ export default function CheckoutClient() {
             </div>
 
             <div className="mt-4 space-y-3 text-sm text-zinc-300">
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   className="mt-1"
@@ -263,24 +255,20 @@ export default function CheckoutClient() {
                 <span>Confirmo que soy hombre.</span>
               </label>
 
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   className="mt-1"
                   checked={acceptReq}
                   onChange={(e) => setAcceptReq(e.target.checked)}
                 />
-                <span>
-                  Acepto los requisitos mínimos (constancia, sueño, registro de
-                  cargas).
-                </span>
+                <span>Acepto los requisitos mínimos (constancia, sueño, registro de cargas).</span>
               </label>
             </div>
           </div>
 
-          {/* ✅ EXTRA VIDEO */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -288,46 +276,27 @@ export default function CheckoutClient() {
                 onChange={(e) => setExtraVideo(e.target.checked)}
               />
               <div className="flex-1">
-                <p className="font-semibold text-zinc-100">
-                  Revisión técnica por video (extra)
-                </p>
+                <p className="font-semibold text-zinc-100">Revisión técnica por video (extra)</p>
                 <p className="text-sm text-zinc-400">
-                  Enviás tu video y recibís correcciones y claves técnicas. Costo
-                  adicional.
+                  Enviás tu video y recibís correcciones y claves técnicas. Costo adicional.
                 </p>
               </div>
-              <div className="font-semibold text-zinc-100">
-                {formatARS(EXTRA_VIDEO_PRICE_ARS)}
-              </div>
+              <div className="font-semibold text-zinc-100">{formatARS(EXTRA_VIDEO_PRICE_ARS)}</div>
             </label>
           </div>
 
-          {/* Resumen */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
             <p className="text-sm font-semibold text-zinc-200">Resumen</p>
-
             <div className="mt-3">
-              <p className="text-lg font-bold text-zinc-100">
-                {selectedPlan?.name ?? "—"}
-              </p>
-
+              <p className="text-lg font-bold text-zinc-100">{selectedPlan?.name ?? "—"}</p>
               <p className="mt-1 text-zinc-300">
-                Total:{" "}
-                <span className="font-bold text-emerald-300">
-                  {formatARS(totalArs)}
-                </span>
+                Total: <span className="font-bold text-emerald-300">{formatARS(totalArs)}</span>
               </p>
-
               {includes.length > 0 && (
-                <p className="mt-2 text-sm text-zinc-400">
-                  Incluye: {includes.join(" • ")}
-                </p>
+                <p className="mt-2 text-sm text-zinc-400">Incluye: {includes.join(" • ")}</p>
               )}
-
               {extraVideo && (
-                <p className="mt-2 text-sm text-zinc-400">
-                  Servicio extra: Revisión técnica por video.
-                </p>
+                <p className="mt-2 text-sm text-zinc-400">Servicio extra: Revisión técnica por video.</p>
               )}
             </div>
 
@@ -341,7 +310,7 @@ export default function CheckoutClient() {
               type="button"
               disabled={creating}
               onClick={createOrder}
-              className="mt-5 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-60"
+              className="btn-primary mt-5 w-full"
             >
               {creating ? "Generando..." : "Generar orden"}
             </button>
