@@ -1,119 +1,161 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { redirect } from "next/navigation";
-import Link from "next/link";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../lib/supabase"; // Importación relativa correcta
+import { useRouter } from "next/navigation";
 
-export default async function AdminOrdersPage() {
-  // 1. Verificación de seguridad
-  const isAuth = await isAdminAuthenticated();
-  if (!isAuth) redirect("/admin/login");
+export default function AdminOrders() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const router = useRouter();
 
-  // 2. Recuperar datos de Supabase
-  const { data: orders, error } = await supabaseAdmin
-    .from("orders")
-    .select(`*, plans(name)`)
-    .order("created_at", { ascending: false });
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-black text-red-500 p-10 font-mono">
-        Error cargando datos: {error.message}
-      </div>
-    );
+  async function fetchOrders() {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error) setOrders(data || []);
+    setLoading(false);
   }
 
-  // 3. Cálculos para las tarjetas de estadísticas
-  const totalMoney = orders?.filter(o => o.status === 'paid').reduce((acc, curr) => acc + (curr.amount_ars || 0), 0) || 0;
-  const pendingCount = orders?.filter(o => o.status !== 'paid' && o.status !== 'rejected').length || 0;
+  // Función optimizada para evitar el lag de 2.2s (INP Issue)
+  async function updateStatus(id: string, newStatus: string) {
+    setUpdatingId(id);
+    
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (error) {
+      alert("Error al actualizar estado");
+    } else {
+      // Actualización "optimista" instantánea en la pantalla
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+    }
+    setUpdatingId(null);
+  }
+
+  if (loading) return <div className="p-20 text-center text-emerald-500 font-black uppercase italic animate-pulse tracking-widest leading-relaxed">Sincronizando Facturación...</div>;
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* HEADER & STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-3 flex justify-between items-end mb-2">
-            <div>
-              <h1 className="text-3xl font-black tracking-tighter text-emerald-500">TUJAQUE STRENGTH</h1>
-              <p className="text-gray-500 text-sm">Gestión de órdenes y pagos</p>
-            </div>
-            <div className="text-xs text-gray-600 font-mono">Actualizado: {new Date().toLocaleTimeString()}</div>
-          </div>
-          
-          <div className="bg-[#0a0a0a] border border-emerald-500/20 p-6 rounded-3xl shadow-2xl">
-            <p className="text-gray-500 text-xs uppercase font-bold tracking-widest">Ingresos Aprobados</p>
-            <p className="text-4xl font-black text-emerald-400 mt-2">${totalMoney.toLocaleString('es-AR')}</p>
-          </div>
+    <div className="animate-fade-in">
+      <header className="mb-10">
+        <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">
+          Control de <span className="text-emerald-400">Ventas y Pagos</span>
+        </h1>
+        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2 italic">Administración de ingresos y validación de comprobantes</p>
+      </header>
 
-          <div className="bg-[#0a0a0a] border border-yellow-500/20 p-6 rounded-3xl shadow-2xl">
-            <p className="text-gray-500 text-xs uppercase font-bold tracking-widest">Pendientes</p>
-            <p className="text-4xl font-black text-yellow-500 mt-2">{pendingCount}</p>
-          </div>
+      <div className="admin-glass-card !max-w-none overflow-x-auto border border-white/5 rounded-[2rem] bg-black/20 backdrop-blur-md">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-white/10 text-[9px] text-emerald-400 uppercase font-black tracking-[0.2em]">
+              <th className="py-6 px-8">Fecha / Cliente</th>
+              <th className="py-6 px-8">Plan Adquirido</th>
+              <th className="py-6 px-8 text-center">Comprobante</th>
+              <th className="py-6 px-8 text-center">Estado del Pago</th>
+              <th className="py-6 px-8 text-right">Monto Total</th>
+            </tr>
+          </thead>
+          <tbody className="text-sm text-white divide-y divide-white/5">
+            {orders.map((order) => (
+              <tr key={order.id} className="hover:bg-white/[0.02] transition-colors group">
+                {/* 1. DATOS DEL CLIENTE */}
+                <td className="py-6 px-8">
+                  <p className="text-[9px] text-zinc-600 font-mono mb-1">
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </p>
+                  <p className="font-black uppercase tracking-tight text-lg text-emerald-50">{order.customer_name}</p>
+                  <p className="text-[11px] text-zinc-500 italic">{order.customer_email}</p>
+                </td>
 
-          <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl shadow-2xl">
-            <p className="text-gray-500 text-xs uppercase font-bold tracking-widest">Total Órdenes</p>
-            <p className="text-4xl font-black text-white mt-2">{orders?.length || 0}</p>
-          </div>
-        </div>
-
-        {/* TABLA DE ÓRDENES */}
-        <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="bg-white/5 text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">
-                  <th className="p-5">Cliente</th>
-                  <th className="p-5">Plan / Servicio</th>
-                  <th className="p-5 text-center">Video</th>
-                  <th className="p-5">Monto</th>
-                  <th className="p-5 text-center">Estado</th>
-                  <th className="p-5 text-right">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {orders?.map((order) => (
-                  <tr key={order.id} className="hover:bg-white/[0.02] transition-all group">
-                    <td className="p-5">
-                      <Link href={`/admin/orders/${order.id}`} className="block">
-                        <div className="font-bold text-white group-hover:text-emerald-400 transition-colors uppercase text-sm tracking-tight">
-                          {order.customer_name}
-                        </div>
-                        <div className="text-xs text-gray-500 lowercase">{order.customer_email}</div>
-                      </Link>
-                    </td>
-                    <td className="p-5">
-                      <span className="text-xs text-gray-300 bg-white/5 px-2 py-1 rounded-md border border-white/5">
-                        {order.plans?.name || 'Plan Desconocido'}
+                {/* 2. DETALLE DEL SERVICIO */}
+                <td className="py-6 px-8">
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="font-black italic text-xs uppercase text-white tracking-wider">
+                      {order.plan_title || 'Plan Estándar'}
+                    </span>
+                    {/* Badge si pagó el extra de video */}
+                    {order.extra_video && (
+                      <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-black uppercase tracking-tighter">
+                        + Auditoría Técnica Biomecánica
                       </span>
-                    </td>
-                    <td className="p-5 text-center">
-                      {order.extra_video ? (
-                        <span className="text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">SÍ</span>
-                      ) : <span className="text-gray-700 text-xs">-</span>}
-                    </td>
-                    <td className="p-5 font-mono font-bold text-emerald-400">
-                      ${order.amount_ars?.toLocaleString('es-AR')}
-                    </td>
-                    <td className="p-5 text-center">
-                      <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase border ${
-                        order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
-                        order.status === 'rejected' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
-                        'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                      }`}>
-                        {order.status === 'paid' ? 'Aprobado' : order.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                    )}
+                  </div>
+                </td>
+
+                {/* 3. TICKET DE PAGO */}
+                <td className="py-6 px-8 text-center">
+                  {order.receipt_url ? (
+                    <a 
+                      href={order.receipt_url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="inline-flex items-center gap-2 bg-white/5 hover:bg-emerald-500 px-4 py-2 rounded-xl text-[9px] font-black transition-all border border-white/10 uppercase tracking-widest hover:text-black hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                    >
+                      Ver Comprobante 📄
+                    </a>
+                  ) : (
+                    <span className="text-zinc-700 text-[9px] font-bold uppercase italic tracking-widest">Sin Ticket</span>
+                  )}
+                </td>
+
+                {/* 4. ACCIONES DE VALIDACIÓN */}
+                <td className="py-6 px-8 text-center">
+                  <div className="flex flex-col gap-2 items-center">
+                    {order.status === "paid" ? (
+                      <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-400/10 px-4 py-1.5 rounded-full border border-emerald-400/20 flex items-center gap-2 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Pago Verificado
                       </span>
-                    </td>
-                    <td className="p-5 text-right text-gray-500 text-[10px] font-mono">
-                      {new Date(order.created_at).toLocaleDateString('es-AR')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    ) : order.status === "rejected" ? (
+                      <span className="text-[10px] font-black uppercase text-red-500 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">
+                        ✖ Rechazado
+                      </span>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => updateStatus(order.id, "paid")} 
+                          className="bg-emerald-500 text-black text-[9px] font-black px-4 py-2 rounded-xl uppercase hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_5px_15px_rgba(16,185,129,0.2)]"
+                          disabled={updatingId === order.id}
+                        >
+                          {updatingId === order.id ? "..." : "Validar"}
+                        </button>
+                        <button 
+                          onClick={() => updateStatus(order.id, "rejected")} 
+                          className="bg-transparent text-red-500 text-[9px] font-black px-4 py-2 rounded-xl border border-red-500/20 hover:bg-red-500/10 transition-all"
+                          disabled={updatingId === order.id}
+                        >
+                          X
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </td>
+
+                {/* 5. MONTO FINAL */}
+                <td className="py-6 px-8 text-right">
+                  <p className="font-mono font-black text-emerald-400 text-xl tracking-tighter italic">
+                    ${(order.amount || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[8px] text-zinc-600 uppercase font-black tracking-[0.2em]">
+                    {order.payment_method || 'ARS'}
+                  </p>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {orders.length === 0 && !loading && (
+          <div className="py-32 text-center text-zinc-700 uppercase text-[10px] font-black tracking-[0.5em] italic">No hay transacciones pendientes</div>
+        )}
       </div>
     </div>
   );

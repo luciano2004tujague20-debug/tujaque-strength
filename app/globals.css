@@ -16,7 +16,7 @@
 }
 
 @layer components {
-  /* --- Glassmorphism Cards --- */
+  /* --- Glassmorphism Cards (Área Cliente) --- */
   .glass-card {
     @apply bg-card backdrop-blur-xl border border-border rounded-2xl shadow-2xl transition-all duration-300;
   }
@@ -55,4 +55,32 @@
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
                     linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 100%);
+}
+
+/* --- ESTILOS EXCLUSIVOS PARA ADMIN (No afectan al cliente) --- */
+
+/* Contenedor optimizado para el fondo 3D/Partículas */
+.admin-login-wrapper {
+  @apply min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-[#09090b];
+  /* Eliminamos la URL de la imagen para que el fondo sea fluido y rápido */
+}
+
+/* Capa de contraste sutil para el Admin */
+.admin-overlay {
+  @apply absolute inset-0 bg-black/30 backdrop-blur-[1px] z-0 pointer-events-none;
+}
+
+/* El formulario y tablas de vidrio (Glassmorphism) */
+.admin-glass-card {
+  @apply relative z-10 w-full max-w-[400px] p-10 rounded-[40px] border border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl;
+}
+
+/* Inputs de línea minimalistas */
+.admin-input-line {
+  @apply w-full bg-transparent border-b border-white/20 py-4 text-white placeholder-white/50 outline-none transition-all focus:border-emerald-500 mb-6;
+}
+
+/* Botón Admin Premium */
+.admin-btn {
+  @apply w-full bg-white text-black font-black py-4 rounded-full hover:bg-emerald-400 transition-all uppercase tracking-widest text-sm shadow-xl mt-4 active:scale-95;
 }
