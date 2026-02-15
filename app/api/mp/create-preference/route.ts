@@ -1,45 +1,46 @@
-import { NextResponse } from 'next/server';
-import { mpPreference } from '@/lib/mercadopago';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { NextResponse } from "next/server";
+import { MercadoPagoConfig, Preference } from "mercadopago";
 
-export const dynamic = 'force-dynamic';
+// Inicializamos Mercado Pago
+const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
 
 export async function POST(req: Request) {
   try {
-    const { orderId } = await req.json();
-    const appUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+    const body = await req.json();
+    const { price, title, orderId } = body;
 
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select('*, plans(*)')
-      .eq('order_id', orderId)
-      .single();
+    // Detectar la URL base (tu dominio)
+    // Si estás en local usa localhost, si estás en vercel usa tu dominio
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tujaque-strength.vercel.app";
 
-    if (error || !order) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
-
-    const response = await mpPreference.create({
+    const preference = new Preference(client);
+    const result = await preference.create({
       body: {
-        items: [{
-          id: order.order_id,
-          title: `Plan ${order.plans?.name || 'Entrenamiento'}`,
-          quantity: 1,
-          unit_price: Number(order.amount_ars),
-          currency_id: 'ARS',
-        }],
-        external_reference: order.order_id,
+        items: [
+          {
+            id: orderId,
+            title: title,
+            unit_price: Number(price),
+            quantity: 1,
+            currency_id: "ARS"
+          }
+        ],
+        external_reference: orderId,
+        // Al terminar, MP te devuelve a tu página de orden
         back_urls: {
-          success: `${appUrl}/order/${order.order_id}`,
-          failure: `${appUrl}/order/${order.order_id}`,
-          pending: `${appUrl}/order/${order.order_id}`,
+          success: `${baseUrl}/order/${orderId}?status=approved`,
+          failure: `${baseUrl}/order/${orderId}?status=failure`,
+          pending: `${baseUrl}/order/${orderId}?status=pending`
         },
-        auto_return: 'approved',
-        notification_url: `${appUrl}/api/webhooks/mp`,
-      },
+        auto_return: "approved",
+      }
     });
 
-    return NextResponse.json({ url: response.init_point });
+    // Devolvemos la URL para redirigir al usuario
+    return NextResponse.json({ url: result.init_point });
+    
   } catch (error: any) {
-    console.error(error);
+    console.error("Error al crear preferencia MP:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

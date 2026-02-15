@@ -4,47 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── CONFIGURACIÓN DE SUPABASE ───
+// ─── CONFIGURACIÓN SUPABASE ───
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ─── TUS DATOS DE COBRO ───
+// ─── DATOS DE COBRO ───
 const PAYMENT_CONFIG = {
-  brubank: {
-    alias: "lucianotujague",
-    cbu: "1430001713041213360019",
-    holder: "Luciano Nicolas Tujague"
-  },
-  buenbit_local: {
-    title: "Buenbit USD (Cuenta Local)",
-    bank: "Banco Industrial",
-    alias: "BUENBIT.USD",
-    cbu: "3220001812006401160021"
-  },
-  buenbit_ach: {
-    title: "Buenbit USD (Cuenta Exterior ACH)",
-    bank: "Lead Bank",
-    name: "LUCIANO NICOLAS TUJAGUE",
-    routing: "101019644",
-    account: "218050863270",
-    type: "Checking",
-    address: "1801 Main St. Kansas City, MO 64108"
-  },
-  crypto: {
-    btc: "bc1q3w48qpn0xdtcy4fe370n3xsmk4hreve05nt8ek",
-    usdt: "TUDciWxCLPZMGvCTAoHLUbUe2KLeDtdbgf",
-    usdc: "0x099455826F2196607244A7102D5466Eb45413F15"
-  }
+  brubank: { alias: "lucianotujague", cbu: "1430001713041213360019" },
+  crypto: { usdt: "TUDciWxCLPZMGvCTAoHLUbUe2KLeDtdbgf", usdc: "0x099455826F2196607244A7102D5466Eb45413F15", btc: "bc1q3w48qpn0xdtcy4fe370n3xsmk4hreve05nt8ek" },
+  buenbit_local: { cbu: "3220001812006401160021", alias: "BUENBIT.USD" },
+  buenbit_ach: { routing: "101019644", account: "218050863270", bank: "Lead Bank", address: "1801 Main St. Kansas City, MO 64108" }
 };
 
 interface CheckoutClientProps {
-  selectedPlan: {
-    id: string;     
-    title: string;
-    subtitle: string;
-    price: number;
-  };
+  selectedPlan: { id: string; title: string; subtitle: string; price: number; };
   extraVideo: boolean;
   extraPrice: number;
 }
@@ -59,11 +33,6 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
   const totalAmount = selectedPlan.price + (extraVideo ? extraPrice : 0);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("¡Copiado al portapapeles!");
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
@@ -72,7 +41,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     const orderId = `TS-${Math.floor(100000000 + Math.random() * 900000000)}`;
 
     try {
-      // 1. TRADUCIR MÉTODO DE PAGO AL FORMATO EXACTO DE LA BASE DE DATOS
+      // 1. TRADUCIR MÉTODO
       let dbPaymentMethod = "";
       switch (paymentMethod) {
         case "mercadopago": dbPaymentMethod = "mercado_pago"; break;
@@ -82,18 +51,16 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         default: dbPaymentMethod = "mercado_pago";
       }
 
-      // 2. BUSCAR ID REAL (UUID) DEL PLAN
+      // 2. BUSCAR PLAN ID
       const { data: realPlan, error: planError } = await supabase
         .from('plans')
         .select('id')
         .eq('code', selectedPlan.id)
         .single();
 
-      if (planError || !realPlan) {
-        throw new Error("No se encontró el plan en la base de datos.");
-      }
+      if (planError || !realPlan) throw new Error("Plan no encontrado");
 
-      // 3. INSERTAR LA ORDEN CON LOS DATOS CORRECTOS
+      // 3. GUARDAR ORDEN EN SUPABASE
       const { error: supabaseError } = await supabase.from("orders").insert([
         {
           order_id: orderId,
@@ -102,36 +69,56 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           customer_ref: formData.instagram.trim() || null,
           plan_id: realPlan.id, 
           amount_ars: totalAmount,
-          status: "awaiting_payment", // <--- ESTADO CORRECTO PARA TU DB
-          payment_method: dbPaymentMethod, // <--- NOMBRE EXACTO (mercado_pago, transfer_ars, etc.)
+          status: "awaiting_payment",
+          payment_method: dbPaymentMethod,
           extra_video: extraVideo
         }
       ]);
 
       if (supabaseError) throw new Error(supabaseError.message);
 
-      // 4. REDIRIGIR
+      // 4. LÓGICA DE REDIRECCIÓN SEGÚN MÉTODO
+      if (paymentMethod === "mercadopago") {
+        
+        // 🔹 ACÁ ESTÁ EL CAMBIO: Apuntamos a tu ruta existente
+        const mpRes = await fetch("/api/mp/create-preference", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `Plan ${selectedPlan.title}`,
+            price: totalAmount,
+            orderId: orderId
+          })
+        });
+        
+        const mpData = await mpRes.json();
+        if (mpData.url) {
+          // REDIRECCIÓN AUTOMÁTICA A MERCADO PAGO
+          window.location.href = mpData.url;
+          return; 
+        } else {
+          throw new Error("No se pudo generar el link de Mercado Pago");
+        }
+      } 
+      
+      // Si NO es Mercado Pago, vamos a la página de detalle
       router.push(`/order/${orderId}?email=${encodeURIComponent(formData.email.trim())}`);
       
     } catch (err: any) {
-      console.error("Error detallado:", err);
-      alert("Error: " + (err.message || "No se pudo crear la orden"));
-    } finally {
+      console.error(err);
+      alert("Error: " + (err.message || "Ocurrió un error"));
       setLoading(false);
     }
   };
 
   return (
     <div className="grid lg:grid-cols-2 gap-12 text-left">
+      {/* SECCIÓN 1: DATOS */}
       <div className="space-y-8">
         <section>
           <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">1. Tus Datos</h3>
           <div className="space-y-4">
-            <input 
-              className="w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all" 
-              placeholder="Nombre Completo" 
-              onChange={e => setFormData({...formData, name: e.target.value})} 
-            />
+            <input className="w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Nombre Completo" onChange={e => setFormData({...formData, name: e.target.value})} />
             <div className="grid grid-cols-2 gap-4">
               <input className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Email" onChange={e => setFormData({...formData, email: e.target.value})} />
               <input className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Instagram (@)" onChange={e => setFormData({...formData, instagram: e.target.value})} />
@@ -139,6 +126,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           </div>
         </section>
 
+        {/* SECCIÓN 2: PAGO */}
         <section>
           <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">2. Método de Pago</h3>
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -149,47 +137,14 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           </div>
 
           <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 shadow-inner">
-            {paymentMethod === 'transferencia' && (
-              <div className="space-y-4">
-                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Brubank ARS</p>
-                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="group cursor-pointer">
-                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">CBU</span>
-                  <span className="text-white font-mono text-sm group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.brubank.cbu}</span>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === 'crypto' && (
-               <div className="space-y-4">
-                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Redes Soportadas</p>
-                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdt)} className="group cursor-pointer">
-                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">USDT (TRC20)</span>
-                  <span className="text-white font-mono text-[11px] group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.crypto.usdt}</span>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === 'usd' && (
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Opción Local USD</p>
-                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.cbu)} className="group cursor-pointer">
-                    <span className="text-zinc-500 text-[10px] block uppercase font-bold">CBU</span>
-                    <span className="text-white font-mono text-xs group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.buenbit_local.cbu}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <p className="text-xs text-zinc-400 italic mt-4">
-              {paymentMethod === 'mercadopago' 
-                ? "Serás redirigido para completar el pago." 
-                : "Al continuar se generará tu orden y podrás ver los datos completos para transferir."}
-            </p>
+             {paymentMethod === 'mercadopago' && <p className="text-xs text-zinc-400 italic">Te redirigiremos a Mercado Pago para abonar de forma segura.</p>}
+             {paymentMethod === 'transferencia' && <p className="text-xs text-zinc-400 italic">Te daremos el CBU y Alias al confirmar el pedido.</p>}
+             {paymentMethod === 'crypto' && <p className="text-xs text-zinc-400 italic">Te daremos las direcciones USDT/BTC al confirmar el pedido.</p>}
           </div>
         </section>
       </div>
 
+      {/* RESUMEN Y BOTÓN */}
       <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl h-fit shadow-2xl">
         <div className="mb-8">
           <h3 className="text-zinc-500 text-xs font-bold uppercase mb-2">Resumen de Plan</h3>
@@ -212,9 +167,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         <div className="flex justify-between items-end mb-8">
           <span className="text-zinc-500 text-xs font-bold uppercase">Total Final</span>
-          <span className="text-4xl font-black text-white tracking-tighter">
-            ${totalAmount.toLocaleString()}
-          </span>
+          <span className="text-4xl font-black text-white tracking-tighter">${totalAmount.toLocaleString()}</span>
         </div>
 
         <button 
@@ -222,7 +175,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           disabled={loading || !formData.name || !formData.email}
           className="w-full bg-emerald-500 py-5 text-black font-black uppercase rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "PROCESANDO..." : "GENERAR PEDIDO"}
+          {loading ? "PROCESANDO..." : paymentMethod === 'mercadopago' ? "IR A MERCADO PAGO" : "GENERAR PEDIDO"}
         </button>
       </div>
     </div>
