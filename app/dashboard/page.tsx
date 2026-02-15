@@ -75,12 +75,20 @@ export default function AthleteDashboard() {
   if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-emerald-400 font-black uppercase italic animate-pulse">Iniciando Protocolo...</div>;
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-white p-4 md:p-10 relative overflow-hidden font-sans">
-      <div className="fixed inset-0 tech-grid opacity-20 pointer-events-none"></div>
+    <main className="min-h-screen bg-[#09090b] text-white p-4 md:p-10 relative overflow-hidden font-sans print:bg-white print:text-black print:p-0">
+      <div className="fixed inset-0 tech-grid opacity-20 pointer-events-none print:hidden"></div>
 
       <div className="max-w-7xl mx-auto relative z-10">
+        
+        {/* --- NOTIFICACIÓN DE FEEDBACK NUEVO --- */}
+        {plan?.biomechanic_feedback && (
+          <div className="mb-8 bg-emerald-500 text-black p-4 rounded-2xl text-xs font-black uppercase tracking-widest text-center shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-bounce cursor-pointer hover:scale-[1.02] transition-transform print:hidden">
+             🔥 ¡ATENCIÓN! LUCIANO HA SUBIDO NUEVAS CORRECCIONES TÉCNICAS
+          </div>
+        )}
+
         {/* CABECERA */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6 bg-white/5 p-8 rounded-3xl border border-white/5 backdrop-blur-md">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6 bg-white/5 p-8 rounded-3xl border border-white/5 backdrop-blur-md print:hidden">
           <div>
             <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter leading-none">
               Tujaque <span className="text-emerald-400">Strength</span>
@@ -92,67 +100,86 @@ export default function AthleteDashboard() {
           </div>
         </header>
 
-        <div className="grid lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-3 space-y-8">
+        <div className="grid lg:grid-cols-4 gap-8 print:block">
+          <div className="lg:col-span-3 space-y-8 print:w-full">
             
-            {/* --- BLOQUE DE FEEDBACK TÉCNICO (AGREGADO) --- */}
+            {/* --- BLOQUE DE FEEDBACK TÉCNICO --- */}
             {plan?.biomechanic_feedback && (
-              <section className="bg-emerald-500/5 border-2 border-emerald-500/20 rounded-[2rem] p-8 md:p-10 relative overflow-hidden animate-fade-in">
-                <div className="absolute top-0 right-0 p-6 opacity-10 select-none pointer-events-none">
+              <section className="bg-emerald-500/5 border-2 border-emerald-500/20 rounded-[2rem] p-8 md:p-10 relative overflow-hidden animate-fade-in print:border-black print:bg-transparent print:text-black print:mb-8">
+                <div className="absolute top-0 right-0 p-6 opacity-10 select-none pointer-events-none print:hidden">
                   <span className="text-6xl font-black italic uppercase text-emerald-500">FEEDBACK</span>
                 </div>
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-3 mb-4 print:hidden">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                     <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">Análisis Técnico de Luciano</h3>
                   </div>
-                  <div className="text-white text-lg font-bold italic leading-relaxed whitespace-pre-wrap">
+                  <h3 className="hidden print:block font-black uppercase mb-2 text-sm">Correcciones Técnicas:</h3>
+                  <div className="text-white text-lg font-bold italic leading-relaxed whitespace-pre-wrap selection:bg-emerald-500 selection:text-black print:text-black print:text-sm print:font-normal">
                     "{plan.biomechanic_feedback}"
                   </div>
                 </div>
               </section>
             )}
 
-            {/* PROGRAMACIÓN */}
-            <section className="glass-card p-8 md:p-12 border-emerald-500/20 relative overflow-hidden rounded-[2rem] bg-white/[0.02] border border-white/5 backdrop-blur-sm">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+            {/* PROGRAMACIÓN (CON BOTÓN DE DESCARGA AGREGADO) */}
+            <section className="glass-card p-8 md:p-12 border-emerald-500/20 relative overflow-hidden rounded-[2rem] bg-white/[0.02] border border-white/5 backdrop-blur-sm print:border-0 print:bg-white print:text-black print:p-0">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 print:hidden">
                 <h2 className="text-2xl font-black uppercase italic flex items-center gap-4">
-                  <span className="w-3 h-10 bg-emerald-500 block rounded-full"></span>
+                  <span className="w-3 h-10 bg-emerald-500 block rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)]"></span>
                   Programación Semanal
                 </h2>
-                <div className="flex flex-wrap gap-2">
-                  {['d1', 'd2', 'd3', 'd4', 'd5'].map((day) => (
-                    <button key={day} onClick={() => setActiveDay(day)} className={`px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border ${activeDay === day ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-white/5 text-zinc-500 border-white/5 hover:border-white/20'}`}>
-                      Día {day.slice(1)}
-                    </button>
-                  ))}
+                
+                <div className="flex gap-4">
+                  {/* BOTÓN DE DESCARGA NUEVO */}
+                  <button 
+                    onClick={() => window.print()} 
+                    className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-emerald-500/50 hover:text-emerald-400"
+                  >
+                    <span>🖨️</span> Descargar / Imprimir
+                  </button>
+
+                  <div className="flex flex-wrap gap-2">
+                    {['d1', 'd2', 'd3', 'd4', 'd5'].map((day) => (
+                      <button key={day} onClick={() => setActiveDay(day)} className={`px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border ${activeDay === day ? 'bg-emerald-500 text-black border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-white/5 text-zinc-500 border-white/5 hover:border-white/20'}`}>
+                        {day.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               
               {plan ? (
                 <div className="space-y-10">
-                  <div className="bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/10 italic text-emerald-100/80 text-sm leading-relaxed">
-                    <span className="font-black uppercase block text-[9px] tracking-widest mb-2 text-emerald-400">Instrucciones de Luciano:</span>
+                  <div className="bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/10 italic text-emerald-100/80 text-sm leading-relaxed print:bg-transparent print:text-black print:border-black print:p-0 print:mb-4">
+                    <span className="font-black uppercase block text-[9px] tracking-widest mb-2 text-emerald-400 print:text-black">Instrucciones de Luciano:</span>
                     "Foco absoluto en la fase excéntrica de 6 segundos. No sacrifiques tempo por kilogramos."
                   </div>
-                  <div className="bg-black/40 rounded-[2rem] border border-white/5 overflow-hidden min-h-[300px]">
+                  <div className="bg-black/40 rounded-[2rem] border border-white/5 overflow-hidden min-h-[300px] print:bg-white print:border-0 print:min-h-0">
                     {plan[`routine_${activeDay}`] ? (
-                      <div className="whitespace-pre-wrap text-zinc-300 font-bold text-lg p-8 md:p-12 leading-relaxed font-mono">
+                      <div className="whitespace-pre-wrap text-zinc-300 font-bold text-lg p-8 md:p-12 leading-relaxed font-mono selection:bg-emerald-500 selection:text-black print:text-black print:p-0 print:text-sm">
+                         {/* Cabecera solo para impresión */}
+                        <div className="hidden print:block text-xl font-black mb-6 uppercase border-b-2 border-black pb-2">
+                          Tujaque Strength - Sesión {activeDay.toUpperCase()}
+                        </div>
                         {plan[`routine_${activeDay}`]}
                       </div>
                     ) : (
-                      <div className="py-32 text-center text-zinc-600 font-black uppercase italic tracking-widest text-xs">Sincronizando...</div>
+                      <div className="py-32 text-center text-zinc-600 font-black uppercase italic tracking-widest text-xs print:hidden">
+                        <div className="animate-pulse mb-2">● ● ●</div>
+                        Sincronizando sesión...
+                      </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-32 border-2 border-dashed border-white/10 rounded-[2rem]">ESPERANDO ACTIVACIÓN...</div>
+                <div className="text-center py-32 border-2 border-dashed border-white/10 rounded-[2rem] print:hidden">ESPERANDO ACTIVACIÓN...</div>
               )}
             </section>
           </div>
 
-          {/* COLUMNA LATERAL */}
-          <div className="space-y-8">
+          {/* COLUMNA LATERAL (OCULTA AL IMPRIMIR) */}
+          <div className="space-y-8 print:hidden">
             <section className="glass-card p-8 border border-white/5 rounded-[2rem] bg-white/[0.02]">
               <h3 className="font-black uppercase mb-8 text-[11px] tracking-[0.2em] text-zinc-500 border-b border-white/5 pb-4 italic">Registro de PRs</h3>
               <div className="space-y-8">
@@ -162,13 +189,13 @@ export default function AthleteDashboard() {
                       <span className="text-[9px] text-emerald-500 font-black uppercase block mb-1 tracking-widest">{lift.icon}</span>
                       <span className="font-black uppercase italic text-zinc-400 text-sm">{lift.name}</span>
                     </div>
-                    <input type="number" defaultValue={plan?.[lift.key] || ""} onBlur={(e) => updatePR(lift.name, e.target.value)} className="bg-transparent border-b-2 border-white/10 w-20 text-right text-3xl font-black italic text-emerald-400 outline-none focus:border-emerald-500 transition-all" placeholder="0" />
+                    <input type="number" defaultValue={plan?.[lift.key] || ""} onBlur={(e) => updatePR(lift.name, e.target.value)} className="bg-transparent border-b-2 border-white/10 w-20 text-right text-3xl font-black italic text-emerald-400 outline-none focus:border-emerald-500 transition-all placeholder:text-zinc-800" placeholder="0" />
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="glass-card p-8 border border-emerald-500/30 bg-emerald-500/5 rounded-[2rem] relative overflow-hidden">
+            <section className="glass-card p-8 border border-emerald-500/30 bg-emerald-500/5 rounded-[2rem] relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
               <h3 className="font-black uppercase mb-3 italic text-lg tracking-tighter">Auditoría Técnica</h3>
               <p className="text-[10px] text-zinc-400 mb-8 uppercase font-bold tracking-wide leading-relaxed">Subí tus series pesadas para análisis.</p>
               <div className="space-y-3">
