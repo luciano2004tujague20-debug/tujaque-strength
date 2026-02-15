@@ -24,7 +24,7 @@ export default function AdminOrders() {
     setLoading(false);
   }
 
-  // --- 1. APROBAR ORDEN (LÓGICA CORREGIDA CON LOS 3 PLANES) ---
+  // --- 1. APROBAR ORDEN (LÓGICA CORRECTA DE 3 NIVELES) ---
   const approveOrder = async (order: any) => {
     setProcessingId(order.id);
     
@@ -62,14 +62,14 @@ export default function AdminOrders() {
          let cuota = "";
 
          if (planName.includes("7 Días")) {
-            ahorro = "$37.000"; // 38x4=152 - 115 = 37
+            ahorro = "$37.000"; 
             cuota = "$28.750";
          } else if (planName.includes("5-6")) {
-            ahorro = "$28.000"; // 32x4=128 - 100 = 28
+            ahorro = "$28.000"; 
             cuota = "$25.000";
          } else {
             // Asumimos 3-4 Días (Fuerza Base)
-            ahorro = "$27.000"; // 28x4=112 - 85 = 27
+            ahorro = "$27.000"; 
             cuota = "$21.250";
          }
          
@@ -98,14 +98,13 @@ export default function AdminOrders() {
     setProcessingId(null);
   };
 
-  // --- 2. RECHAZAR ORDEN (Ticket inválido) ---
+  // --- 2. RECHAZAR ORDEN ---
   const rejectOrder = async (id: string, phone: string) => {
     if (!confirm("¿Seguro querés RECHAZAR este pago?")) return;
     setProcessingId(id);
     
     await supabase.from("orders").update({ status: "rejected" }).eq("id", id);
     
-    // WhatsApp de aviso de rechazo
     const cleanPhone = phone?.replace(/\D/g, '') || "";
     const message = `Hola! Hubo un problema con tu comprobante de pago en Tujaque Strength ⚠️.\n\nPor favor, revisalo y volvé a subirlo o avisame por acá para solucionarlo.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -114,7 +113,7 @@ export default function AdminOrders() {
     setProcessingId(null);
   };
 
-  // --- 3. ELIMINAR ORDEN (Basura) ---
+  // --- 3. ELIMINAR ORDEN ---
   const deleteOrder = async (id: string) => {
     if (!confirm("¿Borrar esta orden permanentemente? No se puede deshacer.")) return;
     setProcessingId(id);
@@ -128,83 +127,68 @@ export default function AdminOrders() {
   if (loading) return <div className="p-20 text-center text-emerald-500 font-black italic animate-pulse">Sincronizando Ventas...</div>;
 
   return (
-    <div className="animate-fade-in pb-20">
-      <header className="mb-10">
+    <div className="animate-fade-in pb-20 px-4">
+      <header className="mb-8 mt-4">
         <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">
           Control de <span className="text-emerald-400">Ventas</span>
         </h1>
       </header>
 
+      {/* AQUÍ ESTÁ EL FIX VISUAL: min-w-[1000px] para scroll horizontal */}
       <div className="admin-glass-card overflow-x-auto border border-white/5 rounded-[2rem] bg-black/20 backdrop-blur-md">
-        <table className="w-full text-left">
+        <table className="w-full text-left min-w-[1000px]">
           <thead>
             <tr className="border-b border-white/10 text-[9px] text-emerald-400 font-black tracking-[0.2em] uppercase">
-              <th className="py-6 px-6">Fecha / Cliente</th>
-              <th className="py-6 px-6">Plan</th>
-              <th className="py-6 px-6 text-center">Ticket</th>
-              <th className="py-6 px-6 text-center">Acciones</th>
-              <th className="py-6 px-6 text-right">Monto</th>
+              <th className="py-6 px-6 whitespace-nowrap">Fecha / Cliente</th>
+              <th className="py-6 px-6 whitespace-nowrap">Plan</th>
+              <th className="py-6 px-6 text-center whitespace-nowrap">Ticket</th>
+              <th className="py-6 px-6 text-center whitespace-nowrap">Acciones</th>
+              <th className="py-6 px-6 text-right whitespace-nowrap">Monto</th>
             </tr>
           </thead>
           <tbody className="text-sm text-white divide-y divide-white/5">
             {orders.map((order) => (
               <tr key={order.id} className="hover:bg-white/[0.02] transition-colors group">
                 {/* COLUMNA 1: CLIENTE */}
-                <td className="py-6 px-6">
+                <td className="py-6 px-6 whitespace-nowrap">
                   <p className="font-black text-lg italic">{order.customer_name}</p>
                   <p className="text-[10px] text-zinc-500">{new Date(order.created_at).toLocaleDateString()}</p>
                 </td>
                 
                 {/* COLUMNA 2: PLAN */}
-                <td className="py-6 px-6 font-black italic text-[10px] text-white uppercase tracking-wider">
-                  {order.plan_title}
+                <td className="py-6 px-6 whitespace-nowrap">
+                   <span className="font-black italic text-[10px] text-white uppercase tracking-wider bg-zinc-800/50 px-3 py-1 rounded-lg border border-white/5">
+                    {order.plan_title}
+                  </span>
                 </td>
 
                 {/* COLUMNA 3: TICKET */}
-                <td className="py-6 px-6 text-center">
+                <td className="py-6 px-6 text-center whitespace-nowrap">
                   <a href={order.receipt_url ? (order.receipt_url.startsWith('http') ? order.receipt_url : `${storageUrl}${order.receipt_url}`) : '#'} target="_blank" rel="noreferrer" className="bg-white/5 hover:bg-emerald-500 px-3 py-2 rounded-lg text-[9px] font-black border border-white/10 hover:text-black uppercase italic transition-all">
                     Ver Foto 📄
                   </a>
                 </td>
 
-                {/* COLUMNA 4: ACCIONES (VALIDAR / RECHAZAR / BORRAR) */}
-                <td className="py-6 px-6 text-center">
-                  <div className="flex justify-center gap-2">
+                {/* COLUMNA 4: ACCIONES */}
+                <td className="py-6 px-6 text-center whitespace-nowrap">
+                  <div className="flex justify-center gap-2 items-center">
                     {order.status === "paid" ? (
                       <span className="text-[9px] font-black text-emerald-400 bg-emerald-400/10 px-4 py-1.5 rounded-full border border-emerald-400/20 italic tracking-widest uppercase">
                         ● Aprobado
                       </span>
                     ) : (
                       <>
-                        {/* VALIDAR (Verde) */}
-                        <button 
-                          onClick={() => approveOrder(order)} 
-                          disabled={processingId === order.id}
-                          className="bg-emerald-500 hover:bg-emerald-400 text-black p-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-                          title="Validar Pago"
-                        >
+                        <button onClick={() => approveOrder(order)} disabled={processingId === order.id} className="bg-emerald-500 hover:bg-emerald-400 text-black p-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20" title="Validar">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
                         </button>
 
-                        {/* RECHAZAR (Rojo) */}
-                        <button 
-                          onClick={() => rejectOrder(order.id, order.customer_phone)} 
-                          disabled={processingId === order.id}
-                          className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl border border-red-500/20 transition-all"
-                          title="Rechazar Comprobante"
-                        >
+                        <button onClick={() => rejectOrder(order.id, order.customer_phone)} disabled={processingId === order.id} className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl border border-red-500/20 transition-all" title="Rechazar">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                       </>
                     )}
 
-                    {/* ELIMINAR (Gris - Siempre visible) */}
-                    <button 
-                      onClick={() => deleteOrder(order.id)} 
-                      disabled={processingId === order.id}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white p-2 rounded-xl transition-all ml-2"
-                      title="Eliminar Orden"
-                    >
+                    <button onClick={() => deleteOrder(order.id)} disabled={processingId === order.id} className="bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-white p-2 rounded-xl transition-all ml-2" title="Eliminar">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
                   </div>
@@ -215,7 +199,7 @@ export default function AdminOrders() {
                 </td>
 
                 {/* COLUMNA 5: MONTO */}
-                <td className="py-6 px-6 text-right font-mono font-black text-emerald-400 text-lg italic tracking-tighter">
+                <td className="py-6 px-6 text-right font-mono font-black text-emerald-400 text-lg italic tracking-tighter whitespace-nowrap">
                   ${(order.amount_ars || 0).toLocaleString()}
                 </td>
               </tr>
