@@ -4,53 +4,30 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-// Inicializar Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// DATOS DE PAGO
 const PAYMENT_CONFIG = {
-  brubank: {
-    alias: "lucianotujague",
-    cbu: "1430001713041213360019",
-    holder: "Luciano Nicolas Tujague"
-  },
-  crypto: {
-    usdt: "TUDciWxCLPZMGvCTAoHLUbUe2KLeDtdbgf"
-  }
+  brubank: { alias: "lucianotujague", cbu: "1430001713041213360019" },
+  crypto: { usdt: "TUDciWxCLPZMGvCTAoHLUbUe2KLeDtdbgf" }
 };
 
 export default function OrderStatusPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
-  
   const orderId = params.orderId as string; 
   
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
-  // Buscar la orden en Supabase al cargar
   useEffect(() => {
     const fetchOrder = async () => {
       if (!orderId) return;
-
-      console.log("Buscando orden:", orderId);
-
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("order_id", orderId)
-        .single();
-
-      if (error) {
-        console.error("Error buscando orden:", error);
-      } else {
-        setOrder(data);
-      }
+      const { data } = await supabase.from("orders").select("*").eq("order_id", orderId).single();
+      setOrder(data);
       setLoading(false);
     };
-
     fetchOrder();
   }, [orderId]);
 
@@ -59,102 +36,116 @@ export default function OrderStatusPage() {
     alert("Copiado: " + text);
   };
 
-  if (loading) return <div className="min-h-screen bg-black text-emerald-500 flex items-center justify-center font-black animate-pulse">CARGANDO PEDIDO...</div>;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setUploading(true);
+    
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${orderId}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-  if (!order) return <div className="min-h-screen bg-black text-red-500 flex items-center justify-center font-bold">No se encontró el pedido #{orderId}</div>;
+    // Intentamos subir al bucket 'receipts' (Si no existe, fallará pero avisará por WP)
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Guardamos la URL pública en la orden (si tenés columna receipt_url)
+      // Si no, simplemente cambiamos el estado a 'verifying'
+      await supabase
+        .from('orders')
+        .update({ status: 'verifying' })
+        .eq('order_id', orderId);
+
+      alert("¡Comprobante subido! Ahora notificamos al admin.");
+      window.location.reload();
+    } catch (error) {
+      console.log("Error subida (Bucket receipts puede no existir):", error);
+      alert("No se pudo subir la imagen directo (verificá tu conexión). Pero avisamos por WhatsApp.");
+    } finally {
+      // Redirigir a WhatsApp para confirmar
+      const msg = `Hola! Ya subí el comprobante de la orden ${orderId}. Revisalo por favor.`;
+      window.open(`https://wa.me/5491123021760?text=${msg}`, "_blank");
+      setUploading(false);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen bg-black text-emerald-500 flex items-center justify-center font-black animate-pulse">CARGANDO PEDIDO...</div>;
+  if (!order) return <div className="min-h-screen bg-black text-red-500 flex items-center justify-center font-bold">Orden no encontrada.</div>;
 
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans flex justify-center">
       <div className="max-w-2xl w-full space-y-8">
         
-        {/* ENCABEZADO DE ÉXITO */}
         <div className="text-center space-y-4">
           <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.4)]">
             <span className="text-4xl">✓</span>
           </div>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">¡Pedido Generado!</h1>
-          <p className="text-zinc-400">Tu orden <span className="text-white font-mono font-bold">#{order.order_id}</span> está pendiente de pago.</p>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Orden Generada</h1>
+          <p className="text-zinc-400">Orden <span className="text-white font-mono font-bold">#{order.order_id}</span> pendiente de pago.</p>
         </div>
 
-        {/* TARJETA DE RESUMEN */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
           <div className="flex justify-between items-end border-b border-zinc-800 pb-6 mb-6">
             <div>
               <p className="text-xs font-bold text-zinc-500 uppercase">Total a Pagar</p>
-              {/* ACÁ LEEMOS LA COLUMNA CORRECTA 'amount_ars' */}
               <p className="text-4xl font-black text-emerald-400 tracking-tighter">${order.amount_ars?.toLocaleString()}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold text-zinc-500 uppercase">Cliente</p>
-              <p className="font-bold">{order.customer_name}</p>
+              <p className="text-xs font-bold text-zinc-500 uppercase">Método</p>
+              <p className="font-bold uppercase text-emerald-500">{order.payment_method}</p>
             </div>
           </div>
 
-          {/* ZONA DE PAGO */}
           <div className="space-y-6">
-            <h3 className="text-center text-sm font-bold uppercase tracking-widest text-zinc-500">Instrucciones de Pago</h3>
+            <h3 className="text-center text-sm font-bold uppercase tracking-widest text-zinc-500">
+              {order.status === 'verifying' ? "Comprobante Enviado - Verificando..." : "Realizá el pago y subí el comprobante"}
+            </h3>
 
-            {/* MERCADO PAGO */}
-            {order.payment_method === 'mercadopago' && (
-              <div className="text-center space-y-4">
-                <p className="text-zinc-300">Para completar tu pago con tarjeta o dinero en cuenta, contactanos para enviarte el link de pago personalizado.</p>
-                <a 
-                  href={`https://wa.me/5491123021760?text=Hola! Quiero pagar mi orden ${order.order_id} de $${order.amount_ars} con Mercado Pago.`}
-                  target="_blank"
-                  className="block w-full bg-[#009EE3] hover:bg-[#008ED6] text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all"
-                >
-                  Solicitar Link de MP
-                </a>
-              </div>
-            )}
-
-            {/* TRANSFERENCIA */}
-            {(order.payment_method === 'transferencia' || order.payment_method === 'ars') && (
+            {/* DATOS DE PAGO (SOLO SI NO ES MP) */}
+            {order.payment_method !== 'mercadopago' && (
               <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-4">
-                <div className="flex justify-between items-center group cursor-pointer" onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)}>
-                  <span className="text-zinc-500 text-xs font-bold uppercase">CBU (Tocar para copiar)</span>
-                  <span className="font-mono text-emerald-400 text-sm group-hover:text-white transition-colors">{PAYMENT_CONFIG.brubank.cbu}</span>
-                </div>
-                <div className="flex justify-between items-center group cursor-pointer" onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)}>
-                  <span className="text-zinc-500 text-xs font-bold uppercase">Alias</span>
-                  <span className="font-mono text-white text-sm group-hover:text-emerald-400 transition-colors">{PAYMENT_CONFIG.brubank.alias}</span>
-                </div>
-                <div className="pt-4 border-t border-zinc-800 text-center">
-                  <a 
-                    href={`https://wa.me/5491123021760?text=Hola! Ya transferí por la orden ${order.order_id}.`}
-                    target="_blank"
-                    className="inline-block text-emerald-500 text-xs font-black uppercase tracking-widest hover:text-white transition-colors"
-                  >
-                    Enviar Comprobante por WhatsApp →
-                  </a>
-                </div>
+                {order.payment_method === 'crypto' ? (
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdt)} className="cursor-pointer break-all">
+                    <p className="text-zinc-500 text-xs font-bold uppercase">USDT (TRC20)</p>
+                    <p className="font-mono text-emerald-400 text-sm">{PAYMENT_CONFIG.crypto.usdt}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="cursor-pointer">
+                      <p className="text-zinc-500 text-xs font-bold uppercase">CBU</p>
+                      <p className="font-mono text-white text-lg">{PAYMENT_CONFIG.brubank.cbu}</p>
+                    </div>
+                    <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)} className="cursor-pointer">
+                      <p className="text-zinc-500 text-xs font-bold uppercase">Alias</p>
+                      <p className="font-mono text-white text-lg">{PAYMENT_CONFIG.brubank.alias}</p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* CRYPTO */}
-            {order.payment_method === 'crypto' && (
-              <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-4 text-center">
-                <p className="text-xs font-bold text-zinc-500 uppercase">USDT (Red Tron / TRC20)</p>
-                <div 
-                  onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdt)}
-                  className="bg-black border border-emerald-900/30 p-4 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors break-all"
-                >
-                  <p className="font-mono text-xs text-emerald-400">{PAYMENT_CONFIG.crypto.usdt}</p>
-                </div>
-                <p className="text-[10px] text-zinc-600">Tocá la dirección para copiar</p>
+            {/* BOTÓN DE SUBIR COMPROBANTE */}
+            {order.payment_method !== 'mercadopago' && order.status !== 'verifying' && (
+              <div className="pt-4 border-t border-zinc-800">
+                <label className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all text-center cursor-pointer">
+                  {uploading ? "Subiendo..." : "Subir Comprobante / Informar Pago"}
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                </label>
+                <p className="text-[10px] text-zinc-500 text-center mt-2">Se notificará al administrador automáticamente.</p>
               </div>
             )}
 
+            {order.payment_method === 'mercadopago' && (
+               <a href={`https://wa.me/5491123021760?text=Hola! Link de MP para orden ${order.order_id}`} className="block w-full bg-[#009EE3] text-white font-bold py-3 rounded-xl text-center">Solicitar Link MP</a>
+            )}
           </div>
         </div>
-
-        <button 
-          onClick={() => window.location.href = '/'}
-          className="w-full text-zinc-500 text-xs font-bold uppercase hover:text-white transition-colors"
-        >
-          Volver al Inicio
-        </button>
-
+        
+        <button onClick={() => window.location.href = '/'} className="w-full text-zinc-500 text-xs font-bold uppercase hover:text-white">Volver al Inicio</button>
       </div>
     </div>
   );
