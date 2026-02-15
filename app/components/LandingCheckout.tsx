@@ -102,7 +102,7 @@ export default function LandingCheckout() {
 
           {/* 1. PLANES */}
           <section>
-            <h2 className="text-emerald-500 font-bold mb-4 uppercase text-xs tracking-widest">01. Selecciona Plan</h2>
+            <h2 className="text-emerald-500 font-bold mb-4  text-xs tracking-widest">01. Selecciona Plan</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {plans.map(plan => (
                 <div 
@@ -114,7 +114,7 @@ export default function LandingCheckout() {
                       : "bg-black border-zinc-800 hover:border-zinc-700"
                   }`}
                 >
-                  <p className="text-xs text-zinc-500 uppercase font-bold">{plan.cadence === 'weekly' ? 'Semanal' : 'Mensual'}</p>
+                  <p className="text-xs text-zinc-500  font-bold">{plan.cadence === 'weekly' ? 'Semanal' : 'Mensual'}</p>
                   <p className="font-bold text-white">{plan.name}</p>
                   <p className="text-emerald-400 font-mono mt-2">${plan.price_ars.toLocaleString()}</p>
                 </div>
@@ -124,7 +124,7 @@ export default function LandingCheckout() {
 
           {/* 2. EXTRAS */}
           <section>
-            <h2 className="text-emerald-500 font-bold mb-4 uppercase text-xs tracking-widest">02. Adicionales</h2>
+            <h2 className="text-emerald-500 font-bold mb-4  text-xs tracking-widest">02. Adicionales</h2>
             <div 
               onClick={() => setExtraVideo(!extraVideo)}
               className={`flex justify-between items-center p-4 rounded-xl border cursor-pointer ${
@@ -146,7 +146,7 @@ export default function LandingCheckout() {
 
           {/* 3. PAGO (Aquí agregamos el botón de MP) */}
           <section>
-             <h2 className="text-emerald-500 font-bold mb-4 uppercase text-xs tracking-widest">03. Método de Pago</h2>
+             <h2 className="text-emerald-500 font-bold mb-4  text-xs tracking-widest">03. Método de Pago</h2>
              <div className="flex flex-wrap gap-3">
                <button 
                  onClick={() => setMethod('mercado_pago')}
@@ -173,7 +173,7 @@ export default function LandingCheckout() {
 
           {/* 4. DATOS */}
           <section className="space-y-4">
-             <h2 className="text-emerald-500 font-bold uppercase text-xs tracking-widest">04. Tus Datos</h2>
+             <h2 className="text-emerald-500 font-bold  text-xs tracking-widest">04. Tus Datos</h2>
              <input value={name} onChange={e => setName(e.target.value)} placeholder="Nombre Completo" className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-lg text-white focus:border-emerald-500 outline-none" />
              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-lg text-white focus:border-emerald-500 outline-none" />
              <input value={ref} onChange={e => setRef(e.target.value)} placeholder="Usuario Instagram (Opcional)" className="w-full bg-zinc-900 border border-zinc-800 p-3 rounded-lg text-white focus:border-emerald-500 outline-none" />
@@ -219,7 +219,7 @@ export default function LandingCheckout() {
             <button 
               onClick={handleSubmit}
               disabled={!isValid}
-              className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest transition-all ${
+              className={`w-full py-4 rounded-xl font-bold  tracking-widest transition-all ${
                 isValid 
                 ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20" 
                 : "bg-zinc-800 text-zinc-500 cursor-not-allowed"

@@ -136,11 +136,11 @@ export default function OrderStatusPage() {
               <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800 space-y-4">
                 <p className="text-emerald-500 text-xs font-black text-center mb-2">{PAYMENT_CONFIG.brubank.title}</p>
                 <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-3 rounded-lg border border-transparent hover:border-zinc-700">
-                  <span className="text-zinc-500 text-xs font-bold uppercase">Alias</span>
+                  <span className="text-zinc-500 text-xs font-bold ">Alias</span>
                   <span className="font-mono text-white group-hover:text-emerald-400 transition-colors">{PAYMENT_CONFIG.brubank.alias}</span>
                 </div>
                 <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-3 rounded-lg border border-transparent hover:border-zinc-700">
-                  <span className="text-zinc-500 text-xs font-bold uppercase">CBU</span>
+                  <span className="text-zinc-500 text-xs font-bold ">CBU</span>
                   <span className="font-mono text-white text-xs md:text-sm group-hover:text-emerald-400 transition-colors break-all">{PAYMENT_CONFIG.brubank.cbu}</span>
                 </div>
                 <p className="text-[10px] text-zinc-600 text-center font-bold">Titular: {PAYMENT_CONFIG.brubank.holder}</p>
@@ -153,7 +153,7 @@ export default function OrderStatusPage() {
                 {Object.entries(PAYMENT_CONFIG.crypto).map(([key, coin]) => (
                   <div key={key} onClick={() => copyToClipboard(coin.address)} className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 cursor-pointer hover:border-emerald-500/50 transition-all group">
                     <div className="flex justify-between mb-1">
-                      <span className="text-emerald-500 text-[10px] font-black uppercase">{key.toUpperCase()} ({coin.network})</span>
+                      <span className="text-emerald-500 text-[10px] font-black ">{key.toUpperCase()} ({coin.network})</span>
                       <span className="text-[10px] text-zinc-600 group-hover:text-white">COPIAR</span>
                     </div>
                     <p className="font-mono text-xs text-zinc-300 break-all group-hover:text-white">{coin.address}</p>
@@ -169,11 +169,11 @@ export default function OrderStatusPage() {
                 <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800">
                   <p className="text-emerald-500 text-xs font-black mb-3">{PAYMENT_CONFIG.buenbit_local.title}</p>
                   <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.cbu)} className="cursor-pointer mb-2">
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">CBU</p>
+                    <p className="text-[10px] text-zinc-500 font-bold ">CBU</p>
                     <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_local.cbu}</p>
                   </div>
                   <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.alias)} className="cursor-pointer">
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Alias</p>
+                    <p className="text-[10px] text-zinc-500 font-bold ">Alias</p>
                     <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_local.alias}</p>
                   </div>
                 </div>
@@ -183,11 +183,11 @@ export default function OrderStatusPage() {
                   <p className="text-emerald-500 text-xs font-black mb-3">{PAYMENT_CONFIG.buenbit_ach.title}</p>
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.routing)} className="cursor-pointer">
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase">Routing (ACH)</p>
+                      <p className="text-[10px] text-zinc-500 font-bold ">Routing (ACH)</p>
                       <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.routing}</p>
                     </div>
                     <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.account)} className="cursor-pointer">
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase">Account</p>
+                      <p className="text-[10px] text-zinc-500 font-bold ">Account</p>
                       <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.account}</p>
                     </div>
                   </div>

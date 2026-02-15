@@ -85,11 +85,11 @@ export default function Home() {
       {/* ─── NAVBAR ─── */}
       <nav className="fixed top-0 w-full z-50 px-4 md:px-6 py-4 md:py-6 backdrop-blur-md border-b border-white/5 bg-black/50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-lg md:text-xl font-black italic tracking-tighter uppercase">
+          <div className="text-lg md:text-xl font-black italic tracking-tighter ">
             Tujaque <span className="text-emerald-500">Strength</span>
           </div>
           <Link href="/login">
-            <button className="bg-white/5 border border-white/10 px-4 md:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-black transition-all">
+            <button className="bg-white/5 border border-white/10 px-4 md:px-6 py-2 rounded-xl text-[10px] font-black  tracking-widest hover:bg-emerald-500 hover:text-black transition-all">
               Acceso Clientes
             </button>
           </Link>
@@ -110,10 +110,10 @@ export default function Home() {
 
       {/* ─── HERO SECTION ─── */}
       <header className="relative z-10 pt-40 pb-20 text-center px-4">
-        <span className="inline-block mb-6 px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-md">
+        <span className="inline-block mb-6 px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black  tracking-[0.2em] backdrop-blur-md">
           Solo para Hombres
         </span>
-        <h1 className="text-5xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.9] mb-8 text-white drop-shadow-2xl">
+        <h1 className="text-5xl md:text-8xl font-black italic  tracking-tighter leading-[0.9] mb-8 text-white drop-shadow-2xl">
           Tujaque <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">Strength</span>
         </h1>
         <p className="text-lg md:text-xl text-zinc-300 max-w-2xl mx-auto mb-12 leading-relaxed font-medium drop-shadow-md">
@@ -121,7 +121,7 @@ export default function Home() {
         </p>
         <button 
           onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all transform hover:-translate-y-1"
+          className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black  tracking-widest text-xs hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all transform hover:-translate-y-1"
         >
           VER PLANES AHORA
         </button>
@@ -130,7 +130,7 @@ export default function Home() {
       {/* ─── SECCIÓN: FILTRADO ─── */}
       <section className="relative z-10 py-12 px-4">
         <div className="max-w-4xl mx-auto backdrop-blur-md bg-red-950/10 border border-red-500/20 rounded-3xl p-8 md:p-12">
-          <h2 className="text-red-500 font-black text-xl uppercase italic mb-6 tracking-tight flex items-center gap-3">
+          <h2 className="text-red-500 font-black text-xl  italic mb-6 tracking-tight flex items-center gap-3">
             <span className="w-2 h-8 bg-red-500 rounded-full"></span>
             Este programa NO es para vos si:
           </h2>
@@ -153,8 +153,8 @@ export default function Home() {
           </div>
 
           <div className="flex-1 text-center lg:text-left">
-            <span className="text-emerald-500 font-black uppercase tracking-widest text-xs mb-2 block">Head Coach</span>
-            <h2 className="text-4xl md:text-6xl font-black uppercase mb-6 italic">Luciano <span className="text-emerald-500">Tujague</span></h2>
+            <span className="text-emerald-500 font-black  tracking-widest text-xs mb-2 block">Head Coach</span>
+            <h2 className="text-4xl md:text-6xl font-black  mb-6 italic">Luciano <span className="text-emerald-500">Tujague</span></h2>
             <div className="space-y-4 text-zinc-300 text-lg leading-relaxed">
                <p>Aplico la metodología <strong>bii-vintage</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
                <p>Mi filosofía exige <strong>tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong>RPE y RIR</strong>.</p>
@@ -169,7 +169,7 @@ export default function Home() {
                ].map((stat, i) => (
                  <div key={i} className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl border border-emerald-500/20 hover:border-emerald-500/50 transition-colors">
                     <p className="text-emerald-400 font-black text-2xl italic leading-none">{stat.v}</p>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{stat.l}</p>
+                    <p className="text-[10px] text-zinc-500 font-bold  tracking-widest mt-1">{stat.l}</p>
                  </div>
                ))}
             </div>
@@ -180,13 +180,13 @@ export default function Home() {
       {/* ─── PRICING SECTION ─── */}
       <section id="pricing-section" className="relative z-20 py-24 px-4">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black uppercase italic text-center mb-12 tracking-tighter">
+          <h2 className="text-4xl md:text-5xl font-black  italic text-center mb-12 tracking-tighter">
             TU <span className="text-emerald-500">INVERSIÓN</span>
           </h2>
           
           <div className="inline-flex bg-zinc-900/80 backdrop-blur-md p-1 rounded-xl border border-zinc-800 mb-16 shadow-xl">
-            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black uppercase transition-all tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Semanal</button>
-            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black uppercase transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Mensual</button>
+            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black  transition-all tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Semanal</button>
+            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black  transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Mensual</button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
@@ -201,12 +201,12 @@ export default function Home() {
                 }`}
               >
                 {plan.highlight && (
-                   <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-black uppercase px-4 py-2 rounded-bl-2xl rounded-tr-2xl tracking-widest">
+                   <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-black  px-4 py-2 rounded-bl-2xl rounded-tr-2xl tracking-widest">
                      Recomendado
                    </div>
                 )}
-                <h3 className="text-2xl md:text-3xl font-black italic mb-2 uppercase tracking-tighter text-white">{plan.title}</h3>
-                <p className="text-emerald-400 font-bold uppercase tracking-widest text-xs mb-6 border-b border-white/5 pb-4">{plan.subtitle}</p>
+                <h3 className="text-2xl md:text-3xl font-black italic mb-2  tracking-tighter text-white">{plan.title}</h3>
+                <p className="text-emerald-400 font-bold  tracking-widest text-xs mb-6 border-b border-white/5 pb-4">{plan.subtitle}</p>
                 <div className="text-4xl md:text-5xl font-black mb-6 text-white">
                     ${plan.price.toLocaleString('es-AR')} 
                     <span className="text-sm text-zinc-500 font-bold ml-1">/{isWeekly ? 'sem' : 'mes'}</span>
@@ -222,7 +222,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all ${
+                <button className={`w-full py-4 rounded-xl font-black  tracking-widest text-xs transition-all ${
                     selectedPlan?.id === plan.id 
                     ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
                     : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'
@@ -242,7 +242,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="font-bold text-sm md:text-lg leading-none mb-1 text-white">Auditoría Técnica Biomecánica</h4>
-                    <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">Análisis detallado SBD + Corrección de palancas.</p>
+                    <p className="text-[9px] text-emerald-400 font-bold  tracking-widest">Análisis detallado SBD + Corrección de palancas.</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -259,7 +259,7 @@ export default function Home() {
       <section id="checkout-section" className="relative z-10 py-24 px-4 bg-black/60">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black uppercase italic mb-4">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
+            <h2 className="text-3xl md:text-4xl font-black  italic mb-4">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
             <p className="text-zinc-400 text-sm font-medium">Completá tus datos para recibir acceso inmediato al panel.</p>
           </div>
           {selectedPlan ? (
@@ -268,7 +268,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="text-center p-12 md:p-16 border-2 border-dashed border-white/10 rounded-[2rem] bg-white/5">
-              <p className="text-lg font-bold text-zinc-500 uppercase italic tracking-widest">▲ Seleccioná un plan arriba para continuar</p>
+              <p className="text-lg font-bold text-zinc-500  italic tracking-widest">▲ Seleccioná un plan arriba para continuar</p>
             </div>
           )}
         </div>
@@ -280,23 +280,23 @@ export default function Home() {
           
           {/* 1. LOGO Y COPYRIGHT */}
           <div className="space-y-4 max-w-xs">
-             <h3 className="font-black text-2xl italic uppercase text-white tracking-tighter">
+             <h3 className="font-black text-2xl italic  text-white tracking-tighter">
                Tujaque <span className="text-emerald-500">Strength</span>
              </h3>
              <p className="text-zinc-500 text-xs italic tracking-tight font-medium">
                "Te doy las herramientas, vos ponés el esfuerzo. Biomecánica aplicada y entrenamiento de fuerza real."
              </p>
-             <p className="text-zinc-600 text-[10px] uppercase tracking-[0.3em] font-bold">
+             <p className="text-zinc-600 text-[10px]  tracking-[0.3em] font-bold">
                &copy; {new Date().getFullYear()} Luciano Tujague.
              </p>
           </div>
 
           {/* 2. CONTACTO DIRECTO (VISIBILIDAD FORZADA) */}
           <div className="flex flex-col gap-4">
-             <h4 className="text-emerald-500 font-black uppercase tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
+             <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
                Contacto Directo
              </h4>
-             <div className="flex flex-col gap-3 text-sm font-bold text-white uppercase tracking-wide">
+             <div className="flex flex-col gap-3 text-sm font-bold text-white  tracking-wide">
                 <a 
                   href="mailto:luciano2004tujague20@gmail.com" 
                   className="hover:text-emerald-400 hover:translate-x-1 transition-all flex items-center justify-center md:justify-start gap-2"
@@ -322,10 +322,10 @@ export default function Home() {
 
           {/* 3. LEGALES */}
           <div className="flex flex-col gap-4">
-             <h4 className="text-emerald-500 font-black uppercase tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
+             <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
                Legales
              </h4>
-             <div className="flex flex-col gap-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+             <div className="flex flex-col gap-3 text-[10px] font-black  tracking-widest text-zinc-500">
                <Link href="/legal" className="hover:text-white transition-colors">
                  Términos y Condiciones
                </Link>

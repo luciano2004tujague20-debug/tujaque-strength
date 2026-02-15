@@ -129,15 +129,15 @@ export default function OrderDetail() {
                 {/* Cliente */}
                 <div className="border-t border-zinc-800 pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Cliente</label>
+                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Cliente</label>
                         <p className="text-white font-medium">{order.customer_name}</p>
                     </div>
                     <div>
-                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Email</label>
+                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Email</label>
                         <p className="text-white">{order.customer_email}</p>
                     </div>
                     <div className="md:col-span-2">
-                        <label className="text-xs text-zinc-500 uppercase tracking-wide font-semibold">Referencia / Objetivo</label>
+                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Referencia / Objetivo</label>
                         <p className="text-zinc-300 text-sm mt-1 p-3 bg-zinc-950 rounded border border-zinc-800">
                             {order.customer_ref || 'Sin referencia'}
                         </p>
@@ -205,14 +205,14 @@ export default function OrderDetail() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Método de pago</p>
+                    <p className="text-xs text-zinc-500 mb-2  tracking-wide">Método de pago</p>
                     <p className="text-white font-medium capitalize">{order.payment_method}</p>
                 </div>
             </div>
 
             {/* ACCIONES */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-4">Acciones de Admin</h3>
+                <h3 className="text-sm font-semibold text-zinc-400  tracking-wide mb-4">Acciones de Admin</h3>
                 <div className="space-y-3">
                     <button
                         onClick={() => updateStatus('paid')}

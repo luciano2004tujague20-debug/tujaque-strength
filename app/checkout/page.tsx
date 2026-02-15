@@ -159,7 +159,7 @@ function CheckoutContent() {
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1 block mb-2">
+                  <label className="text-xs font-bold text-zinc-400  tracking-wider ml-1 block mb-2">
                     Nombre Completo
                   </label>
                   <input
@@ -173,7 +173,7 @@ function CheckoutContent() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1 block mb-2">
+                  <label className="text-xs font-bold text-zinc-400  tracking-wider ml-1 block mb-2">
                     Email
                   </label>
                   <input
@@ -190,7 +190,7 @@ function CheckoutContent() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1 block mb-2">
+                  <label className="text-xs font-bold text-zinc-400  tracking-wider ml-1 block mb-2">
                     Referencia (Opcional)
                   </label>
                   <input
@@ -203,7 +203,7 @@ function CheckoutContent() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1 block mb-4">
+                  <label className="text-xs font-bold text-zinc-400  tracking-wider ml-1 block mb-4">
                     Método de Pago
                   </label>
                   <div className="grid sm:grid-cols-3 gap-3">

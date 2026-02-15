@@ -30,6 +30,10 @@ export default function AdminOrders() {
   async function updateStatus(id: string, newStatus: string) {
     setUpdatingId(id);
     
+    // 1. Buscamos los datos de esta orden específica en nuestro estado local
+    const orderData = orders.find(o => o.id === id);
+
+    // 2. Actualizamos el estado en la tabla de órdenes
     const { error } = await supabase
       .from("orders")
       .update({ status: newStatus })
@@ -38,6 +42,22 @@ export default function AdminOrders() {
     if (error) {
       alert("Error al actualizar estado");
     } else {
+      // 3. LÓGICA AUTOMÁTICA: Si validás el pago, creamos al atleta
+      if (newStatus === "paid" && orderData) {
+        const { error: athleteError } = await supabase
+          .from("athletes")
+          .upsert({ 
+            email: orderData.customer_email,
+            full_name: orderData.customer_name,
+            instagram: orderData.customer_ref || null
+          }, { onConflict: 'email' }); // Si ya existe el mail, no lo duplica, lo actualiza
+
+        if (athleteError) {
+          console.error("Error al crear atleta automático:", athleteError);
+        }
+      }
+
+      // Actualizamos la lista visualmente
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     }
     setUpdatingId(null);
@@ -58,11 +78,11 @@ export default function AdminOrders() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-white/10 text-[9px] text-emerald-400 font-black tracking-[0.2em]">
-              <th className="py-6 px-8 uppercase">Fecha / Cliente</th>
-              <th className="py-6 px-8 uppercase">Plan Adquirido</th>
-              <th className="py-6 px-8 text-center uppercase">Comprobante</th>
-              <th className="py-6 px-8 text-center uppercase">Estado del Pago</th>
-              <th className="py-6 px-8 text-right uppercase">Monto Total</th>
+              <th className="py-6 px-8 ">Fecha / Cliente</th>
+              <th className="py-6 px-8 ">Plan Adquirido</th>
+              <th className="py-6 px-8 text-center ">Comprobante</th>
+              <th className="py-6 px-8 text-center ">Estado del Pago</th>
+              <th className="py-6 px-8 text-right ">Monto Total</th>
             </tr>
           </thead>
           <tbody className="text-sm text-white divide-y divide-white/5">
@@ -91,9 +111,8 @@ export default function AdminOrders() {
                   </div>
                 </td>
 
-                {/* 3. TICKET DE PAGO (CORREGIDO) */}
+                {/* 3. TICKET DE PAGO */}
                 <td className="py-6 px-8 text-center">
-                  {/* Buscamos por la URL guardada o directamente al storage por el order_id */}
                   <a 
                     href={order.receipt_url || `${storageUrl}${order.order_id}.jpg`} 
                     target="_blank" 
@@ -137,7 +156,7 @@ export default function AdminOrders() {
                   </div>
                 </td>
 
-                {/* 5. MONTO FINAL (CORREGIDO A amount_ars) */}
+                {/* 5. MONTO FINAL */}
                 <td className="py-6 px-8 text-right">
                   <p className="font-mono font-black text-emerald-400 text-xl tracking-tighter italic">
                     ${(order.amount_ars || 0).toLocaleString()}

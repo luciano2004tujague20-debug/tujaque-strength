@@ -116,7 +116,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
       {/* SECCIÓN 1: DATOS */}
       <div className="space-y-8">
         <section>
-          <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">1. Tus Datos</h3>
+          <h3 className="text-xl font-black text-white mb-6  italic tracking-tight">1. Tus Datos</h3>
           <div className="space-y-4">
             <input className="w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Nombre Completo" onChange={e => setFormData({...formData, name: e.target.value})} />
             <div className="grid grid-cols-2 gap-4">
@@ -128,12 +128,12 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         {/* SECCIÓN 2: PAGO */}
         <section>
-          <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">2. Método de Pago</h3>
+          <h3 className="text-xl font-black text-white mb-6  italic tracking-tight">2. Método de Pago</h3>
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <button onClick={() => setPaymentMethod("mercadopago")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'mercadopago' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Mercado Pago</button>
-            <button onClick={() => setPaymentMethod("transferencia")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'transferencia' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Transferencia</button>
-            <button onClick={() => setPaymentMethod("crypto")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Cripto (-10%)</button>
-            <button onClick={() => setPaymentMethod("usd")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'usd' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Dólar (Intl)</button>
+            <button onClick={() => setPaymentMethod("mercadopago")} className={`p-3 rounded-xl border text-[10px] font-bold  transition-all ${paymentMethod === 'mercadopago' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Mercado Pago</button>
+            <button onClick={() => setPaymentMethod("transferencia")} className={`p-3 rounded-xl border text-[10px] font-bold  transition-all ${paymentMethod === 'transferencia' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Transferencia</button>
+            <button onClick={() => setPaymentMethod("crypto")} className={`p-3 rounded-xl border text-[10px] font-bold  transition-all ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Cripto (-10%)</button>
+            <button onClick={() => setPaymentMethod("usd")} className={`p-3 rounded-xl border text-[10px] font-bold  transition-all ${paymentMethod === 'usd' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Dólar (Intl)</button>
           </div>
 
           <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 shadow-inner">
@@ -166,14 +166,14 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         </div>
 
         <div className="flex justify-between items-end mb-8">
-          <span className="text-zinc-500 text-xs font-bold uppercase">Total Final</span>
+          <span className="text-zinc-500 text-xs font-bold ">Total Final</span>
           <span className="text-4xl font-black text-white tracking-tighter">${totalAmount.toLocaleString()}</span>
         </div>
 
         <button 
           onClick={handleSubmit} 
           disabled={loading || !formData.name || !formData.email}
-          className="w-full bg-emerald-500 py-5 text-black font-black uppercase rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-emerald-500 py-5 text-black font-black  rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "PROCESANDO..." : paymentMethod === 'mercadopago' ? "IR A MERCADO PAGO" : "GENERAR PEDIDO"}
         </button>

@@ -41,16 +41,16 @@ export default function CustomLogin() {
         <div className="bg-white/[0.02] border border-white/5 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl">
           
           <header className="text-center mb-12">
-            <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter leading-none">
+            <h1 className="text-5xl font-black text-white italic  tracking-tighter leading-none">
               TUJAQUE<br/>
               <span className="text-emerald-400">STRENGTH</span>
             </h1>
-            <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.4em] mt-4">Protocolo de Acceso Elite</p>
+            <p className="text-[9px] font-black text-zinc-500  tracking-[0.4em] mt-4">Protocolo de Acceso Elite</p>
           </header>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest ml-2">Email del Atleta</label>
+              <label className="text-[10px] font-black text-emerald-500  tracking-widest ml-2">Email del Atleta</label>
               <input 
                 type="email" 
                 placeholder="atleta@ejemplo.com"
@@ -62,7 +62,7 @@ export default function CustomLogin() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest ml-2">Contraseña</label>
+              <label className="text-[10px] font-black text-emerald-500  tracking-widest ml-2">Contraseña</label>
               <input 
                 type="password" 
                 placeholder="••••••••"
@@ -75,14 +75,14 @@ export default function CustomLogin() {
 
             <button 
               disabled={loading}
-              className="w-full bg-emerald-500 text-black font-black uppercase text-xs py-5 rounded-2xl hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98] mt-4"
+              className="w-full bg-emerald-500 text-black font-black  text-xs py-5 rounded-2xl hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98] mt-4"
             >
               {loading ? "VERIFICANDO..." : "INICIAR SESIÓN 🦍"}
             </button>
           </form>
 
           <footer className="mt-12 text-center border-t border-white/5 pt-8">
-            <p className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.3em]">
+            <p className="text-[8px] font-black text-zinc-700  tracking-[0.3em]">
               Sistemas de Entrenamiento BII-Vintage
             </p>
           </footer>
