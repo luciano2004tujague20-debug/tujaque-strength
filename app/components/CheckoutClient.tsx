@@ -1,357 +1,229 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { EXTRA_VIDEO_PRICE_ARS } from "@/lib/pricing";
 
-type Plan = {
-  id: string;
-  code: string;
-  name: string;
-  days: number;
-  cadence: "weekly" | "monthly";
-  price_ars: number;
-  active?: boolean;
-  benefits?: {
-    includes?: string[];
-    [k: string]: any;
-  };
+// ─── TUS DATOS DE COBRO CORREGIDOS ───
+const PAYMENT_CONFIG = {
+  brubank: {
+    alias: "lucianotujague",
+    cbu: "1430001713041213360019",
+    holder: "Luciano Nicolas Tujague"
+  },
+  buenbit_local: {
+    title: "Buenbit USD (Cuenta Local)",
+    bank: "Banco Industrial",
+    alias: "BUENBIT.USD",
+    cbu: "3220001812006401160021"
+  },
+  buenbit_ach: {
+    title: "Buenbit USD (Cuenta Exterior ACH)",
+    bank: "Lead Bank",
+    name: "LUCIANO NICOLAS TUJAGUE",
+    routing: "101019644",
+    account: "218050863270",
+    type: "Checking",
+    address: "1801 Main St. Kansas City, MO 64108"
+  },
+  crypto: {
+    btc: "bc1q3w48qpn0xdtcy4fe370n3xsmk4hreve05nt8ek",
+    usdt: "TUDciWxCLPZMGvCTAoHLUbUe2KLeDtdbgf",
+    usdc: "0x099455826F2196607244A7102D5466Eb45413F15"
+  }
 };
 
-function formatARS(n: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-  }).format(n || 0);
+interface CheckoutClientProps {
+  selectedPlan: {
+    id: string;
+    title: string;
+    subtitle: string;
+    price: number;
+  };
+  extraVideo: boolean;
+  extraPrice: number;
 }
 
-export default function CheckoutClient() {
+type PaymentMethod = "mercadopago" | "transferencia" | "usd" | "crypto";
+
+export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }: CheckoutClientProps) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mercadopago");
+  const [formData, setFormData] = useState({ name: "", email: "", instagram: "" });
 
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loadingPlans, setLoadingPlans] = useState(true);
-  const [plansError, setPlansError] = useState<string | null>(null);
+  const totalAmount = selectedPlan.price + (extraVideo ? extraPrice : 0);
 
-  const [selectedPlanCode, setSelectedPlanCode] = useState<string>("");
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("¡Copiado al portapapeles!");
+  };
 
-  const [paymentMethod, setPaymentMethod] = useState<"ars" | "usd" | "crypto">(
-    "ars"
-  );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [customerRef, setCustomerRef] = useState("");
-
-  // Checkboxes del cliente
-  const [confirmAdultMan, setConfirmAdultMan] = useState(false);
-  const [acceptReq, setAcceptReq] = useState(false);
-
-  // ✅ EXTRA VIDEO
-  const [extraVideo, setExtraVideo] = useState(false);
-
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoadingPlans(true);
-      setPlansError(null);
+    if (paymentMethod === "mercadopago") {
       try {
-        const res = await fetch("/api/plans", { cache: "no-store" });
-        const json = await res.json();
-        setPlans(Array.isArray(json.plans) ? json.plans : []);
-        // seleccionar primero por defecto
-        if (Array.isArray(json.plans) && json.plans.length > 0) {
-          setSelectedPlanCode(json.plans[0].code);
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            customerRef: formData.instagram.trim() || null, 
+            planCode: selectedPlan.id, 
+            paymentMethod: "ars",
+            extraVideo: extraVideo,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error en la orden");
+
+        if (data.orderId) {
+          router.push(`/order/${data.orderId}?email=${encodeURIComponent(formData.email.trim())}`);
         }
-      } catch (e: any) {
-        setPlansError("No se pudieron cargar los planes.");
-      } finally {
-        setLoadingPlans(false);
+      } catch (err: any) {
+        alert(err.message || "Error al conectar con Mercado Pago");
       }
-    })();
-  }, []);
-
-  const selectedPlan = useMemo(
-    () => plans.find((p) => p.code === selectedPlanCode),
-    [plans, selectedPlanCode]
-  );
-
-  const includes = useMemo(() => {
-    const arr = selectedPlan?.benefits?.includes;
-    return Array.isArray(arr) ? arr : [];
-  }, [selectedPlan]);
-
-  const extraArs = extraVideo ? EXTRA_VIDEO_PRICE_ARS : 0;
-  const totalArs = (selectedPlan?.price_ars ?? 0) + extraArs;
-
-  async function createOrder() {
-    setCreateError(null);
-
-    if (!selectedPlanCode) return setCreateError("Seleccioná un plan.");
-    if (!name.trim()) return setCreateError("Ingresá tu nombre.");
-    if (!email.trim()) return setCreateError("Ingresá tu email.");
-    if (!confirmAdultMan)
-      return setCreateError("Tenés que confirmar que sos hombre.");
-    if (!acceptReq)
-      return setCreateError("Tenés que aceptar los requisitos mínimos.");
-
-    setCreating(true);
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planCode: selectedPlanCode,
-          paymentMethod,
-          name: name.trim(),
-          email: email.trim(),
-          customerRef: customerRef.trim() || null,
-
-          // ✅ EXTRA
-          extraVideo,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json?.error || "Error creando orden.");
-      }
-
-      const orderId = json.orderId as string;
-      router.push(`/order/${orderId}?email=${encodeURIComponent(email.trim())}`);
-    } catch (e: any) {
-      setCreateError(e.message || "Error creando orden.");
-    } finally {
-      setCreating(false);
+    } else {
+      const methodText = paymentMethod === 'crypto' ? 'Cripto' : paymentMethod === 'usd' ? 'Dólar' : 'Transferencia';
+      const msg = `Hola Luciano! Ya realicé el pago del plan *${selectedPlan.title}*.%0A- Nombre: ${formData.name}%0A- Método: ${methodText}%0A- Total: $${totalAmount.toLocaleString()}`;
+      window.open(`https://wa.me/5491112345678?text=${msg}`, "_blank");
     }
-  }
+    setLoading(false);
+  };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-zinc-100">Elegí tu plan</h1>
-      <p className="mt-2 text-zinc-400">
-        Seleccioná plan + método de pago y generá tu orden.
-      </p>
-
-      {loadingPlans && (
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 text-zinc-300">
-          Cargando planes...
-        </div>
-      )}
-
-      {plansError && (
-        <div className="mt-6 rounded-2xl border border-red-900/60 bg-red-950/30 p-4 text-red-200">
-          {plansError}
-        </div>
-      )}
-
-      {!loadingPlans && !plansError && (
-        <>
-          {/* Planes */}
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {plans.map((p) => {
-              const active = p.code === selectedPlanCode;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedPlanCode(p.code)}
-                  className={[
-                    "text-left rounded-2xl border p-5 transition",
-                    active
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60",
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-lg font-semibold text-zinc-100">
-                        {p.name}
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {p.cadence === "weekly" ? "Semanal" : "Mensual"} •{" "}
-                        {p.days} días
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-zinc-100">
-                        {formatARS(p.price_ars)}
-                      </p>
-                      <p className="text-xs text-zinc-400">ARS</p>
-                    </div>
-                  </div>
-
-                  {Array.isArray(p.benefits?.includes) &&
-                    p.benefits!.includes!.length > 0 && (
-                      <ul className="mt-4 grid gap-2 text-sm text-zinc-300">
-                        {p.benefits!.includes!.slice(0, 4).map((x, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400/80" />
-                            <span>{x}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Método de pago */}
-          <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <p className="text-sm font-semibold text-zinc-200">
-              Método de pago
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(["ars", "usd", "crypto"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPaymentMethod(m)}
-                  className={[
-                    "rounded-xl border px-4 py-2 text-sm transition",
-                    paymentMethod === m
-                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-200"
-                      : "border-zinc-800 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-900/60",
-                  ].join(" ")}
-                >
-                  {m === "ars"
-                    ? "Transferencia ARS"
-                    : m === "usd"
-                    ? "Internacional (USD)"
-                    : "Cripto"}
-                </button>
-              ))}
+    <div className="grid lg:grid-cols-2 gap-12 text-left">
+      <div className="space-y-8">
+        <section>
+          <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">1. Tus Datos</h3>
+          <div className="space-y-4">
+            <input 
+              className="w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all" 
+              placeholder="Nombre Completo" 
+              onChange={e => setFormData({...formData, name: e.target.value})} 
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <input className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Email" onChange={e => setFormData({...formData, email: e.target.value})} />
+              <input className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" placeholder="Instagram (@)" onChange={e => setFormData({...formData, instagram: e.target.value})} />
             </div>
           </div>
+        </section>
 
-          {/* Datos */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <p className="text-sm font-semibold text-zinc-200">Tus datos</p>
-
-            <div className="mt-4 grid gap-3">
-              <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
-                placeholder="Tu nombre"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
-                placeholder="Tu email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/30 px-4 py-3 text-zinc-100 outline-none"
-                placeholder="Referencia (opcional) — DNI / IG / etc"
-                value={customerRef}
-                onChange={(e) => setCustomerRef(e.target.value)}
-              />
-            </div>
-
-            <div className="mt-4 space-y-3 text-sm text-zinc-300">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={confirmAdultMan}
-                  onChange={(e) => setConfirmAdultMan(e.target.checked)}
-                />
-                <span>Confirmo que soy hombre.</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={acceptReq}
-                  onChange={(e) => setAcceptReq(e.target.checked)}
-                />
-                <span>
-                  Acepto los requisitos mínimos (constancia, sueño, registro de
-                  cargas).
-                </span>
-              </label>
-            </div>
+        <section>
+          <h3 className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">2. Método de Pago</h3>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button onClick={() => setPaymentMethod("mercadopago")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'mercadopago' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Mercado Pago</button>
+            <button onClick={() => setPaymentMethod("transferencia")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'transferencia' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Transferencia</button>
+            <button onClick={() => setPaymentMethod("crypto")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Cripto (-10%)</button>
+            <button onClick={() => setPaymentMethod("usd")} className={`p-3 rounded-xl border text-[10px] font-bold uppercase transition-all ${paymentMethod === 'usd' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}>Dólar (Intl)</button>
           </div>
 
-          {/* ✅ EXTRA VIDEO */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={extraVideo}
-                onChange={(e) => setExtraVideo(e.target.checked)}
-              />
-              <div className="flex-1">
-                <p className="font-semibold text-zinc-100">
-                  Revisión técnica por video (extra)
-                </p>
-                <p className="text-sm text-zinc-400">
-                  Enviás tu video y recibís correcciones y claves técnicas. Costo
-                  adicional.
-                </p>
-              </div>
-              <div className="font-semibold text-zinc-100">
-                {formatARS(EXTRA_VIDEO_PRICE_ARS)}
-              </div>
-            </label>
-          </div>
-
-          {/* Resumen */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <p className="text-sm font-semibold text-zinc-200">Resumen</p>
-
-            <div className="mt-3">
-              <p className="text-lg font-bold text-zinc-100">
-                {selectedPlan?.name ?? "—"}
-              </p>
-
-              <p className="mt-1 text-zinc-300">
-                Total:{" "}
-                <span className="font-bold text-emerald-300">
-                  {formatARS(totalArs)}
-                </span>
-              </p>
-
-              {includes.length > 0 && (
-                <p className="mt-2 text-sm text-zinc-400">
-                  Incluye: {includes.join(" • ")}
-                </p>
-              )}
-
-              {extraVideo && (
-                <p className="mt-2 text-sm text-zinc-400">
-                  Servicio extra: Revisión técnica por video.
-                </p>
-              )}
-            </div>
-
-            {createError && (
-              <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/30 p-3 text-red-200">
-                {createError}
+          <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 shadow-inner">
+            {paymentMethod === 'transferencia' && (
+              <div className="space-y-4">
+                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Brubank ARS</p>
+                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="group cursor-pointer">
+                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">CBU</span>
+                  <span className="text-white font-mono text-sm group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.brubank.cbu}</span>
+                </div>
+                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)} className="group cursor-pointer">
+                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">Alias</span>
+                  <span className="text-white font-mono text-sm group-hover:text-emerald-400">{PAYMENT_CONFIG.brubank.alias}</span>
+                </div>
               </div>
             )}
 
-            <button
-              type="button"
-              disabled={creating}
-              onClick={createOrder}
-              className="mt-5 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-60"
-            >
-              {creating ? "Generando..." : "Generar orden"}
-            </button>
+            {paymentMethod === 'crypto' && (
+              <div className="space-y-4">
+                <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Redes Soportadas</p>
+                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdt)} className="group cursor-pointer">
+                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">USDT (TRC20)</span>
+                  <span className="text-white font-mono text-[11px] group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.crypto.usdt}</span>
+                </div>
+                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdc)} className="group cursor-pointer">
+                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">USDC (Polygon/ERC20)</span>
+                  <span className="text-white font-mono text-[11px] group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.crypto.usdc}</span>
+                </div>
+                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.btc)} className="group cursor-pointer">
+                  <span className="text-zinc-500 text-[10px] block uppercase font-bold">Bitcoin (BTC)</span>
+                  <span className="text-white font-mono text-[11px] group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.crypto.btc}</span>
+                </div>
+              </div>
+            )}
 
-            <p className="mt-3 text-xs text-zinc-500">
-              Luego verás las instrucciones de pago y podrás subir el comprobante.
-            </p>
+            {paymentMethod === 'usd' && (
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Opción Local USD</p>
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.cbu)} className="group cursor-pointer">
+                    <span className="text-zinc-500 text-[10px] block uppercase font-bold">CBU</span>
+                    <span className="text-white font-mono text-xs group-hover:text-emerald-400 break-all">{PAYMENT_CONFIG.buenbit_local.cbu}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 border-t border-zinc-800 pt-4">
+                  <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Opción Exterior ACH</p>
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.routing)} className="group cursor-pointer">
+                    <span className="text-zinc-500 text-[10px] block uppercase font-bold">Routing Number</span>
+                    <span className="text-white font-mono text-sm group-hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.routing}</span>
+                  </div>
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.account)} className="group cursor-pointer">
+                    <span className="text-zinc-500 text-[10px] block uppercase font-bold">Account Number</span>
+                    <span className="text-white font-mono text-sm group-hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.account}</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-500 leading-tight">
+                    Bank: {PAYMENT_CONFIG.buenbit_ach.bank} ({PAYMENT_CONFIG.buenbit_ach.type})<br/>
+                    Address: {PAYMENT_CONFIG.buenbit_ach.address}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {paymentMethod === 'mercadopago' && (
+              <p className="text-xs text-zinc-400 italic">Serás redirigido para completar el pago de forma segura.</p>
+            )}
           </div>
-        </>
-      )}
+        </section>
+      </div>
+
+      <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl h-fit shadow-2xl">
+        <div className="mb-8">
+          <h3 className="text-zinc-500 text-xs font-bold uppercase mb-2">Resumen de Plan</h3>
+          <p className="text-white font-black text-2xl tracking-tighter uppercase italic">{selectedPlan.title}</p>
+          <p className="text-emerald-500 text-xs font-bold">{selectedPlan.subtitle}</p>
+        </div>
+        
+        <div className="space-y-3 mb-8 border-y border-zinc-800 py-6">
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-400 font-medium">Subtotal</span>
+            <span className="text-white font-mono">${selectedPlan.price.toLocaleString()}</span>
+          </div>
+          {extraVideo && (
+            <div className="flex justify-between text-sm">
+              <span className="text-emerald-400 font-medium">+ Revisión Técnica</span>
+              <span className="text-emerald-400 font-mono">+${extraPrice.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-between items-end mb-8">
+          <span className="text-zinc-500 text-xs font-bold uppercase">Total Final</span>
+          <span className="text-4xl font-black text-white tracking-tighter">
+            ${totalAmount.toLocaleString()}
+          </span>
+        </div>
+
+        <button 
+          onClick={handleSubmit} 
+          disabled={loading || !formData.name || !formData.email}
+          className="w-full bg-emerald-500 py-5 text-black font-black uppercase rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? "PROCESANDO..." : paymentMethod === 'mercadopago' ? "IR A PAGAR" : "INFORMAR PAGO"}
+        </button>
+      </div>
     </div>
   );
 }

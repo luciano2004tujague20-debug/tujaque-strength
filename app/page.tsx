@@ -1,269 +1,216 @@
-import Link from "next/link";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+"use client";
 
-type Plan = {
-  id: string;
-  code: string;
-  name: string;
-  cadence: "weekly" | "monthly";
-  days: number;
-  price_ars: number;
-  benefits: {
-    includes?: string[];
-    highlight?: string;
-    ideal_for?: string;
-  };
+import { useState } from "react";
+import CheckoutClient from "./components/CheckoutClient";
+import Link from "next/link";
+
+// ─── DATOS FIJOS (Para que no falle) ───
+const PRICING_MATRIX = {
+  weekly: [
+    {
+      id: "weekly-3",
+      title: "FUERZA BASE",
+      subtitle: "Eficiencia (3 Días)",
+      price: 18000,
+      description: "Ideal para probar el sistema con bajo presupuesto y alta intensidad.",
+      features: ["Frecuencia: 3 Días/Semana", "Foco: Básicos (SBD)", "Recuperación Optimizada"],
+      highlight: false,
+    },
+    {
+      id: "weekly-5",
+      title: "POWERBUILDING",
+      subtitle: "Volumen (5 Días)",
+      price: 32000,
+      description: "Para quien busca estética y entrenar duro pagando por semana.",
+      features: ["Frecuencia: 5 Días/Semana", "Foco: Hipertrofia", "Split Push-Pull-Legs"],
+      highlight: true,
+    }
+  ],
+  monthly: [
+    {
+      id: "monthly-3",
+      title: "FUERZA PRO",
+      subtitle: "Rendimiento (3 Días)",
+      price: 50000,
+      description: "Ciclo completo de mesociclo. Progresión lineal y picos de fuerza.",
+      features: ["Planificación Mensual", "Periodización Ondulatoria", "Comunidad Premium"],
+      highlight: false,
+    },
+    {
+      id: "monthly-5",
+      title: "ELITE TOTAL",
+      subtitle: "Experiencia Completa (5 Días)",
+      price: 100000,
+      description: "Especialización total. Bloques de Peaking + Hipertrofia.",
+      features: ["Planificación Avanzada", "Peaking para 1RM", "Soporte Prioritario"],
+      highlight: true,
+    }
+  ]
 };
 
-export const dynamic = "force-dynamic";
+const EXTRA_VIDEO_PRICE = 5000;
 
-export default async function HomePage() {
-  const { data: allPlans } = await supabaseAdmin
-    .from("plans")
-    .select("*")
-    .eq("active", true)
-    .order("price_ars", { ascending: true });
+export default function Home() {
+  const [isWeekly, setIsWeekly] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [addVideoReview, setAddVideoReview] = useState(false);
 
-  const plans = (allPlans as Plan[]) || [];
+  const currentPlans = isWeekly ? PRICING_MATRIX.weekly : PRICING_MATRIX.monthly;
 
-  const weeklyPlans = plans.filter((p) => p.cadence === "weekly");
-  const monthlyPlans = plans.filter((p) => p.cadence === "monthly");
+  const handleSelectPlan = (plan: any) => {
+    setSelectedPlan(plan);
+    document.getElementById("checkout-section")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="fixed inset-0 -z-10 tech-grid opacity-20" />
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[100px]" />
-      </div>
-
-      <nav className="fixed top-0 w-full z-50 bg-black/60 backdrop-blur-xl border-b border-zinc-800/50">
-        <div className="container-pad flex items-center justify-between h-20">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-black text-black text-sm shadow-lg shadow-emerald-900/30">
-              TS
-            </div>
-            <div>
-              <div className="text-sm font-black tracking-tight">TUJAQUE STRENGTH</div>
-              <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Elite Strength Coaching</div>
-            </div>
-          </div>
-          <Link href="/admin/login" className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors">
-            Staff
-          </Link>
-        </div>
-      </nav>
-
-      <header className="relative pt-32 md:pt-40 pb-20 px-6">
-        <div className="container-pad">
-          <div className="max-w-4xl mx-auto text-center animate-fade-in">
-            <div className="inline-block mb-6 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-              Sistema de Entrenamiento Profesional
-            </div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 tracking-tighter leading-[0.95]">
-              FUERZA QUE <span className="gradient-text">SE MIDE</span> EN KILOS
-            </h1>
-            <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Programación de Powerlifting para hombres que entrenan en serio. Sentadilla, Banca y Peso Muerto con progresión real.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="#planes-semanales" className="btn-premium">
-                Ver Planes
-              </a>
-              <a href="#como-funciona" className="btn-ghost">
-                Cómo Funciona
-              </a>
-            </div>
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-zinc-500">
-              <div className="flex items-center gap-2">
-                <div className="status-indicator status-indicator-green" />
-                <span>Sistema Activo</span>
-              </div>
-              <div>+100 atletas</div>
-            </div>
-          </div>
-        </div>
+    <main className="min-h-screen relative">
+      <div className="fixed inset-0 tech-grid opacity-30 pointer-events-none z-0"></div>
+      
+      {/* ─── HERO SECTION ─── */}
+      <header className="relative z-10 pt-32 pb-20 text-center px-4">
+        <span className="badge mb-8">Solo para Hombres +18</span>
+        <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none mb-8">
+          FORJANDO <br className="md:hidden"/> <span className="text-gradient">FUERZA REAL.</span>
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
+          Programación de fuerza y estética. Sin humo, solo hierro. Elegí tu camino: Eficiencia o Volumen.
+        </p>
+        <button 
+          onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="btn-primary"
+        >
+          VER PLANES AHORA
+        </button>
       </header>
 
-      <section id="planes-semanales" className="py-20 px-6">
-        <div className="container-pad">
-          <div className="text-center mb-12 animate-slide-up">
-            <h2 className="section-title mb-3">PLANES SEMANALES</h2>
-            <p className="section-subtitle mx-auto">
-              Programación con ajustes cada 7 días. Ideal para comenzar o mantener progresión constante.
-            </p>
+      {/* ─── MATRIZ DE ENTRENAMIENTO ─── */}
+      <section className="relative z-10 py-24 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="section-title">LA MATRIZ DE ENTRENAMIENTO</h2>
+            <p className="text-muted-foreground">Entendé la diferencia técnica antes de elegir.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="glass-card p-10">
+              <h3 className="text-2xl font-black text-white mb-4">🔥 Camino A: Eficiencia (3 Días)</h3>
+              <p className="text-zinc-400">Intensidad alta en movimientos compuestos (SBD). Ideal para Fuerza Base y recuperación óptima.</p>
+            </div>
+            <div className="glass-card p-10">
+              <h3 className="text-2xl font-black text-white mb-4">🦍 Camino B: Powerbuilding (5 Días)</h3>
+              <p className="text-zinc-400">Fusión de Powerlifting + Culturismo. Más volumen para hipertrofia y corrección de puntos débiles.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── PRICING SECTION ─── */}
+      <section id="pricing-section" className="relative z-10 py-24 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="section-title">ELEGÍ TU INVERSIÓN</h2>
+            
+            {/* Toggle */}
+            <div className="inline-flex bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 mb-12">
+              <button onClick={() => setIsWeekly(true)} className={`px-8 py-3 rounded-lg text-sm font-bold uppercase transition-all ${isWeekly ? 'bg-primary text-primary-foreground shadow-lg' : 'text-zinc-400 hover:text-white'}`}>Semanal</button>
+              <button onClick={() => setIsWeekly(false)} className={`px-8 py-3 rounded-lg text-sm font-bold uppercase transition-all ${!isWeekly ? 'bg-primary text-primary-foreground shadow-lg' : 'text-zinc-400 hover:text-white'}`}>Mensual</button>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {weeklyPlans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+            {currentPlans.map((plan) => (
+              <div key={plan.id} className={`p-8 md:p-12 cursor-pointer group ${plan.highlight ? 'glass-card-highlight' : 'glass-card'}`} onClick={() => handleSelectPlan(plan)}>
+                {plan.highlight && <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-4 py-2 rounded-bl-xl rounded-tr-xl uppercase">Más Popular</span>}
+                <h3 className="text-3xl font-black italic mb-2">{plan.title}</h3>
+                <p className="text-primary font-bold uppercase tracking-wider text-sm mb-6">{plan.subtitle}</p>
+                <div className="flex items-baseline gap-2 mb-6">
+                  <span className="text-5xl font-black">${plan.price.toLocaleString('es-AR')}</span>
+                  <span className="text-zinc-500 font-bold">/{isWeekly ? 'sem' : 'mes'}</span>
+                </div>
+                <p className="text-zinc-400 mb-8 min-h-[3rem]">{plan.description}</p>
+                <ul className="space-y-4 mb-10">
+                  {plan.features.map((feature: string, idx: number) => (
+                    <li key={idx} className="flex items-center gap-3 text-zinc-300 font-medium">
+                      <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <button className={`w-full py-4 rounded-xl font-bold uppercase tracking-wider transition-all ${selectedPlan?.id === plan.id ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-zinc-800 hover:bg-zinc-700 text-white'}`}>
+                  {selectedPlan?.id === plan.id ? 'Seleccionado' : 'Elegir Plan'}
+                </button>
+              </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      <section id="planes-mensuales" className="py-20 px-6 bg-zinc-950/50">
-        <div className="container-pad">
-          <div className="text-center mb-12 animate-slide-up">
-            <h2 className="section-title mb-3">PLANES MENSUALES</h2>
-            <p className="section-subtitle mx-auto">
-              Periodización de 30 días con seguimiento intensivo. Para atletas que compiten o buscan máximo rendimiento.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {monthlyPlans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="extra-video" className="py-20 px-6">
-        <div className="container-pad max-w-4xl mx-auto">
-          <div className="glass-card p-8 md:p-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 mb-6 shadow-xl shadow-emerald-900/30">
-              <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+          {/* Extra Video */}
+          {selectedPlan && (
+            <div className="max-w-xl mx-auto mb-24 animate-float">
+              <label className="flex items-center justify-between p-6 glass-card border-primary/30 cursor-pointer hover:bg-primary/5 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-colors ${addVideoReview ? 'bg-primary border-primary' : 'border-zinc-600'}`}>
+                    {addVideoReview && <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg">Incluir Revisión de Técnica</h4>
+                    <p className="text-sm text-muted-foreground">Análisis detallado de tus videos.</p>
+                  </div>
+                </div>
+                <span className="text-xl font-black text-primary">+${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
+                <input type="checkbox" className="hidden" checked={addVideoReview} onChange={(e) => setAddVideoReview(e.target.checked)}/>
+              </label>
             </div>
-            <h3 className="text-2xl md:text-3xl font-black mb-4">Revisión Técnica por Video</h3>
-            <p className="text-zinc-400 mb-6 max-w-2xl mx-auto">
-              Servicio extra opcional. Enviás tu video de Sentadilla, Banca o Peso Muerto y recibís un análisis detallado con correcciones específicas.
-            </p>
-            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <span className="text-emerald-400 font-bold">Costo adicional:</span>
-              <span className="text-2xl font-black text-white">$15.000</span>
-            </div>
-            <p className="mt-4 text-sm text-zinc-500">
-              Podés agregar este servicio al momento de contratar cualquier plan.
-            </p>
-          </div>
+          )}
         </div>
       </section>
 
-      <section id="como-funciona" className="py-20 px-6 bg-zinc-950/50">
-        <div className="container-pad max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="section-title mb-3">CÓMO FUNCIONA</h2>
-            <p className="section-subtitle mx-auto">
-              Proceso simple y directo. De la orden al entrenamiento en menos de 48 horas.
-            </p>
+      {/* ─── CHECKOUT SECTION ─── */}
+      <section id="checkout-section" className="relative z-10 py-24 px-4 bg-black/40">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="section-title">FINALIZAR INSCRIPCIÓN</h2>
+            <p className="text-muted-foreground">Completá tus datos para recibir el acceso.</p>
           </div>
+          {selectedPlan ? (
+            <div className="glass-card p-8 md:p-16 border-primary/20">
+              <CheckoutClient selectedPlan={selectedPlan} extraVideo={addVideoReview} extraPrice={EXTRA_VIDEO_PRICE} />
+            </div>
+          ) : (
+            <div className="text-center p-16 glass-card opacity-60 border-dashed border-2">
+              <p className="text-xl font-bold text-zinc-500 uppercase">Seleccioná un plan arriba para continuar</p>
+            </div>
+          )}
+        </div>
+      </section>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <Step
-              number="01"
-              title="Elegís tu Plan"
-              desc="Seleccionás entre planes semanales o mensuales según tu objetivo y disponibilidad de entrenamiento."
-            />
-            <Step
-              number="02"
-              title="Realizás el Pago"
-              desc="Transferencia, Mercado Pago o Cripto. Subís el comprobante y validamos tu orden en minutos."
-            />
-            <Step
-              number="03"
-              title="Recibís tu Programa"
-              desc="Dentro de 48hs tenés tu rutina personalizada y comenzás a entrenar con seguimiento según tu plan."
-            />
+      {/* ─── BIO & FOOTER ─── */}
+      <section className="relative z-10 py-24 px-4">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <span className="badge mb-4">El Entrenador</span>
+            <h2 className="text-4xl font-black mb-6">LUCIANO <br/><span className="text-primary">(TUJAGUE STRENGTH)</span></h2>
+            <p className="text-lg text-muted-foreground mb-6">Especializado en fuerza. Mi objetivo no es entretenerte, es hacerte fuerte.</p>
+            <p className="text-xl font-bold italic text-white border-l-4 border-primary pl-6 py-2">"No hago coaching 1 a 1 de niñera; te doy las herramientas profesionales para que entrenes como un atleta."</p>
+          </div>
+          <div className="glass-card p-10">
+             <h3 className="text-xl font-bold uppercase mb-6">Contacto Directo</h3>
+             <ul className="space-y-4 text-zinc-400">
+               <li><strong className="text-white">Instagram:</strong> @tujaquestrength</li>
+               <li><strong className="text-white">Email:</strong> contacto@tujaque.com</li>
+               <li><strong className="text-white">WhatsApp:</strong> +54 9 11 2302-1760</li>
+             </ul>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-zinc-800 py-12 px-6">
-        <div className="container-pad">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-center md:text-left">
-              <div className="font-black text-lg mb-1">TUJAQUE STRENGTH</div>
-              <div className="text-sm text-zinc-500">Coaching Profesional de Fuerza</div>
-            </div>
-
-            <div className="flex gap-6 text-sm text-zinc-400">
-              <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
-                Términos y Condiciones
-              </Link>
-              <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
-                Privacidad
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-8 border-t border-zinc-900 text-center text-xs text-zinc-600">
-            <p>2026 Tujaque Strength. Buenos Aires, Argentina.</p>
-            <p className="mt-2">Servicio exclusivo para hombres mayores de 18 años.</p>
+      <footer className="relative z-10 py-12 text-center border-t border-zinc-800/50 bg-black/60">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
+          <p className="text-zinc-500 text-sm">&copy; {new Date().getFullYear()} Tujaque Strength. Hombres +18.</p>
+          <div className="flex gap-8 text-sm font-bold uppercase tracking-wider">
+            <Link href="/legal/terms" className="hover:text-primary transition-colors">Términos</Link>
+            <Link href="/legal/privacy" className="hover:text-primary transition-colors">Privacidad</Link>
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function PlanCard({ plan }: { plan: Plan }) {
-  const isPopular = plan.benefits?.highlight === "popular";
-  const isElite = plan.benefits?.highlight === "elite";
-  const includes = plan.benefits?.includes || [];
-
-  return (
-    <div className={`relative group ${isElite ? "plan-card-elite" : isPopular ? "plan-card-popular" : "plan-card"}`}>
-      {isPopular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 badge-popular">
-          Más Elegido
-        </div>
-      )}
-
-      {isElite && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 badge-elite">
-          Elite
-        </div>
-      )}
-
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h3 className="text-2xl font-black mb-2">{plan.name}</h3>
-          <p className="text-sm text-zinc-400">{plan.days} días por semana</p>
-        </div>
-        <div className="text-right">
-          <div className="text-3xl font-black text-emerald-400">
-            ${(plan.price_ars / 1000).toFixed(0)}K
-          </div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wider">ARS</div>
-        </div>
-      </div>
-
-      {plan.benefits?.ideal_for && (
-        <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
-          {plan.benefits.ideal_for}
-        </p>
-      )}
-
-      <ul className="space-y-3 mb-8">
-        {includes.slice(0, 4).map((item, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-zinc-300">
-            <svg className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href={`/checkout?plan=${plan.code}`}
-        className={isElite ? "btn-premium w-full text-center" : isPopular ? "btn-primary w-full" : "btn-secondary w-full text-center"}
-      >
-        ELEGIR PLAN
-      </Link>
-    </div>
-  );
-}
-
-function Step({ number, title, desc }: { number: string; title: string; desc: string }) {
-  return (
-    <div className="relative">
-      <div className="text-6xl font-black text-emerald-500/10 mb-4">{number}</div>
-      <h4 className="text-xl font-bold mb-3">{title}</h4>
-      <p className="text-zinc-400 text-sm leading-relaxed">{desc}</p>
-    </div>
+    </main>
   );
 }

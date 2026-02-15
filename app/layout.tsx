@@ -1,9 +1,9 @@
-import "./globals.css";
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tujaque Strength",
-  description: "Checkout",
+  title: "Tujaque Strength | Elite Coaching",
+  description: "Sistema de entrenamiento profesional de fuerza",
 };
 
 export default function RootLayout({
@@ -12,8 +12,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
+    <html lang="es" className="scroll-smooth">
+      <body className="antialiased">
+        <div className="bg-noise" />
         {children}
       </body>
     </html>
