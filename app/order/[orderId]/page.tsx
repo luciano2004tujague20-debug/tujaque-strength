@@ -9,7 +9,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ─── TUS DATOS DE COBRO COMPLETOS (ACTUALIZADOS) ───
+// --- CEREBRO DE CONVERSIÓN (PASO 1) ---
+const TASAS = {
+  dolar: 1200,      // 1 USD = 1200 ARS
+  btc: 85000000     // 1 BTC = 85M ARS
+};
+
 const PAYMENT_CONFIG = {
   brubank: {
     title: "Brubank (Pesos ARS)",
@@ -46,6 +51,7 @@ export default function OrderStatusPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(false); // Estado para mostrar éxito
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -53,13 +59,29 @@ export default function OrderStatusPage() {
       const { data } = await supabase.from("orders").select("*").eq("order_id", orderId).single();
       setOrder(data);
       setLoading(false);
+      if (data?.status === 'verifying') setDone(true);
     };
     fetchOrder();
   }, [orderId]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Copiado: " + text);
+    alert("Copiado al portapapeles: " + text);
+  };
+
+  const getConvertedAmount = () => {
+    if (!order) return "";
+    const ars = order.amount_ars || 0;
+    
+    if (order.payment_method === 'crypto') {
+      const usdt = (ars / TASAS.dolar).toFixed(2);
+      const btc = (ars / TASAS.btc).toFixed(8);
+      return `${usdt} USDT/USDC o ₿ ${btc}`;
+    }
+    if (order.payment_method === 'international_usd' || order.payment_method === 'usd') {
+      return `U$D ${(ars / TASAS.dolar).toFixed(2)}`;
+    }
+    return `$${ars.toLocaleString()} ARS`;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,17 +96,16 @@ export default function OrderStatusPage() {
     try {
       const { error: uploadError } = await supabase.storage
         .from('receipts')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       await supabase
         .from('orders')
-        .update({ status: 'verifying' })
-        .eq('order_id', orderId);
+        .update({ status: 'verifying', receipt_url: filePath })
+        .eq("order_id", orderId);
 
-      alert("¡Comprobante subido correctamente!");
-      window.location.reload();
+      setDone(true);
       
     } catch (error) {
       console.log("Error subida:", error);
@@ -95,7 +116,7 @@ export default function OrderStatusPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-black text-emerald-500 flex items-center justify-center font-black animate-pulse">Cargando orden...</div>;
+  if (loading) return <div className="min-h-screen bg-black text-emerald-500 flex items-center justify-center font-black italic animate-pulse">Sincronizando Orden...</div>;
   if (!order) return <div className="min-h-screen bg-black text-red-500 flex items-center justify-center font-bold">Orden no encontrada.</div>;
 
   return (
@@ -103,125 +124,114 @@ export default function OrderStatusPage() {
       <div className="max-w-3xl w-full space-y-6">
         
         {/* HEADER */}
-        <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-            <span className="text-3xl text-black font-bold">✓</span>
+        <div className="text-center space-y-2 mb-8">
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl transition-all ${done ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-zinc-800'}`}>
+            <span className={`text-4xl font-bold ${done ? 'text-black' : 'text-zinc-600'}`}>{done ? '✓' : '!'}</span>
           </div>
-          <h1 className="text-2xl font-black italic tracking-tighter">¡Orden Generada!</h1>
-          <p className="text-zinc-400 text-sm">ID: <span className="text-white font-mono font-bold">#{order.order_id}</span></p>
+          <h1 className="text-3xl font-black italic tracking-tighter uppercase mt-4">
+            {done ? '¡Comprobante Recibido!' : 'Confirmar Pago'}
+          </h1>
+          <p className="text-zinc-500 text-xs font-mono">ORDEN #{order.order_id}</p>
         </div>
 
-        {/* RESUMEN DE PAGO */}
-        <div className="bg-[#111] border border-zinc-800 rounded-3xl p-6 shadow-2xl">
-          <div className="flex justify-between items-end border-b border-zinc-800 pb-5 mb-5">
-            <div>
-              <p className="text-[10px] font-bold text-zinc-500 tracking-widest">Total a Pagar</p>
-              <p className="text-3xl font-black text-emerald-400 tracking-tighter">${order.amount_ars?.toLocaleString()}</p>
+        {!done ? (
+          <>
+            {/* RESUMEN DE CONVERSIÓN */}
+            <div className="bg-[#0c0c0e] border border-white/5 rounded-3xl p-8 shadow-2xl text-center">
+              <p className="text-[10px] font-black text-zinc-500 tracking-[0.3em] uppercase mb-2">Monto exacto a enviar</p>
+              <p className="text-4xl font-black text-emerald-400 tracking-tighter italic">
+                {getConvertedAmount()}
+              </p>
+              {order.payment_method !== 'transfer_ars' && (
+                <p className="text-[10px] text-zinc-600 mt-4 font-bold">Referencia original: ${order.amount_ars?.toLocaleString()} ARS</p>
+              )}
             </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-zinc-500 tracking-widest">Estado</p>
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${order.status === 'verifying' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-zinc-800 text-white'}`}>
-                {order.status === 'verifying' ? 'Verificando' : 'Pendiente de Pago'}
-              </span>
+
+            {/* DATOS DE COBRO */}
+            <div className="space-y-4">
+              <h3 className="text-center text-[10px] font-black tracking-[0.2em] text-zinc-500 uppercase italic">Datos de la cuenta</h3>
+
+              {order.payment_method === 'transfer_ars' && (
+                <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4">
+                  <p className="text-emerald-500 text-[10px] font-black text-center tracking-widest uppercase mb-4">{PAYMENT_CONFIG.brubank.title}</p>
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-4 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all">
+                    <span className="text-zinc-500 text-[10px] font-black uppercase">Alias</span>
+                    <span className="font-mono text-white group-hover:text-emerald-400">{PAYMENT_CONFIG.brubank.alias}</span>
+                  </div>
+                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-4 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all">
+                    <span className="text-zinc-500 text-[10px] font-black uppercase">CBU</span>
+                    <span className="font-mono text-white text-xs group-hover:text-emerald-400">{PAYMENT_CONFIG.brubank.cbu}</span>
+                  </div>
+                </div>
+              )}
+
+              {order.payment_method === 'crypto' && (
+                <div className="space-y-3">
+                  {Object.entries(PAYMENT_CONFIG.crypto).map(([key, coin]) => (
+                    <div key={key} onClick={() => copyToClipboard(coin.address)} className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5 cursor-pointer hover:border-emerald-500/30 transition-all group">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">{key} ({coin.network})</span>
+                        <span className="text-[9px] text-zinc-600 group-hover:text-white font-black">COPIAR</span>
+                      </div>
+                      <p className="font-mono text-xs text-zinc-400 break-all group-hover:text-white">{coin.address}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(order.payment_method === 'international_usd' || order.payment_method === 'usd') && (
+                <div className="space-y-4">
+                  <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5">
+                    <p className="text-emerald-500 text-[10px] font-black mb-4 uppercase tracking-widest">{PAYMENT_CONFIG.buenbit_ach.title}</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.routing)} className="cursor-pointer bg-black/30 p-3 rounded-lg border border-white/5">
+                        <p className="text-[9px] text-zinc-500 font-black uppercase mb-1">Routing</p>
+                        <p className="font-mono text-xs text-white">{PAYMENT_CONFIG.buenbit_ach.routing}</p>
+                      </div>
+                      <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.account)} className="cursor-pointer bg-black/30 p-3 rounded-lg border border-white/5">
+                        <p className="text-[9px] text-zinc-500 font-black uppercase mb-1">Account</p>
+                        <p className="font-mono text-xs text-white">{PAYMENT_CONFIG.buenbit_ach.account}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 text-[9px] text-zinc-500 font-bold space-y-1 opacity-60 italic">
+                      <p>BANK: {PAYMENT_CONFIG.buenbit_ach.bank}</p>
+                      <p>NAME: {PAYMENT_CONFIG.buenbit_ach.name}</p>
+                      <p>ADDRESS: {PAYMENT_CONFIG.buenbit_ach.address}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
 
-          <div className="space-y-6">
-            <h3 className="text-center text-xs font-bold tracking-widest text-zinc-500 italic">
-              Datos para realizar el pago
-            </h3>
+            {/* BOTÓN SUBIR */}
+            <div className="pt-10">
+              <label className="block w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-5 rounded-[2rem] tracking-[0.2em] text-xs uppercase transition-all cursor-pointer shadow-[0_10px_30px_rgba(16,185,129,0.2)] text-center active:scale-95">
+                {uploading ? "PROCESANDO..." : "SUBIR COMPROBANTE 📄"}
+                <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} accept="image/*,.pdf" />
+              </label>
+              <p className="text-[10px] text-zinc-600 text-center mt-6 italic font-bold">
+                Una vez enviado, el sistema notificará a Luciano para la validación.
+              </p>
+            </div>
+          </>
+        ) : (
+          /* PANTALLA DE ÉXITO FINAL */
+          <div className="glass-card p-10 text-center animate-fade-in border-emerald-500/20 bg-emerald-500/[0.02] rounded-[3rem]">
+            <h2 className="text-3xl font-black italic mb-6">PROTOCOLO <span className="text-emerald-400">INICIADO</span></h2>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+              Tu ticket ha sido enviado correctamente. Luciano validará los datos y activará tu acceso al sistema.
+            </p>
+            
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-8 rounded-[2rem] mb-8">
+              <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-3">Aviso de Entrega</p>
+              <p className="text-sm text-zinc-200 italic leading-relaxed">
+                Recordá que el armado de tu planificación personalizada tiene una demora de hasta **48 horas hábiles**. Recibirás un WhatsApp de confirmación cuando tu Dashboard esté listo.
+              </p>
+            </div>
 
-            {/* ─── CASO 1: TRANSFERENCIA ARS ─── */}
-            {order.payment_method === 'transfer_ars' && (
-              <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800 space-y-4">
-                <p className="text-emerald-500 text-xs font-black text-center mb-2">{PAYMENT_CONFIG.brubank.title}</p>
-                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.alias)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-3 rounded-lg border border-transparent hover:border-zinc-700">
-                  <span className="text-zinc-500 text-xs font-bold ">Alias</span>
-                  <span className="font-mono text-white group-hover:text-emerald-400 transition-colors">{PAYMENT_CONFIG.brubank.alias}</span>
-                </div>
-                <div onClick={() => copyToClipboard(PAYMENT_CONFIG.brubank.cbu)} className="cursor-pointer group flex justify-between items-center bg-black/50 p-3 rounded-lg border border-transparent hover:border-zinc-700">
-                  <span className="text-zinc-500 text-xs font-bold ">CBU</span>
-                  <span className="font-mono text-white text-xs md:text-sm group-hover:text-emerald-400 transition-colors break-all">{PAYMENT_CONFIG.brubank.cbu}</span>
-                </div>
-                <p className="text-[10px] text-zinc-600 text-center font-bold">Titular: {PAYMENT_CONFIG.brubank.holder}</p>
-              </div>
-            )}
-
-            {/* ─── CASO 2: CRYPTO ─── */}
-            {order.payment_method === 'crypto' && (
-              <div className="space-y-3">
-                {Object.entries(PAYMENT_CONFIG.crypto).map(([key, coin]) => (
-                  <div key={key} onClick={() => copyToClipboard(coin.address)} className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 cursor-pointer hover:border-emerald-500/50 transition-all group">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-emerald-500 text-[10px] font-black ">{key.toUpperCase()} ({coin.network})</span>
-                      <span className="text-[10px] text-zinc-600 group-hover:text-white">COPIAR</span>
-                    </div>
-                    <p className="font-mono text-xs text-zinc-300 break-all group-hover:text-white">{coin.address}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ─── CASO 3: DÓLAR INTERNACIONAL (LOCAL + ACH) ─── */}
-            {(order.payment_method === 'international_usd' || order.payment_method === 'usd') && (
-              <div className="space-y-4">
-                {/* Opción Local */}
-                <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800">
-                  <p className="text-emerald-500 text-xs font-black mb-3">{PAYMENT_CONFIG.buenbit_local.title}</p>
-                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.cbu)} className="cursor-pointer mb-2">
-                    <p className="text-[10px] text-zinc-500 font-bold ">CBU</p>
-                    <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_local.cbu}</p>
-                  </div>
-                  <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_local.alias)} className="cursor-pointer">
-                    <p className="text-[10px] text-zinc-500 font-bold ">Alias</p>
-                    <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_local.alias}</p>
-                  </div>
-                </div>
-
-                {/* Opción ACH USA */}
-                <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800">
-                  <p className="text-emerald-500 text-xs font-black mb-3">{PAYMENT_CONFIG.buenbit_ach.title}</p>
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.routing)} className="cursor-pointer">
-                      <p className="text-[10px] text-zinc-500 font-bold ">Routing (ACH)</p>
-                      <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.routing}</p>
-                    </div>
-                    <div onClick={() => copyToClipboard(PAYMENT_CONFIG.buenbit_ach.account)} className="cursor-pointer">
-                      <p className="text-[10px] text-zinc-500 font-bold ">Account</p>
-                      <p className="font-mono text-sm text-white hover:text-emerald-400">{PAYMENT_CONFIG.buenbit_ach.account}</p>
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-zinc-600 space-y-1">
-                    <p>Banco: {PAYMENT_CONFIG.buenbit_ach.bank} ({PAYMENT_CONFIG.buenbit_ach.type})</p>
-                    <p>Nombre: {PAYMENT_CONFIG.buenbit_ach.name}</p>
-                    <p>Dirección: {PAYMENT_CONFIG.buenbit_ach.address}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ─── CASO 4: MERCADO PAGO ─── */}
-            {(order.payment_method === 'mercado_pago' || order.payment_method === 'mercadopago') && (
-               <div className="text-center space-y-4">
-                 <p className="text-sm text-zinc-300">Si no se abrió la app automáticamente, usá este botón:</p>
-                 <a href={`https://wa.me/5491123021760?text=Link MP orden ${order.order_id}`} className="block w-full bg-[#009EE3] hover:bg-[#008ED6] text-white font-black py-4 rounded-xl">Pedir Link Manualmente</a>
-               </div>
-            )}
-          </div>
-        </div>
-
-        {/* BOTÓN SUBIR COMPROBANTE (Para todos MENOS MP) */}
-        {order.payment_method !== 'mercado_pago' && order.payment_method !== 'mercadopago' && order.status !== 'verifying' && (
-          <div className="bg-[#111] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-center">
-            <h3 className="text-xs font-bold tracking-widest text-zinc-500 mb-4 italic">Ya realicé el pago</h3>
-            <label className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl tracking-widest transition-all cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-[0.98]">
-              {uploading ? "Subiendo..." : "Subir Comprobante"}
-              <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} accept="image/*,.pdf" />
-            </label>
+            <button onClick={() => window.location.href = '/'} className="text-[10px] text-zinc-500 font-black uppercase tracking-widest hover:text-white transition-colors">Volver al Inicio</button>
           </div>
         )}
-        
-        <button onClick={() => window.location.href = '/'} className="w-full text-zinc-600 hover:text-white text-xs font-bold transition-colors py-4">Volver al Inicio</button>
       </div>
     </div>
   );
