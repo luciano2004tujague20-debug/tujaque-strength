@@ -147,8 +147,8 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
       {/* RESUMEN Y BOTÓN */}
       <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl h-fit shadow-2xl">
         <div className="mb-8">
-          <h3 className="text-zinc-500 text-xs font-bold uppercase mb-2">Resumen de Plan</h3>
-          <p className="text-white font-black text-2xl tracking-tighter uppercase italic">{selectedPlan.title}</p>
+          <h3 className="text-zinc-500 text-xs font-bold mb-2">Resumen de Plan</h3>
+          <p className="text-white font-black text-2xl tracking-tighter italic">{selectedPlan.title}</p>
           <p className="text-emerald-500 text-xs font-bold">{selectedPlan.subtitle}</p>
         </div>
         
