@@ -72,8 +72,17 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     const orderId = `TS-${Math.floor(100000000 + Math.random() * 900000000)}`;
 
     try {
-      // 1. BUSCAR ID REAL (UUID) DEL PLAN
-      // Esto soluciona el error "invalid input syntax for type uuid"
+      // 1. TRADUCIR MÉTODO DE PAGO AL FORMATO EXACTO DE LA BASE DE DATOS
+      let dbPaymentMethod = "";
+      switch (paymentMethod) {
+        case "mercadopago": dbPaymentMethod = "mercado_pago"; break;
+        case "transferencia": dbPaymentMethod = "transfer_ars"; break;
+        case "usd": dbPaymentMethod = "international_usd"; break;
+        case "crypto": dbPaymentMethod = "crypto"; break;
+        default: dbPaymentMethod = "mercado_pago";
+      }
+
+      // 2. BUSCAR ID REAL (UUID) DEL PLAN
       const { data: realPlan, error: planError } = await supabase
         .from('plans')
         .select('id')
@@ -84,8 +93,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         throw new Error("No se encontró el plan en la base de datos.");
       }
 
-      // 2. INSERTAR LA ORDEN (PARA TODOS LOS MÉTODOS)
-      // Ahora Transferencia y Crypto TAMBIÉN crean orden en tu panel
+      // 3. INSERTAR LA ORDEN CON LOS DATOS CORRECTOS
       const { error: supabaseError } = await supabase.from("orders").insert([
         {
           order_id: orderId,
@@ -93,17 +101,16 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           customer_email: formData.email.trim(),
           customer_ref: formData.instagram.trim() || null,
           plan_id: realPlan.id, 
-          amount_ars: totalAmount, // Usamos la columna correcta
-          status: "pending", // Queda pendiente hasta que suban el comprobante
-          payment_method: paymentMethod, // Guardamos si es crypto, transf, etc.
+          amount_ars: totalAmount,
+          status: "awaiting_payment", // <--- ESTADO CORRECTO PARA TU DB
+          payment_method: dbPaymentMethod, // <--- NOMBRE EXACTO (mercado_pago, transfer_ars, etc.)
           extra_video: extraVideo
         }
       ]);
 
       if (supabaseError) throw new Error(supabaseError.message);
 
-      // 3. REDIRIGIR SIEMPRE A LA PÁGINA DE ESTADO
-      // Ahí es donde verán el CBU y podrán subir el comprobante
+      // 4. REDIRIGIR
       router.push(`/order/${orderId}?email=${encodeURIComponent(formData.email.trim())}`);
       
     } catch (err: any) {

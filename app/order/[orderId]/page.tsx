@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -45,7 +45,6 @@ export default function OrderStatusPage() {
     const fileName = `${orderId}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // Intentamos subir al bucket 'receipts' (Si no existe, fallará pero avisará por WP)
     try {
       const { error: uploadError } = await supabase.storage
         .from('receipts')
@@ -53,8 +52,6 @@ export default function OrderStatusPage() {
 
       if (uploadError) throw uploadError;
 
-      // Guardamos la URL pública en la orden (si tenés columna receipt_url)
-      // Si no, simplemente cambiamos el estado a 'verifying'
       await supabase
         .from('orders')
         .update({ status: 'verifying' })
@@ -66,7 +63,6 @@ export default function OrderStatusPage() {
       console.log("Error subida (Bucket receipts puede no existir):", error);
       alert("No se pudo subir la imagen directo (verificá tu conexión). Pero avisamos por WhatsApp.");
     } finally {
-      // Redirigir a WhatsApp para confirmar
       const msg = `Hola! Ya subí el comprobante de la orden ${orderId}. Revisalo por favor.`;
       window.open(`https://wa.me/5491123021760?text=${msg}`, "_blank");
       setUploading(false);
@@ -96,7 +92,12 @@ export default function OrderStatusPage() {
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-zinc-500 uppercase">Método</p>
-              <p className="font-bold uppercase text-emerald-500">{order.payment_method}</p>
+              {/* Mostramos el método bonito en pantalla */}
+              <p className="font-bold uppercase text-emerald-500">
+                {order.payment_method === 'mercado_pago' ? 'Mercado Pago' : 
+                 order.payment_method === 'transfer_ars' ? 'Transferencia' : 
+                 order.payment_method === 'crypto' ? 'Cripto' : order.payment_method}
+              </p>
             </div>
           </div>
 
@@ -105,8 +106,8 @@ export default function OrderStatusPage() {
               {order.status === 'verifying' ? "Comprobante Enviado - Verificando..." : "Realizá el pago y subí el comprobante"}
             </h3>
 
-            {/* DATOS DE PAGO (SOLO SI NO ES MP) */}
-            {order.payment_method !== 'mercadopago' && (
+            {/* SI NO ES MERCADO PAGO, MOSTRAMOS DATOS DE TRANSFERENCIA/CRYPTO */}
+            {order.payment_method !== 'mercado_pago' && (
               <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 space-y-4">
                 {order.payment_method === 'crypto' ? (
                   <div onClick={() => copyToClipboard(PAYMENT_CONFIG.crypto.usdt)} className="cursor-pointer break-all">
@@ -128,8 +129,8 @@ export default function OrderStatusPage() {
               </div>
             )}
 
-            {/* BOTÓN DE SUBIR COMPROBANTE */}
-            {order.payment_method !== 'mercadopago' && order.status !== 'verifying' && (
+            {/* BOTÓN DE SUBIDA */}
+            {order.payment_method !== 'mercado_pago' && order.status !== 'verifying' && (
               <div className="pt-4 border-t border-zinc-800">
                 <label className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all text-center cursor-pointer">
                   {uploading ? "Subiendo..." : "Subir Comprobante / Informar Pago"}
@@ -139,7 +140,8 @@ export default function OrderStatusPage() {
               </div>
             )}
 
-            {order.payment_method === 'mercadopago' && (
+            {/* BOTÓN DE MERCADO PAGO */}
+            {order.payment_method === 'mercado_pago' && (
                <a href={`https://wa.me/5491123021760?text=Hola! Link de MP para orden ${order.order_id}`} className="block w-full bg-[#009EE3] text-white font-bold py-3 rounded-xl text-center">Solicitar Link MP</a>
             )}
           </div>
