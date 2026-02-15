@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
-// ─── TUS DATOS DE COBRO CORREGIDOS ───
+// ─── CONFIGURACIÓN DE SUPABASE DIRECTA ───
+// Esto permite escribir directamente en la base de datos usando las claves públicas
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ─── TUS DATOS DE COBRO ───
 const PAYMENT_CONFIG = {
   brubank: {
     alias: "lucianotujague",
@@ -60,36 +67,43 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name || !formData.email) return;
     setLoading(true);
+
+    const orderId = `TS-${Math.floor(100000000 + Math.random() * 900000000)}`;
 
     if (paymentMethod === "mercadopago") {
       try {
-        const res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formData.name.trim(),
-            email: formData.email.trim(),
-            customerRef: formData.instagram.trim() || null, 
-            planCode: selectedPlan.id, 
-            paymentMethod: "ars",
-            extraVideo: extraVideo,
-          }),
-        });
+        // ─── INSERT DIRECTO A SUPABASE ───
+        // Esto evita el error de autorización de la API
+        const { error: supabaseError } = await supabase.from("orders").insert([
+          {
+            order_id: orderId,
+            customer_name: formData.name.trim(),
+            customer_email: formData.email.trim(),
+            customer_ref: formData.instagram.trim() || null,
+            plan_id: selectedPlan.id,
+            total_amount: totalAmount,
+            status: "pending",
+            payment_method: "mercadopago",
+            extra_video: extraVideo
+          }
+        ]);
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error en la orden");
+        if (supabaseError) throw new Error(supabaseError.message);
 
-        if (data.orderId) {
-          router.push(`/order/${data.orderId}?email=${encodeURIComponent(formData.email.trim())}`);
-        }
+        // Si se guardó bien, redirigimos a la página de la orden
+        router.push(`/order/${orderId}?email=${encodeURIComponent(formData.email.trim())}`);
+        
       } catch (err: any) {
-        alert(err.message || "Error al conectar con Mercado Pago");
+        console.error("Error detallado:", err);
+        alert("Error al generar la orden: " + (err.message || "Revisá tu conexión"));
       }
     } else {
+      // Lógica de WhatsApp para pagos manuales
       const methodText = paymentMethod === 'crypto' ? 'Cripto' : paymentMethod === 'usd' ? 'Dólar' : 'Transferencia';
       const msg = `Hola Luciano! Ya realicé el pago del plan *${selectedPlan.title}*.%0A- Nombre: ${formData.name}%0A- Método: ${methodText}%0A- Total: $${totalAmount.toLocaleString()}`;
-      window.open(`https://wa.me/5491112345678?text=${msg}`, "_blank");
+      window.open(`https://wa.me/5491123021760?text=${msg}`, "_blank");
     }
     setLoading(false);
   };
