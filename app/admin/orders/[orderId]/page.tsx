@@ -2,236 +2,258 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
+// Función para formatear dinero
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
+};
+
+// Función para arreglar el link de la imagen si viene cortado
+const getFullImageUrl = (path: string | null) => {
+  if (!path) return null;
+  // Si ya es un link completo (empieza con http), lo dejamos igual
+  if (path.startsWith('http')) return path;
+  
+  // Si es solo el nombre del archivo, le pegamos la dirección de Supabase
+  // Asegúrate de que tu bucket se llame 'receipts'
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/receipts/${path}`;
 };
 
 export default function OrderDetail() {
   const params = useParams();
   const router = useRouter();
   const [order, setOrder] = useState<any>(null);
-  const [plan, setPlan] = useState<any>(null);
-  const [receipt, setReceipt] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
+  const orderIdParam = params.orderId as string;
+
   useEffect(() => {
     const fetchDetail = async () => {
-      // 1. Fetch Order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', params.orderId) // Usamos el UUID de la URL
-        .single();
+      setLoading(true);
+      try {
+        // Usamos cache: 'no-store' para que siempre traiga el dato fresco
+        const res = await fetch(`/api/admin/orders/${orderIdParam}`, { cache: 'no-store' });
+        const json = await res.json();
 
-      if (orderError) {
-        alert('Orden no encontrada');
-        router.push('/admin/orders');
-        return;
+        if (!res.ok) {
+          alert(`Error: ${json.error || 'No encontrada'}`);
+          router.push('/admin/orders');
+          return;
+        }
+        setOrder(json.order);
+      } catch (err) {
+        alert('Error de conexión.');
+      } finally {
+        setLoading(false);
       }
-      setOrder(orderData);
-
-      // 2. Fetch Plan
-      if (orderData.plan_id) {
-        const { data: planData } = await supabase
-          .from('plans')
-          .select('*')
-          .eq('id', orderData.plan_id)
-          .single();
-        setPlan(planData);
-      }
-
-      // 3. Fetch Receipt (Comprobante)
-      const { data: receiptData } = await supabase
-        .from('receipts')
-        .select('*')
-        .eq('order_uuid', orderData.id) // Usar order_uuid que relaciona con orders.id
-        .single();
-      
-      setReceipt(receiptData);
-      setLoading(false);
     };
-
-    if (params.orderId) fetchDetail();
-  }, [params.orderId, router]);
+    fetchDetail();
+  }, [orderIdParam, router]);
 
   const updateStatus = async (newStatus: 'paid' | 'rejected') => {
-    if (!confirm(`¿Estás seguro de marcar esta orden como ${newStatus}?`)) return;
-    setProcessing(true);
+    const action = newStatus === 'paid' ? 'APROBAR' : 'RECHAZAR';
+    if (!confirm(`¿Estás seguro de ${action} el pago?`)) return;
 
+    setProcessing(true);
     try {
-      const res = await fetch(`/api/admin/orders/${order.id}/status`, {
+      const res = await fetch(`/api/admin/orders/${orderIdParam}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
 
+      const json = await res.json();
+
       if (res.ok) {
         setOrder({ ...order, status: newStatus });
+        alert('Estado actualizado correctamente.');
       } else {
-        alert('Error al actualizar');
+        alert('Error: ' + (json.error || "No se pudo actualizar"));
       }
     } catch (e) {
-      alert('Error de conexión');
+      alert('Error de conexión.');
     } finally {
       setProcessing(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-emerald-500">Cargando detalle...</div>;
+  const deleteOrder = async () => {
+    if (!confirm('⚠️ ¿ELIMINAR este registro permanentemente?')) return;
+    setProcessing(true);
+    try {
+        const res = await fetch(`/api/admin/orders/${orderIdParam}`, { method: 'DELETE' });
+        if (res.ok) {
+            router.push('/admin/orders');
+        } else {
+            const json = await res.json();
+            alert("Error: " + json.error);
+        }
+    } catch (e) {
+        alert("Error de conexión");
+    } finally {
+        setProcessing(false);
+    }
+  };
 
-  // Calculos
-  const basePrice = order.amount_ars || 0;
-  const extraPrice = order.extra_video ? (order.extra_video_price_ars || 0) : 0;
-  const total = basePrice + extraPrice;
+  if (loading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-emerald-500 font-black italic text-2xl animate-pulse">CARGANDO...</div>;
+  if (!order) return null;
+
+  // Calculamos la URL real de la imagen usando la función nueva
+  const receiptUrl = getFullImageUrl(order.receipt_url);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-20">
-       {/* Nav Back */}
-       <div className="max-w-5xl mx-auto px-6 pt-8 mb-6">
-        <Link href="/admin/orders" className="text-zinc-400 hover:text-white flex items-center gap-2 text-sm">
-            ← Volver al listado
-        </Link>
-       </div>
-
-      <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* COLUMNA IZQUIERDA: DETALLES PRINCIPALES */}
-        <div className="lg:col-span-2 space-y-6">
-            
-            {/* Header de Orden */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-white mb-1">Orden {order.order_id}</h1>
-                        <p className="text-zinc-400 text-sm">Creada el {new Date(order.created_at).toLocaleDateString()} a las {new Date(order.created_at).toLocaleTimeString()}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-bold border
-                        ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                          order.status === 'rejected' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                          'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
-                        {order.status === 'paid' ? 'PAGADO' : order.status === 'rejected' ? 'RECHAZADO' : 'PENDIENTE'}
-                    </span>
-                </div>
-
-                {/* Cliente */}
-                <div className="border-t border-zinc-800 pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Cliente</label>
-                        <p className="text-white font-medium">{order.customer_name}</p>
-                    </div>
-                    <div>
-                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Email</label>
-                        <p className="text-white">{order.customer_email}</p>
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="text-xs text-zinc-500  tracking-wide font-semibold">Referencia / Objetivo</label>
-                        <p className="text-zinc-300 text-sm mt-1 p-3 bg-zinc-950 rounded border border-zinc-800">
-                            {order.customer_ref || 'Sin referencia'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Comprobante */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4">Comprobante de Pago</h3>
-                {receipt ? (
-                    <div className="flex items-center gap-4 bg-zinc-950 p-4 rounded-lg border border-zinc-800">
-                        <div className="h-10 w-10 bg-indigo-500/20 rounded flex items-center justify-center text-indigo-400">
-                            📄
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium text-white truncate">{receipt.original_name}</p>
-                            <p className="text-xs text-zinc-500">Subido: {new Date(receipt.uploaded_at).toLocaleDateString()}</p>
-                        </div>
-                        <a 
-                            href={receipt.file_path} /* Asumiendo que file_path es una URL firmada o pública, si es bucket privado, necesitaría una función para generar URL firmada */
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white text-xs rounded transition-colors"
-                        >
-                            Ver Archivo
-                        </a>
-                    </div>
-                ) : (
-                    <p className="text-zinc-500 text-sm italic">El cliente aún no ha subido comprobante.</p>
-                )}
+    <div className="min-h-screen bg-zinc-950 text-white pb-20 font-sans selection:bg-emerald-500 selection:text-black">
+      
+      {/* Navbar Superior */}
+      <div className="border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <Link href="/admin/orders" className="text-zinc-500 hover:text-white flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-colors">
+                ← Volver al listado
+            </Link>
+            <div className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest border ${
+                  order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                  order.status === 'rejected' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                  'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+            }`}>
+                {order.status.replace('_', ' ')}
             </div>
         </div>
+      </div>
 
-        {/* COLUMNA DERECHA: DESGLOSE Y ACCIONES */}
-        <div className="space-y-6">
+      <div className="max-w-6xl mx-auto px-6 pt-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
+        
+        {/* COLUMNA IZQUIERDA: DATOS Y FOTO */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Tarjeta de Info Principal */}
+          <div className="bg-black border border-zinc-800 rounded-[2rem] p-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-10 -mt-10"></div>
             
-            {/* DESGLOSE FINANCIERO (LO QUE PEDISTE) */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                <h3 className="text-lg font-bold mb-4 relative z-10">Detalle del Plan</h3>
-                
-                <div className="space-y-3 relative z-10">
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="text-zinc-400">Plan Base ({plan?.name || '---'})</span>
-                        <span className="text-white">{formatMoney(basePrice)}</span>
-                    </div>
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-1 text-white">Orden <span className="text-emerald-500">{order.order_id}</span></h1>
+            <p className="text-zinc-500 text-xs font-bold uppercase mb-8">Fecha: {new Date(order.created_at).toLocaleDateString()}</p>
 
-                    {/* BLOQUE EXTRA VISIBLE */}
-                    <div className={`flex justify-between items-center text-sm p-2 rounded ${order.extra_video ? 'bg-indigo-500/10 border border-indigo-500/20' : ''}`}>
-                        <div className="flex items-center gap-2">
-                             <span className={order.extra_video ? 'text-indigo-400' : 'text-zinc-500'}>
-                                {order.extra_video ? '✅ Revisión Video' : '❌ Sin Revisión'}
-                             </span>
-                        </div>
-                        <span className={order.extra_video ? 'text-indigo-300 font-medium' : 'text-zinc-600'}>
-                            {order.extra_video ? formatMoney(extraPrice) : '$ 0'}
-                        </span>
-                    </div>
-
-                    <div className="border-t border-zinc-800 pt-3 mt-3 flex justify-between items-center">
-                        <span className="font-bold text-white">Total a Cobrar</span>
-                        <span className="font-bold text-xl text-emerald-400">{formatMoney(total)}</span>
-                    </div>
+            <div className="grid md:grid-cols-2 gap-8 border-t border-zinc-800/50 pt-8">
+                <div>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1">Cliente</p>
+                    <p className="text-lg font-bold text-zinc-200">{order.customer_name}</p>
+                    <p className="text-sm text-zinc-400">{order.customer_email}</p>
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-zinc-800">
-                    <p className="text-xs text-zinc-500 mb-2  tracking-wide">Método de pago</p>
-                    <p className="text-white font-medium capitalize">{order.payment_method}</p>
+                <div>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1">Referencia / IG</p>
+                    <p className="text-lg font-bold text-zinc-200">{order.customer_ref || "-"}</p>
                 </div>
             </div>
+          </div>
 
-            {/* ACCIONES */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-zinc-400  tracking-wide mb-4">Acciones de Admin</h3>
+          {/* VISUALIZADOR DE COMPROBANTE */}
+          <div className="bg-zinc-900/30 border border-zinc-800 rounded-[2rem] p-8">
+            <h3 className="text-lg font-black italic uppercase mb-6 tracking-tight flex items-center gap-2">
+                📸 Comprobante de Pago
+            </h3>
+            
+            {receiptUrl ? (
+              <div className="space-y-4">
+                <div className="relative w-full rounded-2xl overflow-hidden border border-zinc-700 bg-black/50 group">
+                  <img 
+                    src={receiptUrl} 
+                    alt="Comprobante del cliente" 
+                    className="w-full h-auto max-h-[600px] object-contain"
+                  />
+                  {/* Overlay para abrir */}
+                  <a 
+                    href={receiptUrl} 
+                    target="_blank"
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <span className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest hover:scale-105 transition-transform">
+                        Abrir Original ↗
+                    </span>
+                  </a>
+                </div>
+                
+                {/* Botón de respaldo visible */}
+                <a 
+                    href={receiptUrl}
+                    target="_blank"
+                    className="block w-full text-center text-[10px] font-black text-emerald-500 border border-emerald-500/20 py-3 rounded-lg hover:bg-emerald-500/10 transition-colors uppercase tracking-widest"
+                >
+                    Abrir Imagen en Pestaña Nueva
+                </a>
+              </div>
+            ) : (
+              <div className="py-16 text-center border-2 border-dashed border-zinc-800 rounded-2xl bg-black/20">
+                <p className="text-zinc-500 font-bold text-sm">🚫 Sin comprobante adjunto</p>
+                <p className="text-zinc-600 text-xs mt-1">El cliente pagó con Mercado Pago o aún no subió la foto.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUMNA DERECHA: RESUMEN Y BOTONES */}
+        <div className="space-y-6">
+            <div className="bg-zinc-900 border border-emerald-500/20 rounded-[2rem] p-8 sticky top-24 shadow-2xl">
+                <h3 className="text-lg font-black italic uppercase mb-6 text-white">Resumen</h3>
+                
+                <div className="space-y-3 mb-8 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-zinc-400">Plan ({order.plans?.name || '...'})</span>
+                        <span className="font-mono text-zinc-200">{formatMoney(Number(order.amount_ars))}</span>
+                    </div>
+                    {order.extra_video && (
+                        <div className="flex justify-between text-indigo-400 font-bold">
+                            <span>+ Revisión Video</span>
+                            <span className="font-mono">+{formatMoney(Number(order.extra_video_price_ars || 15000))}</span>
+                        </div>
+                    )}
+                    <div className="pt-4 mt-2 border-t border-zinc-800 flex justify-between items-end">
+                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Total</span>
+                        <span className="text-3xl font-black text-emerald-500 italic">
+                             {formatMoney(Number(order.amount_ars) + (order.extra_video ? Number(order.extra_video_price_ars || 15000) : 0))}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="bg-black/40 p-4 rounded-xl border border-zinc-800 mb-8 text-center">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Método</p>
+                    <p className="text-sm font-bold uppercase text-white">{order.payment_method?.replace(/_/g, ' ')}</p>
+                </div>
+
                 <div className="space-y-3">
                     <button
                         onClick={() => updateStatus('paid')}
                         disabled={processing || order.status === 'paid'}
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:bg-zinc-800 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-900/20"
+                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[10px] tracking-[0.2em] rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 uppercase"
                     >
-                        Aprobar Orden
+                        {processing ? '...' : order.status === 'paid' ? 'Aprobado' : '✅ Aprobar Pago'}
                     </button>
+                    
                     <button
                         onClick={() => updateStatus('rejected')}
                         disabled={processing || order.status === 'rejected'}
-                        className="w-full py-3 bg-zinc-800 hover:bg-red-900/30 hover:text-red-400 hover:border-red-900/50 border border-transparent disabled:opacity-50 text-zinc-300 rounded-lg font-medium transition-all"
+                        className="w-full py-4 bg-transparent border border-zinc-700 hover:border-red-500 hover:text-red-500 text-zinc-400 font-black text-[10px] tracking-[0.2em] rounded-xl transition-all disabled:opacity-50 uppercase"
                     >
-                        Rechazar Orden
+                        ❌ Rechazar
                     </button>
+
+                    <div className="pt-4 mt-4 border-t border-white/5">
+                        <button
+                            onClick={deleteOrder}
+                            disabled={processing}
+                            className="w-full py-3 text-zinc-700 hover:text-red-800 text-[9px] font-black tracking-widest transition-colors uppercase"
+                        >
+                            Eliminar Registro
+                        </button>
+                    </div>
                 </div>
             </div>
-
         </div>
+
       </div>
     </div>
   );
