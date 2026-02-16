@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
-// Inicializamos Mercado Pago
 const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
 
 export async function POST(req: Request) {
@@ -9,9 +8,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { price, title, orderId } = body;
 
-    // Detectar la URL base (tu dominio)
-    // Si estás en local usa localhost, si estás en vercel usa tu dominio
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tujaque-strength.vercel.app";
+    const protocol = req.headers.get("x-forwarded-proto") || "http";
+    const host = req.headers.get("host");
+    const baseUrl = `${protocol}://${host}`;
 
     const preference = new Preference(client);
     const result = await preference.create({
@@ -26,7 +25,6 @@ export async function POST(req: Request) {
           }
         ],
         external_reference: orderId,
-        // Al terminar, MP te devuelve a tu página de orden
         back_urls: {
           success: `${baseUrl}/order/${orderId}?status=approved`,
           failure: `${baseUrl}/order/${orderId}?status=failure`,
@@ -36,11 +34,11 @@ export async function POST(req: Request) {
       }
     });
 
-    // Devolvemos la URL para redirigir al usuario
+    // IMPORTANTE: Devolvemos 'url' para que el frontend lo reconozca
     return NextResponse.json({ url: result.init_point });
     
   } catch (error: any) {
-    console.error("Error al crear preferencia MP:", error);
+    console.error("Error en Mercado Pago:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

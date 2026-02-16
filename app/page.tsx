@@ -5,46 +5,64 @@ import CheckoutClient from "./components/CheckoutClient";
 import Link from "next/link";
 import Image from "next/image";
 
-// ─── CONFIGURACIÓN DE DATOS ───
+// ─── CONFIGURACIÓN DE DATOS (6 PLANES) ───
 const PRICING_MATRIX = {
   weekly: [
     {
-      id: "weekly-3",
-      title: "FUERZA BASE (3 DÍAS)",
-      subtitle: "Test Drive / Introductorio",
-      price: 18000,
-      description: "Para quienes quieren probar la metodología bii-vintage sin compromiso. Sin seguimiento a largo plazo.",
-      features: ["Rutina estática", "Foco: Técnica en SBD", "Sin ajustes semanales"],
+      id: "semanal-3-4",
+      title: "INICIO RÁPIDO (3-4 DÍAS)",
+      subtitle: "Prueba Semanal / Adaptación",
+      price: 20000,
+      description: "Ideal para quienes quieren probar la metodología por primera vez o disponen de poco tiempo en la semana.",
+      features: ["Rutina enfocada en básicos", "Foco: Técnica en SBD", "Sin ajustes de largo plazo"],
       highlight: false,
     },
     {
-      id: "weekly-5",
-      title: "POWERBUILDING (5 DÍAS)",
+      id: "semanal-5-6",
+      title: "INTENSIVO (5-6 DÍAS)",
       subtitle: "Semana de Choque",
       price: 32000,
-      description: "Volumen extremo para romper estancamientos. Una experiencia intensa de 5 días sin seguimiento posterior.",
-      features: ["Alta densidad", "Técnicas RIR/RPE", "Ideal para pruebas puntuales"],
+      description: "Una semana de alta frecuencia para evaluar tu capacidad de recuperación y técnica bajo fatiga.",
+      features: ["Alta densidad de entrenamiento", "Técnicas RIR/RPE", "Ideal para atletas con experiencia"],
       highlight: true,
+    },
+    {
+      id: "semanal-7",
+      title: "FULL SEMANA (7 DÍAS)",
+      subtitle: "Máxima Exigencia",
+      price: 38000,
+      description: "Siete días de programación estricta. Para quienes no quieren dejar ni un solo día al azar.",
+      features: ["Programación diaria", "Control de volumen total", "Máximo rendimiento semanal"],
+      highlight: false,
     }
   ],
   monthly: [
     {
-      id: "monthly-3",
-      title: "FUERZA PRO (3 DÍAS)",
-      subtitle: "Mesociclo de Progresión",
+      id: "mensual-3-4",
+      title: "MESOCICLO BASE (3-4 DÍAS)",
+      subtitle: "Progreso Constante",
       price: 50000,
-      description: "Aquí comienza el progreso real. Planificación estructurada con ajustes de carga semanales basados en tu rendimiento.",
+      description: "Planificación mensual estructurada. Ideal para combinar con otras actividades manteniendo el progreso en fuerza.",
       features: ["Ajustes semanales de carga", "Periodización Lineal", "Gestión de fatiga real"],
       highlight: false,
     },
     {
-      id: "monthly-5",
-      title: "ELITE TOTAL (5 DÍAS)",
-      subtitle: "Máximo Rendimiento",
+      id: "mensual-5-6",
+      title: "PRO PERFORMANCE (5-6 DÍAS)",
+      subtitle: "Evolución Real",
       price: 100000,
-      description: "El plan definitivo. Gestión total de cargas y ajustes semanales garantizados para quienes priorizan el entrenamiento.",
+      description: "El estándar para el atleta serio. 4 semanas de progresión técnica y de cargas diseñada para resultados máximos.",
       features: ["Ajustes en 24hs", "Tabla de RPE personalizada", "Optimización Bii-Vintage"],
       highlight: true,
+    },
+    {
+      id: "mensual-7",
+      title: "ÉLITE TOTAL (7 DÍAS)",
+      subtitle: "Planificación Maestra",
+      price: 115000,
+      description: "Programación avanzada de 4 semanas. Requiere máxima disciplina y capacidad de trabajo. No apto para principiantes.",
+      features: ["Gestión total de variables", "Análisis de recuperación", "Soporte prioritario"],
+      highlight: false,
     }
   ]
 };
@@ -177,9 +195,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── PRICING SECTION ─── */}
+      {/* ─── PRICING SECTION (ACTUALIZADA A 3 COLUMNAS) ─── */}
       <section id="pricing-section" className="relative z-20 py-24 px-4">
-        <div className="max-w-6xl mx-auto text-center">
+        <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-black  italic text-center mb-12 tracking-tighter">
             TU <span className="text-emerald-500">INVERSIÓN</span>
           </h2>
@@ -189,12 +207,12 @@ export default function Home() {
             <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black  transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Mensual</button>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+          <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-6 max-w-7xl mx-auto mb-16">
             {currentPlans.map((plan) => (
               <div 
                 key={plan.id} 
                 onClick={() => handleSelectPlan(plan)}
-                className={`p-8 md:p-12 cursor-pointer group transition-all duration-300 relative flex flex-col rounded-[2.5rem] border-2 backdrop-blur-sm ${
+                className={`p-6 md:p-8 cursor-pointer group transition-all duration-300 relative flex flex-col rounded-[2.5rem] border-2 backdrop-blur-sm ${
                   selectedPlan?.id === plan.id 
                   ? 'bg-emerald-900/10 border-emerald-500 scale-[1.02] shadow-[0_0_50px_rgba(16,185,129,0.2)]' 
                   : 'bg-[#0c0c0e]/80 border-white/5 hover:border-emerald-500/40 hover:scale-[1.01]'
@@ -205,24 +223,24 @@ export default function Home() {
                      Recomendado
                    </div>
                 )}
-                <h3 className="text-2xl md:text-3xl font-black italic mb-2  tracking-tighter text-white">{plan.title}</h3>
-                <p className="text-emerald-400 font-bold  tracking-widest text-xs mb-6 border-b border-white/5 pb-4">{plan.subtitle}</p>
-                <div className="text-4xl md:text-5xl font-black mb-6 text-white">
+                <h3 className="text-xl md:text-2xl font-black italic mb-2  tracking-tighter text-white">{plan.title}</h3>
+                <p className="text-emerald-400 font-bold  tracking-widest text-[10px] mb-6 border-b border-white/5 pb-4">{plan.subtitle}</p>
+                <div className="text-3xl md:text-4xl font-black mb-6 text-white">
                     ${plan.price.toLocaleString('es-AR')} 
-                    <span className="text-sm text-zinc-500 font-bold ml-1">/{isWeekly ? 'sem' : 'mes'}</span>
+                    <span className="text-xs text-zinc-500 font-bold ml-1">/{isWeekly ? 'sem' : 'mes'}</span>
                 </div>
-                <p className="text-zinc-400 mb-8 text-sm leading-relaxed flex-grow font-medium">{plan.description}</p>
-                <ul className="space-y-4 mb-10 text-left">
+                <p className="text-zinc-400 mb-8 text-xs leading-relaxed flex-grow font-medium">{plan.description}</p>
+                <ul className="space-y-3 mb-10 text-left">
                   {plan.features.map((f, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-zinc-300 font-medium text-xs md:text-sm">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center min-w-[20px]">
-                        <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                    <li key={idx} className="flex items-center gap-3 text-zinc-300 font-medium text-[11px] md:text-xs">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center min-w-[16px]">
+                        <svg className="w-2 h-2 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
                       </div>
                       {f}
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-4 rounded-xl font-black  tracking-widest text-xs transition-all ${
+                <button className={`w-full py-4 rounded-xl font-black  tracking-widest text-[10px] transition-all ${
                     selectedPlan?.id === plan.id 
                     ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
                     : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'
@@ -274,11 +292,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── FOOTER BLINDADO (CAPA SUPERIOR) ─── */}
+      {/* ─── FOOTER BLINDADO ─── */}
       <footer className="relative z-50 py-16 border-t border-white/10 bg-[#09090b] px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-start gap-10 text-center md:text-left">
           
-          {/* 1. LOGO Y COPYRIGHT */}
           <div className="space-y-4 max-w-xs">
              <h3 className="font-black text-2xl italic  text-white tracking-tighter">
                Tujaque <span className="text-emerald-500">Strength</span>
@@ -291,7 +308,6 @@ export default function Home() {
              </p>
           </div>
 
-          {/* 2. CONTACTO DIRECTO (VISIBILIDAD FORZADA) */}
           <div className="flex flex-col gap-4">
              <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
                Contacto Directo
@@ -320,7 +336,6 @@ export default function Home() {
              </div>
           </div>
 
-          {/* 3. LEGALES */}
           <div className="flex flex-col gap-4">
              <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
                Legales
