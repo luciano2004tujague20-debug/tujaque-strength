@@ -5,7 +5,7 @@ import CheckoutClient from "./components/CheckoutClient";
 import Link from "next/link";
 import Image from "next/image";
 
-// ─── CONFIGURACIÓN DE DATOS (6 PLANES) ───
+// ─── CONFIGURACIÓN DE DATOS (MANTENIDA INTACTA) ───
 const PRICING_MATRIX = {
   weekly: [
     {
@@ -86,29 +86,29 @@ export default function Home() {
   return (
     <main className="min-h-screen relative overflow-x-hidden bg-[#09090b] text-white font-sans selection:bg-emerald-500 selection:text-black">
       
-      {/* ─── FONDO ÉPICO (A COLOR) ─── */}
+      {/* ─── FONDO ÉPICO ─── */}
       <div className="fixed inset-0 z-0">
         <Image 
           src="/hero.png" 
           alt="Background"
           fill
-          className="object-cover opacity-30" 
+          className="object-cover opacity-20"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/80 via-[#09090b]/90 to-[#09090b] z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/90 via-[#09090b]/95 to-[#09090b] z-10"></div>
       </div>
       
-      <div className="fixed inset-0 tech-grid opacity-10 pointer-events-none z-0"></div>
+      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none z-0"></div>
 
-      {/* ─── NAVBAR ─── */}
-      <nav className="fixed top-0 w-full z-50 px-4 md:px-6 py-4 md:py-6 backdrop-blur-md border-b border-white/5 bg-black/50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-lg md:text-xl font-black italic tracking-tighter ">
-            Tujaque <span className="text-emerald-500">Strength</span>
+      {/* ─── NAVBAR FLOTANTE ─── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="text-xl md:text-2xl font-black italic tracking-tighter">
+            TUJAQUE <span className="text-emerald-500">STRENGTH</span>
           </div>
-          <Link href="/login">
-            <button className="bg-white/5 border border-white/10 px-4 md:px-6 py-2 rounded-xl text-[10px] font-black  tracking-widest hover:bg-emerald-500 hover:text-black transition-all">
-              Acceso Clientes
+          <Link href="/dashboard">
+            <button className="px-6 py-2 rounded-full border border-white/10 text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-black hover:border-emerald-500 transition-all">
+              Acceso Atletas
             </button>
           </Link>
         </div>
@@ -127,67 +127,75 @@ export default function Home() {
       </a>
 
       {/* ─── HERO SECTION ─── */}
-      <header className="relative z-10 pt-40 pb-20 text-center px-4">
-        <span className="inline-block mb-6 px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black  tracking-[0.2em] backdrop-blur-md">
-          Solo para Hombres
+      <header className="relative z-10 pt-40 pb-20 md:pt-60 md:pb-40 text-center px-4 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <span className="inline-block mb-8 px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-[0.2em] backdrop-blur-md">
+          PROGRAMACIÓN DE ELITE
         </span>
-        <h1 className="text-5xl md:text-8xl font-black italic  tracking-tighter leading-[0.9] mb-8 text-white drop-shadow-2xl">
-          Tujaque <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">Strength</span>
+        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] mb-8 text-white drop-shadow-2xl">
+          ELEVA TU <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700">ESTÁNDAR</span>
         </h1>
-        <p className="text-lg md:text-xl text-zinc-300 max-w-2xl mx-auto mb-12 leading-relaxed font-medium drop-shadow-md">
-          Control total sobre el hierro. Sin humo, solo ciencia aplicada, <span className="text-white font-bold">biomecánica</span> y esfuerzo real.
+        <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
+          Dejá de adivinar en el gimnasio. Accedé a una planificación profesional basada en <span className="text-white font-bold">biomecánica</span>, gestión de carga y resultados reales.
         </p>
         <button 
           onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black  tracking-widest text-xs hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all transform hover:-translate-y-1"
+          className="bg-emerald-500 text-black px-10 py-5 rounded-2xl font-black tracking-widest text-xs hover:bg-emerald-400 hover:scale-105 hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all"
         >
-          VER PLANES AHORA
+          VER PLANES DISPONIBLES
         </button>
       </header>
 
-      {/* ─── SECCIÓN: FILTRADO ─── */}
-      <section className="relative z-10 py-12 px-4">
-        <div className="max-w-4xl mx-auto backdrop-blur-md bg-red-950/10 border border-red-500/20 rounded-3xl p-8 md:p-12">
-          <h2 className="text-red-500 font-black text-xl  italic mb-6 tracking-tight flex items-center gap-3">
-            <span className="w-2 h-8 bg-red-500 rounded-full"></span>
-            Este programa NO es para vos si:
-          </h2>
-          <ul className="space-y-4 text-zinc-300 font-medium text-sm md:text-base">
-            <li className="flex items-center gap-3"><span className="text-red-500 font-black">✕</span> Buscás rutinas milagrosas sin esfuerzo real.</li>
-            <li className="flex items-center gap-3"><span className="text-red-500 font-black">✕</span> Priorizás el ego por sobre la técnica impecable.</li>
-            <li className="flex items-center gap-3"><span className="text-red-500 font-black">✕</span> No tolerás el dolor de una serie al fallo real.</li>
-          </ul>
+      {/* ─── CARACTERÍSTICAS ─── */}
+      <section className="relative z-10 py-20 bg-zinc-900/30 border-y border-white/5 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
+          {[
+            { title: "100% Individual", desc: "Nada de rutinas genéricas. Ajustamos volumen e intensidad según tu capacidad de recuperación." },
+            { title: "Análisis de Video", desc: "Subí tus levantamientos y recibí correcciones biomecánicas detalladas cuadro por cuadro." },
+            { title: "Gestión de Cargas", desc: "Calculamos tu 1RM estimado y progresamos semana a semana para evitar estancamientos." }
+          ].map((item, i) => (
+            <div key={i} className="p-8 rounded-[2rem] bg-black/40 border border-zinc-800 hover:border-emerald-500/30 transition-all group">
+              <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 text-emerald-500 font-black text-xl group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                {i + 1}
+              </div>
+              <h3 className="text-xl font-black italic mb-3 text-white">{item.title}</h3>
+              <p className="text-zinc-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* ─── SECCIÓN: EL ENTRENADOR ─── */}
-      <section className="relative z-10 py-24 px-4 bg-emerald-950/5">
+      <section className="relative z-10 py-32 px-4">
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-16">
-          <div className="relative group w-[280px] h-[380px] md:w-[350px] md:h-[450px]">
+          <div className="relative group w-[280px] h-[380px] md:w-[400px] md:h-[500px]">
              <div className="absolute -inset-4 bg-emerald-500/20 blur-[60px] rounded-full opacity-50 group-hover:opacity-75 transition-opacity"></div>
-             <div className="relative w-full h-full rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
-                <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover" />
+             <div className="relative w-full h-full rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black">
+                <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
              </div>
           </div>
 
           <div className="flex-1 text-center lg:text-left">
-            <span className="text-emerald-500 font-black  tracking-widest text-xs mb-2 block">Head Coach</span>
-            <h2 className="text-4xl md:text-6xl font-black  mb-6 italic">Luciano <span className="text-emerald-500">Tujague</span></h2>
-            <div className="space-y-4 text-zinc-300 text-lg leading-relaxed">
-               <p>Aplico la metodología <strong>bii-vintage</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
-               <p>Mi filosofía exige <strong>tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong>RPE y RIR</strong>.</p>
+            {/* CORREGIDO AQUÍ (Línea 180): Se eliminó "block" para dejar solo "inline-block" */}
+            <span className="text-emerald-500 font-black tracking-widest text-xs mb-4 inline-block uppercase border-b border-emerald-500/20 pb-2">Head Coach</span>
+            
+            <h2 className="text-5xl md:text-7xl font-black mb-8 italic tracking-tighter text-white">LUCIANO <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-800">TUJAGUE</span></h2>
+            <div className="space-y-6 text-zinc-400 text-lg leading-relaxed font-medium">
+                <p>Aplico la metodología <strong>BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
+                <p>Mi filosofía exige <strong>tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong>RPE y RIR</strong>.</p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
                {[
                  { v: "152 KG", l: "Squat" },
                  { v: "110 KG", l: "Banca" },
                  { v: "110 KG", l: "Deadlift" },
                  { v: "+60 KG", l: "Fondos" }
                ].map((stat, i) => (
-                 <div key={i} className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl border border-emerald-500/20 hover:border-emerald-500/50 transition-colors">
-                    <p className="text-emerald-400 font-black text-2xl italic leading-none">{stat.v}</p>
-                    <p className="text-[10px] text-zinc-500 font-bold  tracking-widest mt-1">{stat.l}</p>
+                 <div key={i} className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl border border-white/10 hover:border-emerald-500/50 transition-colors group">
+                    <p className="text-white font-black text-2xl italic leading-none group-hover:text-emerald-400 transition-colors">{stat.v}</p>
+                    <p className="text-[10px] text-zinc-500 font-black tracking-widest mt-2 uppercase">{stat.l}</p>
                  </div>
                ))}
             </div>
@@ -195,56 +203,54 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── PRICING SECTION (ACTUALIZADA A 3 COLUMNAS) ─── */}
-      <section id="pricing-section" className="relative z-20 py-24 px-4">
+      {/* ─── PRICING SECTION ─── */}
+      <section id="pricing-section" className="relative z-20 py-24 px-4 bg-black/40">
         <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black  italic text-center mb-12 tracking-tighter">
-            TU <span className="text-emerald-500">INVERSIÓN</span>
+          <h2 className="text-4xl md:text-6xl font-black italic text-center mb-12 tracking-tighter">
+            ELIGE TU <span className="text-emerald-500">CAMINO</span>
           </h2>
           
-          <div className="inline-flex bg-zinc-900/80 backdrop-blur-md p-1 rounded-xl border border-zinc-800 mb-16 shadow-xl">
-            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black  transition-all tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Semanal</button>
-            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-8 py-3 rounded-lg text-xs md:text-sm font-black  transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Mensual</button>
+          <div className="inline-flex bg-zinc-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-zinc-800 mb-16 shadow-2xl">
+            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-10 py-4 rounded-xl text-xs md:text-sm font-black transition-all tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>SEMANAL</button>
+            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-10 py-4 rounded-xl text-xs md:text-sm font-black transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>MENSUAL</button>
           </div>
 
-          <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-6 max-w-7xl mx-auto mb-16">
+          <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-8 max-w-7xl mx-auto mb-20">
             {currentPlans.map((plan) => (
               <div 
                 key={plan.id} 
                 onClick={() => handleSelectPlan(plan)}
-                className={`p-6 md:p-8 cursor-pointer group transition-all duration-300 relative flex flex-col rounded-[2.5rem] border-2 backdrop-blur-sm ${
+                className={`p-8 md:p-10 cursor-pointer group transition-all duration-300 relative flex flex-col rounded-[2.5rem] border backdrop-blur-sm ${
                   selectedPlan?.id === plan.id 
-                  ? 'bg-emerald-900/10 border-emerald-500 scale-[1.02] shadow-[0_0_50px_rgba(16,185,129,0.2)]' 
-                  : 'bg-[#0c0c0e]/80 border-white/5 hover:border-emerald-500/40 hover:scale-[1.01]'
+                  ? 'bg-zinc-900/80 border-emerald-500 scale-[1.03] shadow-[0_0_60px_rgba(16,185,129,0.15)] z-10' 
+                  : 'bg-[#0c0c0e]/80 border-white/5 hover:border-emerald-500/30 hover:bg-zinc-900/50'
                 }`}
               >
                 {plan.highlight && (
-                   <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-black  px-4 py-2 rounded-bl-2xl rounded-tr-2xl tracking-widest">
-                     Recomendado
+                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-500 text-black text-[10px] font-black px-6 py-2 rounded-full tracking-widest shadow-lg shadow-emerald-500/20">
+                     MÁS ELEGIDO
                    </div>
                 )}
-                <h3 className="text-xl md:text-2xl font-black italic mb-2  tracking-tighter text-white">{plan.title}</h3>
-                <p className="text-emerald-400 font-bold  tracking-widest text-[10px] mb-6 border-b border-white/5 pb-4">{plan.subtitle}</p>
-                <div className="text-3xl md:text-4xl font-black mb-6 text-white">
+                <h3 className="text-2xl font-black italic mb-2 tracking-tighter text-white">{plan.title}</h3>
+                <p className="text-emerald-400 font-bold tracking-widest text-[10px] mb-8 border-b border-white/5 pb-4 uppercase">{plan.subtitle}</p>
+                <div className="text-4xl md:text-5xl font-black mb-8 text-white tracking-tight">
                     ${plan.price.toLocaleString('es-AR')} 
-                    <span className="text-xs text-zinc-500 font-bold ml-1">/{isWeekly ? 'sem' : 'mes'}</span>
+                    <span className="text-xs text-zinc-500 font-bold ml-2 tracking-wide align-middle">/{isWeekly ? 'SEM' : 'MES'}</span>
                 </div>
-                <p className="text-zinc-400 mb-8 text-xs leading-relaxed flex-grow font-medium">{plan.description}</p>
-                <ul className="space-y-3 mb-10 text-left">
+                <p className="text-zinc-400 mb-8 text-sm leading-relaxed flex-grow font-medium">{plan.description}</p>
+                <ul className="space-y-4 mb-10 text-left">
                   {plan.features.map((f, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-zinc-300 font-medium text-[11px] md:text-xs">
-                      <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center min-w-[16px]">
-                        <svg className="w-2 h-2 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
-                      </div>
+                    <li key={idx} className="flex items-center gap-4 text-zinc-300 font-medium text-xs md:text-sm">
+                      <span className="text-emerald-500 font-black">✔</span>
                       {f}
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-4 rounded-xl font-black  tracking-widest text-[10px] transition-all ${
-                    selectedPlan?.id === plan.id 
-                    ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
-                    : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'
-                  }`}>
+                <button className={`w-full py-5 rounded-xl font-black tracking-[0.2em] text-[10px] transition-all uppercase ${
+                  selectedPlan?.id === plan.id 
+                  ? 'bg-emerald-500 text-black shadow-lg' 
+                  : 'bg-white/5 text-zinc-400 group-hover:bg-white group-hover:text-black'
+                }`}>
                   {selectedPlan?.id === plan.id ? 'PLAN SELECCIONADO' : 'ELEGIR ESTE PLAN'}
                 </button>
               </div>
@@ -252,19 +258,19 @@ export default function Home() {
           </div>
 
           {selectedPlan && (
-            <div className="max-w-xl mx-auto mb-24 animate-fade-in">
-              <label className={`flex items-center justify-between p-6 border-2 cursor-pointer transition-all rounded-3xl backdrop-blur-md ${addVideoReview ? 'bg-emerald-900/10 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
-                <div className="flex items-center gap-4 text-left">
-                  <div className={`w-8 h-8 rounded flex items-center justify-center transition-colors border ${addVideoReview ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 bg-black/40'}`}>
-                    {addVideoReview && <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+            <div className="max-w-2xl mx-auto mb-24 animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <label className={`flex items-center justify-between p-8 border cursor-pointer transition-all rounded-[2rem] backdrop-blur-md ${addVideoReview ? 'bg-emerald-900/10 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.1)]' : 'bg-zinc-900/50 border-white/10 hover:border-white/20'}`}>
+                <div className="flex items-center gap-6 text-left">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${addVideoReview ? 'bg-emerald-500 border-emerald-500 text-black' : 'border-zinc-700 bg-black/40 text-transparent'}`}>
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm md:text-lg leading-none mb-1 text-white">Auditoría Técnica Biomecánica</h4>
-                    <p className="text-[9px] text-emerald-400 font-bold  tracking-widest">Análisis detallado SBD + Corrección de palancas.</p>
+                    <h4 className="font-black text-lg md:text-xl leading-none mb-2 text-white italic">Auditoría Técnica Biomecánica</h4>
+                    <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">Análisis detallado SBD + Corrección de palancas.</p>
                   </div>
                 </div>
                 <div className="text-right">
-                    <span className="text-lg md:text-xl font-black text-white block">+${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
+                    <span className="text-2xl font-black text-white block tracking-tight">+${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
                 </div>
                 <input type="checkbox" className="hidden" checked={addVideoReview} onChange={(e) => setAddVideoReview(e.target.checked)}/>
               </label>
@@ -274,79 +280,66 @@ export default function Home() {
       </section>
 
       {/* ─── CHECKOUT SECTION ─── */}
-      <section id="checkout-section" className="relative z-10 py-24 px-4 bg-black/60">
+      <section id="checkout-section" className="relative z-10 py-32 px-4 bg-black/80 border-t border-white/5">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black  italic mb-4">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
-            <p className="text-zinc-400 text-sm font-medium">Completá tus datos para recibir acceso inmediato al panel.</p>
+            <h2 className="text-4xl md:text-5xl font-black italic mb-6 tracking-tighter text-white">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
+            <p className="text-zinc-400 text-sm font-medium tracking-wide">Completá tus datos para recibir acceso inmediato al panel de entrenamiento.</p>
           </div>
           {selectedPlan ? (
-            <div className="bg-[#0c0c0e] p-6 md:p-12 border border-emerald-500/30 rounded-[2rem] shadow-2xl">
+            <div className="bg-[#0c0c0e] p-8 md:p-14 border border-emerald-500/20 rounded-[3rem] shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -mr-16 -mt-16"></div>
               <CheckoutClient selectedPlan={selectedPlan} extraVideo={addVideoReview} extraPrice={EXTRA_VIDEO_PRICE} />
             </div>
           ) : (
-            <div className="text-center p-12 md:p-16 border-2 border-dashed border-white/10 rounded-[2rem] bg-white/5">
-              <p className="text-lg font-bold text-zinc-500  italic tracking-widest">▲ Seleccioná un plan arriba para continuar</p>
+            <div className="text-center p-20 border-2 border-dashed border-zinc-800 rounded-[3rem] bg-white/[0.02]">
+              <p className="text-xl font-bold text-zinc-600 italic tracking-widest">▲ SELECCIONÁ UN PLAN ARRIBA PARA CONTINUAR</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ─── FOOTER BLINDADO ─── */}
-      <footer className="relative z-50 py-16 border-t border-white/10 bg-[#09090b] px-6 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-start gap-10 text-center md:text-left">
+      {/* ─── FOOTER CON LEGALES (CORREGIDO) ─── */}
+      <footer className="relative z-50 py-20 border-t border-white/10 bg-[#09090b] px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-start gap-12 text-center md:text-left">
           
           <div className="space-y-4 max-w-xs">
-             <h3 className="font-black text-2xl italic  text-white tracking-tighter">
-               Tujaque <span className="text-emerald-500">Strength</span>
+             <h3 className="font-black text-2xl italic text-white tracking-tighter">
+               TUJAQUE <span className="text-emerald-500">STRENGTH</span>
              </h3>
-             <p className="text-zinc-500 text-xs italic tracking-tight font-medium">
+             <p className="text-zinc-500 text-xs italic tracking-tight font-medium leading-relaxed">
                "Te doy las herramientas, vos ponés el esfuerzo. Biomecánica aplicada y entrenamiento de fuerza real."
              </p>
-             <p className="text-zinc-600 text-[10px]  tracking-[0.3em] font-bold">
+             <p className="text-zinc-600 text-[10px] tracking-[0.3em] font-bold uppercase mt-6">
                &copy; {new Date().getFullYear()} Luciano Tujague.
              </p>
           </div>
 
           <div className="flex flex-col gap-4">
-             <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
-               Contacto Directo
-             </h4>
-             <div className="flex flex-col gap-3 text-sm font-bold text-white  tracking-wide">
-                <a 
-                  href="mailto:luciano2004tujague20@gmail.com" 
-                  className="hover:text-emerald-400 hover:translate-x-1 transition-all flex items-center justify-center md:justify-start gap-2"
-                >
-                  <span className="text-emerald-500">✉</span> Email Oficial
-                </a>
-                <a 
-                  href="https://instagram.com/tujaquestrength" 
-                  target="_blank" 
-                  className="hover:text-emerald-400 hover:translate-x-1 transition-all flex items-center justify-center md:justify-start gap-2"
-                >
-                  <span className="text-emerald-500">Instagram</span>
-                </a>
-                <a 
-                  href="https://wa.me/5491123021760" 
-                  target="_blank" 
-                  className="hover:text-emerald-400 hover:translate-x-1 transition-all flex items-center justify-center md:justify-start gap-2"
-                >
-                  <span className="text-emerald-500">WhatsApp</span>
-                </a>
+             {/* CORREGIDO: Se eliminó "md:block" */}
+             <h4 className="text-emerald-500 font-black tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block uppercase">Contacto Directo</h4>
+             <div className="flex flex-col gap-3 text-sm font-bold text-white tracking-wide">
+                <a href="mailto:luciano2004tujague20@gmail.com" className="hover:text-emerald-400 transition-colors">Email Oficial</a>
+                <a href="https://instagram.com/tujaquestrength" target="_blank" className="hover:text-emerald-400 transition-colors">Instagram</a>
+                <a href="https://wa.me/5491123021760" target="_blank" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
              </div>
           </div>
 
           <div className="flex flex-col gap-4">
-             <h4 className="text-emerald-500 font-black  tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block md:block">
-               Legales
+             {/* CORREGIDO: Se eliminó "md:block" */}
+             <h4 className="text-emerald-500 font-black tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block uppercase">
+               Marco Legal
              </h4>
-             <div className="flex flex-col gap-3 text-[10px] font-black  tracking-widest text-zinc-500">
-               <Link href="/legal" className="hover:text-white transition-colors">
-                 Términos y Condiciones
-               </Link>
-               <Link href="/legal" className="hover:text-white transition-colors">
-                 Política de Privacidad
-               </Link>
+             <div className="flex flex-col gap-3 text-[10px] font-black tracking-widest text-zinc-500">
+                <Link href="/legal" className="hover:text-white transition-colors uppercase">
+                  Términos y Condiciones
+                </Link>
+                <Link href="/legal" className="hover:text-white transition-colors uppercase">
+                  Política de Privacidad
+                </Link>
+                <Link href="/legal" className="hover:text-white transition-colors uppercase">
+                  Baja del Servicio
+                </Link>
              </div>
           </div>
 
