@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getConversions } from "@/lib/pricing";
 
 interface CheckoutClientProps {
+  // ✅ Importante: selectedPlan.id debe ser el "code" del plan (ej: "semanal-5-6")
   selectedPlan: { id: string; title: string; subtitle: string; price: number; };
   extraVideo: boolean;
   extraPrice: number;
@@ -43,11 +44,12 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          planCode: selectedPlan.id,       // Coincide con planCode en el backend
+          // ✅ ENVIAMOS EL CÓDIGO: Este valor debe coincidir con la columna 'code' en Supabase
+          planCode: selectedPlan.id,       
           paymentMethod: methodMapping[paymentMethod],
           name: formData.name.trim(),
           email: formData.email.trim().toLowerCase(),
-          customerRef: formData.instagram.trim() || null, // Instagram
+          customerRef: formData.instagram.trim() || null, 
           extraVideo: extraVideo,
         }),
       });
@@ -60,10 +62,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
       // 3. Redirección automática
       if (data.paymentUrl) {
-        // Si la API generó un link de Mercado Pago, vamos ahí
+        // Redirección a Mercado Pago
         window.location.href = data.paymentUrl;
       } else if (data.orderId) {
-        // Si es otro método, vamos a la página de éxito/comprobante
+        // Redirección a la página de éxito (Transferencia/Crypto/USD)
         router.push(`/order/${data.orderId}?email=${encodeURIComponent(formData.email.trim())}`);
       }
       

@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EXTRA_VIDEO_PRICE_ARS } from "@/lib/pricing";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
-// Inicializamos Mercado Pago (solo se usará si el método es 'mercado_pago')
 const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
 
 export async function POST(req: Request) {
@@ -11,9 +10,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { planCode, paymentMethod, name, email, customerRef, extraVideo } = body;
     
-    // paymentMethod puede ser: 'mercado_pago', 'transfer_ars', 'crypto', 'international_usd'
-
-    // 1. Buscar el plan en la DB para saber el precio
+    // 1. Buscamos el plan en la base de datos por su código
     const { data: plan, error: planErr } = await supabaseAdmin
       .from("plans")
       .select("*")
@@ -22,45 +19,46 @@ export async function POST(req: Request) {
 
     if (planErr || !plan) return NextResponse.json({ error: "Plan no encontrado" }, { status: 404 });
 
-    // Calcular total
+    // Calculamos el monto total
+    const planPrice = Number(plan.price) || 0; 
     const extraPrice = extraVideo ? EXTRA_VIDEO_PRICE_ARS : 0;
-    const totalAmount = Number(plan.price_ars) + extraPrice; 
+    const totalAmount = planPrice + extraPrice; 
     
-    // ID único para la orden
     const orderId = `TS-${Date.now()}`;
 
-    // 2. Crear la orden en Supabase (SIEMPRE se crea, sin importar el método)
+    // 2. CREACIÓN DE LA ORDEN (Cambio Crítico aquí)
     const { error: insErr } = await supabaseAdmin.from("orders").insert({
       order_id: orderId,
-      plan_id: plan.id,
+      // ✅ USAMOS plan.code (texto) para que coincida con la Foreign Key del SQL
+      plan_id: plan.code, 
       customer_name: name,
       customer_email: email,
-      payment_method: paymentMethod, // Aquí guardamos si es crypto, brubank, etc.
-      amount_ars: totalAmount,
-      status: "awaiting_payment", // Siempre nace pendiente
+      customer_instagram: customerRef, 
+      payment_method: paymentMethod,
+      amount_ars: totalAmount, 
+      status: "awaiting_payment",
       extra_video: !!extraVideo,
       extra_video_price_ars: extraPrice
     });
 
-    if (insErr) throw new Error(insErr.message);
+    if (insErr) {
+      console.error("❌ Error Supabase Insert:", insErr.message);
+      throw new Error(insErr.message);
+    }
 
-    // 3. Lógica según el método de pago
+    // 3. Generación de Link de Mercado Pago o respuesta directa
     let paymentUrl = null;
-
-    // CASO A: Mercado Pago -> Generamos el link
     if (paymentMethod === 'mercado_pago') {
       const preference = new Preference(client);
       const mpResponse = await preference.create({
         body: {
-          items: [
-            {
-              id: plan.code,
-              title: `Plan ${plan.name} - Tujaque Strength`,
-              quantity: 1,
-              unit_price: totalAmount,
-              currency_id: 'ARS',
-            },
-          ],
+          items: [{
+            id: plan.code,
+            title: `Plan ${plan.name} - Tujaque Strength`,
+            quantity: 1,
+            unit_price: totalAmount,
+            currency_id: 'ARS',
+          }],
           external_reference: orderId,
           payer: { email: email },
           back_urls: {
@@ -73,15 +71,11 @@ export async function POST(req: Request) {
       });
       paymentUrl = mpResponse.init_point;
     } 
-    
-    // CASO B: Transferencia, Crypto o USD
-    // No hacemos nada extra, solo devolvemos el orderId. 
-    // El Frontend se encargará de mostrar el CBU o la Wallet.
 
     return NextResponse.json({ ok: true, orderId, paymentUrl });
 
   } catch (error: any) {
-    console.error("❌ ERROR API:", error.message);
+    console.error("❌ ERROR API POST:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
