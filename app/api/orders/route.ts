@@ -8,7 +8,16 @@ const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN!
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { planCode, paymentMethod, name, email, customerRef, extraVideo } = body;
+    // ✅ CAMBIO 1: Recibimos 'onboardingData' del formulario
+    const { 
+      planCode, 
+      paymentMethod, 
+      name, 
+      email, 
+      customerRef, 
+      extraVideo,
+      onboardingData 
+    } = body;
     
     // 1. Buscamos el plan en la base de datos por su código
     const { data: plan, error: planErr } = await supabaseAdmin
@@ -26,10 +35,9 @@ export async function POST(req: Request) {
     
     const orderId = `TS-${Date.now()}`;
 
-    // 2. CREACIÓN DE LA ORDEN (Cambio Crítico aquí)
+    // 2. CREACIÓN DE LA ORDEN
     const { error: insErr } = await supabaseAdmin.from("orders").insert({
       order_id: orderId,
-      // ✅ USAMOS plan.code (texto) para que coincida con la Foreign Key del SQL
       plan_id: plan.code, 
       customer_name: name,
       customer_email: email,
@@ -38,7 +46,9 @@ export async function POST(req: Request) {
       amount_ars: totalAmount, 
       status: "awaiting_payment",
       extra_video: !!extraVideo,
-      extra_video_price_ars: extraPrice
+      extra_video_price_ars: extraPrice,
+      // ✅ CAMBIO 2: Guardamos la ficha técnica en la base de datos
+      onboarding_data: onboardingData || {}
     });
 
     if (insErr) {

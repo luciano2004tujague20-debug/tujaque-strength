@@ -177,7 +177,6 @@ export default function Home() {
           </div>
 
           <div className="flex-1 text-center lg:text-left">
-            {/* CORREGIDO AQUÍ (Línea 180): Se eliminó "block" para dejar solo "inline-block" */}
             <span className="text-emerald-500 font-black tracking-widest text-xs mb-4 inline-block uppercase border-b border-emerald-500/20 pb-2">Head Coach</span>
             
             <h2 className="text-5xl md:text-7xl font-black mb-8 italic tracking-tighter text-white">LUCIANO <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-800">TUJAGUE</span></h2>
@@ -199,6 +198,37 @@ export default function Home() {
                  </div>
                ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── CÓMO FUNCIONA + SOPORTE ─── */}
+      <section className="relative z-10 py-20 border-t border-white/5 bg-zinc-900/20">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-black italic mb-12 text-white tracking-tighter">
+            TU RUTA AL <span className="text-emerald-500">DASHBOARD</span>
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8 relative">
+            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-emerald-500/0 via-emerald-500/50 to-emerald-500/0 z-0"></div>
+            {[
+              { step: "01", title: "Elección & Pago", desc: "Seleccionás tu plan (semanal o mensual) y completás el pago seguro." },
+              { step: "02", title: "Onboarding", desc: "Llenás el formulario de atleta: lesiones, RM estimados y objetivos." },
+              { step: "03", title: "Acceso Total", desc: "En <48hs recibís tu acceso al Dashboard y comenzamos a trabajar." }
+            ].map((s, i) => (
+              <div key={i} className="relative z-10 bg-[#09090b] p-6 rounded-2xl border border-zinc-800 hover:border-emerald-500/50 transition-colors">
+                <div className="text-4xl font-black text-emerald-500/20 mb-4 italic">{s.step}</div>
+                <h3 className="text-xl font-bold text-white mb-2">{s.title}</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-16 p-6 rounded-xl bg-emerald-900/10 border border-emerald-500/20 inline-block">
+            <h4 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-2">Soporte Oficial</h4>
+            <p className="text-zinc-300 text-sm font-medium">
+              <span className="text-white">📅 Lunes a Viernes (18:00 - 20:00 hs)</span> <br/>
+              Respuesta garantizada en 24hs hábiles vía WhatsApp Privado.
+            </p>
           </div>
         </div>
       </section>
@@ -256,6 +286,50 @@ export default function Home() {
               </div>
             ))}
           </div>
+          
+          {/* ✅ NUEVA SECCIÓN "DETALLE PRO": LO QUE SÍ / LO QUE NO (PUNTO 9 AUDITORÍA) */}
+          <div className="max-w-4xl mx-auto mb-20 bg-zinc-900/30 border border-white/5 rounded-[2rem] p-8 md:p-12 relative overflow-hidden backdrop-blur-md">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -mr-16 -mt-16"></div>
+             <h3 className="text-2xl font-black italic text-center text-white mb-8 tracking-tighter">TRANSPARENCIA TOTAL</h3>
+             
+             <div className="grid md:grid-cols-2 gap-12">
+                <div className="space-y-4">
+                  <h4 className="text-emerald-500 font-black tracking-widest text-xs uppercase border-b border-emerald-500/20 pb-2 mb-4">Lo que SÍ Incluye</h4>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-3 text-sm text-zinc-300">
+                      <span className="text-emerald-500 font-bold">✓</span> Programación 100% personalizada según tu nivel.
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-300">
+                      <span className="text-emerald-500 font-bold">✓</span> Correcciones técnicas vía video (Dashboard).
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-300">
+                      <span className="text-emerald-500 font-bold">✓</span> Soporte directo por WhatsApp (Lun-Vie 18-20hs).
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-300">
+                      <span className="text-emerald-500 font-bold">✓</span> Ajustes de carga semanales para evitar estancamientos.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-red-500 font-black tracking-widest text-xs uppercase border-b border-red-500/20 pb-2 mb-4">Lo que NO Incluye</h4>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-3 text-sm text-zinc-400">
+                      <span className="text-red-500 font-bold">✕</span> Planes de alimentación o nutrición clínica.
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-400">
+                      <span className="text-red-500 font-bold">✕</span> Respuestas instantáneas 24/7 (respetamos los horarios).
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-400">
+                      <span className="text-red-500 font-bold">✕</span> Cambios ilimitados de rutina por capricho.
+                    </li>
+                    <li className="flex items-start gap-3 text-sm text-zinc-400">
+                      <span className="text-red-500 font-bold">✕</span> Consultas médicas o rehabilitación de lesiones graves.
+                    </li>
+                  </ul>
+                </div>
+             </div>
+          </div>
 
           {selectedPlan && (
             <div className="max-w-2xl mx-auto mb-24 animate-in fade-in slide-in-from-bottom-8 duration-500">
@@ -299,7 +373,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── FOOTER CON LEGALES (CORREGIDO) ─── */}
+      {/* ─── FOOTER CON LEGALES ─── */}
       <footer className="relative z-50 py-20 border-t border-white/10 bg-[#09090b] px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-start gap-12 text-center md:text-left">
           
@@ -316,7 +390,6 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-4">
-             {/* CORREGIDO: Se eliminó "md:block" */}
              <h4 className="text-emerald-500 font-black tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block uppercase">Contacto Directo</h4>
              <div className="flex flex-col gap-3 text-sm font-bold text-white tracking-wide">
                 <a href="mailto:luciano2004tujague20@gmail.com" className="hover:text-emerald-400 transition-colors">Email Oficial</a>
@@ -326,7 +399,6 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-4">
-             {/* CORREGIDO: Se eliminó "md:block" */}
              <h4 className="text-emerald-500 font-black tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block uppercase">
                Marco Legal
              </h4>

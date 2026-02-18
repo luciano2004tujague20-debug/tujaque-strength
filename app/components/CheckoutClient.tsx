@@ -17,17 +17,32 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mercadopago");
-  const [formData, setFormData] = useState({ name: "", email: "", instagram: "" });
+  
+  // ─── NUEVO ESTADO PARA EL ONBOARDING ───
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    instagram: "",
+    age: "",
+    phone: "",
+    experience: "intermedio", // valor por defecto
+    goal: "fuerza",
+    injuries: "no",
+    equipment: "gimnasio"
+  });
 
   const totalAmount = selectedPlan.price + (extraVideo ? extraPrice : 0);
   const conversions = getConversions(totalAmount);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
-      alert("Por favor, completá tu nombre y email.");
+    
+    // Validación básica: Verificamos que los campos obligatorios (*) estén llenos
+    if (!formData.name || !formData.email || !formData.phone || !formData.age) {
+      alert("Por favor, completá todos los campos obligatorios (*)");
       return;
     }
+
     setLoading(true);
 
     try {
@@ -51,6 +66,15 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           email: formData.email.trim().toLowerCase(),
           customerRef: formData.instagram.trim() || null, 
           extraVideo: extraVideo,
+          // ✅ NUEVO: Enviamos la ficha técnica del atleta
+          onboardingData: {
+            age: formData.age,
+            phone: formData.phone,
+            experience: formData.experience,
+            goal: formData.goal,
+            injuries: formData.injuries,
+            equipment: formData.equipment
+          }
         }),
       });
 
@@ -77,31 +101,79 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     }
   };
 
+  // Clases CSS reutilizables para mantener el código limpio
+  const inputClass = "w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-600";
+  const labelClass = "block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide";
+
   return (
     <div className="grid lg:grid-cols-2 gap-12 text-left">
-      {/* SECCIÓN 1: DATOS */}
+      
+      {/* ─── COLUMNA IZQUIERDA: FORMULARIO + PAGO ─── */}
       <div className="space-y-8">
+        
+        {/* SECCIÓN 1: PERFIL DE ATLETA (ONBOARDING) */}
         <section>
-          <h3 className="text-xl font-black text-white mb-6 italic tracking-tight">1. Tus Datos</h3>
-          <div className="space-y-4">
-            <input 
-              className="w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all" 
-              placeholder="Nombre Completo" 
-              value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})} 
-            />
+          <div className="flex items-center gap-3 mb-6">
+            <span className="bg-emerald-500 text-black text-xs font-black px-2 py-1 rounded">PASO 1</span>
+            <h3 className="text-xl font-black text-white italic tracking-tight">Ficha del Atleta</h3>
+          </div>
+          
+          <div className="space-y-5">
+            {/* Datos Personales */}
             <div className="grid grid-cols-2 gap-4">
-              <input 
-                className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all" 
-                placeholder="Email" 
-                value={formData.email}
-                onChange={e => setFormData({...formData, email: e.target.value})} 
-              />
-              <input 
-                className="bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all" 
-                placeholder="Instagram (@)" 
-                value={formData.instagram}
-                onChange={e => setFormData({...formData, instagram: e.target.value})} 
+              <div>
+                <label className={labelClass}>Nombre Completo *</label>
+                <input required className={inputClass} placeholder="Ej: Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              </div>
+              <div>
+                <label className={labelClass}>Edad *</label>
+                <input required type="number" className={inputClass} placeholder="Ej: 24" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Email *</label>
+                <input required type="email" className={inputClass} placeholder="tu@email.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+              </div>
+              <div>
+                <label className={labelClass}>WhatsApp *</label>
+                <input required type="tel" className={inputClass} placeholder="+54 9 11..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+              </div>
+            </div>
+            
+            <div>
+               <label className={labelClass}>Instagram (Opcional)</label>
+               <input className={inputClass} placeholder="@usuario" value={formData.instagram} onChange={e => setFormData({...formData, instagram: e.target.value})} />
+            </div>
+
+            {/* Datos Entrenamiento (NUEVO) */}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+               <div>
+                 <label className={labelClass}>Objetivo Principal</label>
+                 <select className={inputClass} value={formData.goal} onChange={e => setFormData({...formData, goal: e.target.value})}>
+                   <option value="fuerza">Fuerza (Powerlifting)</option>
+                   <option value="hipertrofia">Hipertrofia (Estética)</option>
+                   <option value="mixto">Híbrido (Powerbuilding)</option>
+                 </select>
+               </div>
+               <div>
+                 <label className={labelClass}>Nivel Experiencia</label>
+                 <select className={inputClass} value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})}>
+                   <option value="principiante">Principiante</option>
+                   <option value="intermedio">Intermedio</option>
+                   <option value="avanzado">Avanzado</option>
+                 </select>
+               </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>¿Lesiones actuales o dolores?</label>
+              <textarea 
+                className={`${inputClass} h-20 resize-none`} 
+                placeholder="No, ninguna / Sí, dolor en hombro izquierdo..." 
+                value={formData.injuries} 
+                onChange={e => setFormData({...formData, injuries: e.target.value})} 
               />
             </div>
           </div>
@@ -109,7 +181,11 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         {/* SECCIÓN 2: MÉTODOS DE PAGO */}
         <section>
-          <h3 className="text-xl font-black text-white mb-6 italic tracking-tight">2. Método de Pago</h3>
+          <div className="flex items-center gap-3 mb-6 pt-6 border-t border-white/5">
+            <span className="bg-emerald-500 text-black text-xs font-black px-2 py-1 rounded">PASO 2</span>
+            <h3 className="text-xl font-black text-white italic tracking-tight">Método de Pago</h3>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button 
               type="button"
@@ -153,10 +229,15 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
              )}
              {paymentMethod === 'usd' && <p className="text-xs text-zinc-400 italic">Total aproximado: <strong>U$D {conversions.usd}</strong> (PayPal/Zelle).</p>}
           </div>
+          
+          {/* Disclaimer Legal Pequeño */}
+          <div className="text-[10px] text-zinc-600 italic mt-4 px-2">
+            * Al continuar, aceptás que este es un servicio de pago único y declarás estar apto físicamente para realizar actividad física de alta intensidad.
+          </div>
         </section>
       </div>
 
-      {/* COLUMNA RESUMEN */}
+      {/* ─── COLUMNA DERECHA: RESUMEN (STICKY) ─── */}
       <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl h-fit shadow-2xl sticky top-24">
         <div className="mb-8">
           <h3 className="text-zinc-500 text-xs font-bold mb-2 uppercase tracking-widest">Tu Selección</h3>
@@ -184,10 +265,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         <button 
           onClick={handleSubmit} 
-          disabled={loading || !formData.name || !formData.email}
+          disabled={loading}
           className="w-full bg-emerald-500 py-5 text-black font-black rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
         >
-          {loading ? "Procesando..." : "Generar Orden de Pago"}
+          {loading ? "Procesando..." : paymentMethod === 'mercadopago' ? "Ir a Pagar" : "Generar Pedido"}
         </button>
       </div>
     </div>

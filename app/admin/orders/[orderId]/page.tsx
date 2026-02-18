@@ -57,7 +57,7 @@ export default function AdminOrderPaymentPage() {
     setUpdating(false);
   }
 
-  // --- FUNCIÓN 2: ELIMINAR ORDEN (Lo que pediste) ---
+  // --- FUNCIÓN 2: ELIMINAR ORDEN ---
   async function deleteOrder() {
     const confirmDelete = confirm("⚠️ ¿ESTÁS SEGURO DE ELIMINAR ESTA ORDEN?\n\nEsta acción es irreversible. Se borrarán todos los datos, rutinas y pagos asociados.");
     
@@ -74,7 +74,7 @@ export default function AdminOrderPaymentPage() {
         setUpdating(false);
     } else {
         alert("🗑️ Orden eliminada correctamente.");
-        router.push("/admin/orders"); // Te devuelve a la lista
+        router.push("/admin/orders"); 
     }
   }
 
@@ -146,6 +146,55 @@ export default function AdminOrderPaymentPage() {
                     </div>
                 </div>
 
+                {/* ✅ NUEVA SECCIÓN: FICHA TÉCNICA DEL ATLETA */}
+                <div className="bg-zinc-900/40 border border-white/5 p-8 rounded-[2rem] relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-[40px] pointer-events-none"></div>
+                    <h3 className="text-emerald-500 text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                        📋 Ficha Técnica (Onboarding)
+                    </h3>
+                    
+                    {order.onboarding_data ? (
+                        <div className="grid md:grid-cols-2 gap-8 relative z-10">
+                            <div>
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Edad</p>
+                                <p className="text-white font-bold text-lg">{order.onboarding_data.age || '-'} años</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">WhatsApp</p>
+                                <a 
+                                  href={`https://wa.me/${order.onboarding_data.phone?.replace(/[^0-9]/g, '')}`} 
+                                  target="_blank" 
+                                  className="text-emerald-400 font-bold hover:underline flex items-center gap-1"
+                                >
+                                  {order.onboarding_data.phone || '-'} ↗
+                                </a>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Experiencia</p>
+                                <p className="text-white capitalize font-medium">{order.onboarding_data.experience || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Objetivo Principal</p>
+                                <p className="text-white capitalize font-medium">{order.onboarding_data.goal || '-'}</p>
+                            </div>
+                            <div className="md:col-span-2">
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Equipo Disponible</p>
+                                <p className="text-zinc-300 text-sm">{order.onboarding_data.equipment || '-'}</p>
+                            </div>
+                            <div className="md:col-span-2">
+                                <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Lesiones / Dolores</p>
+                                <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-xl">
+                                    <p className="text-sm text-zinc-200 font-medium">
+                                        {order.onboarding_data.injuries || 'Ninguna declarada.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-zinc-500 text-sm italic">Este usuario no completó la ficha de onboarding (Orden antigua).</p>
+                    )}
+                </div>
+
                 {/* DETALLES FINANCIEROS */}
                 <div className="bg-zinc-900/40 border border-white/5 p-8 rounded-[2rem]">
                     <h3 className="text-emerald-500 text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2">
@@ -172,7 +221,7 @@ export default function AdminOrderPaymentPage() {
                     </div>
                 </div>
 
-                {/* --- ACCIONES ADMINISTRATIVAS (ACÁ ESTÁ EL BOTÓN DE BORRAR) --- */}
+                {/* BOTONES ACCIÓN */}
                 <div className="bg-black border border-zinc-800 p-8 rounded-[2rem]">
                     <h3 className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-6">Acciones Administrativas</h3>
                     
@@ -198,7 +247,6 @@ export default function AdminOrderPaymentPage() {
                         </button>
                     </div>
 
-                    {/* BOTÓN DE ELIMINAR (EL QUE PEDISTE) */}
                     <button 
                         onClick={deleteOrder}
                         disabled={updating}
