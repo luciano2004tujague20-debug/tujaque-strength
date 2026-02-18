@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from 'resend';
 
-// Usamos createClient explícito para asegurar privilegios de ADMIN
+// AHORA SÍ: Importación limpia y estándar (al mover la carpeta a la raíz)
+import WelcomeEmail from '@/components/emails/WelcomeEmail';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -13,6 +16,8 @@ const supabaseAdmin = createClient(
   }
 );
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 export async function GET(
   req: Request,
   { params }: { params: { orderId: string } }
@@ -20,20 +25,14 @@ export async function GET(
   try {
     let { orderId } = params;
 
-    // 1. LIMPIEZA DE BASURA: Si el navegador manda "TS-123.png", le quitamos el ".png"
-    // Esto soluciona el error 404 que ves en la consola
     if (orderId.includes(".png") || orderId.includes(".jpg")) {
         orderId = orderId.split(".")[0];
     }
 
     console.log("🔍 API buscando ID limpio:", orderId);
 
-    // 2. CONSULTA SEGURA (maybeSingle)
-    // Usamos maybeSingle() en lugar de single(). 
-    // single() da error si no encuentra nada. maybeSingle() devuelve null (más seguro).
     let query = supabaseAdmin.from("orders").select("*, plans(name)");
 
-    // Detectamos si buscar por UUID o Texto
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
 
     if (isUUID) {
@@ -42,24 +41,17 @@ export async function GET(
       query = query.eq("order_id", orderId);
     }
 
-    const { data, error } = await query.maybeSingle(); // <--- CAMBIO CLAVE
+    const { data, error } = await query.maybeSingle();
 
-    // 3. DIAGNÓSTICO
     if (error) {
         console.error("🔥 Error Base de Datos:", error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     if (!data) {
-        console.warn("⚠️ No se encontró la orden. Verificando contenido de la tabla...");
-        // Hacemos una consulta rápida para ver qué hay realmente en la base de datos
-        const check = await supabaseAdmin.from("orders").select("order_id, id").limit(3);
-        console.log("👀 Muestra de IDs en la DB:", check.data);
-        
         return NextResponse.json({ 
             error: "Orden no encontrada", 
-            searched_for: orderId,
-            db_sample: check.data 
+            searched_for: orderId
         }, { status: 404 });
     }
 
@@ -70,7 +62,7 @@ export async function GET(
   }
 }
 
-// --- PATCH y DELETE (Optimizados con maybeSingle también) ---
+// --- PATCH: ENVIAR EMAIL ---
 
 export async function PATCH(req: Request, { params }: { params: { orderId: string } }) {
   const { orderId } = params;
@@ -81,9 +73,28 @@ export async function PATCH(req: Request, { params }: { params: { orderId: strin
   if (orderId.startsWith("TS-")) query = query.eq("order_id", orderId);
   else query = query.eq("id", orderId);
 
-  const { data, error } = await query.select().maybeSingle();
+  const { data, error } = await query.select('*, plans(name)').maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Lógica de Email
+  if (status === 'paid' && data) {
+    try {
+        await resend.emails.send({
+            from: 'Tujaque Strength <onboarding@resend.dev>',
+            to: data.customer_email,
+            subject: '🔥 Acceso Habilitado - Tujaque Strength',
+            react: WelcomeEmail({ 
+                customerName: data.customer_name, 
+                planName: data.plans?.name || 'Plan Personalizado' 
+            }),
+        });
+        console.log("✅ Email enviado a:", data.customer_email);
+    } catch (emailError) {
+        console.error("⚠️ Error enviando email:", emailError);
+    }
+  }
+
   return NextResponse.json({ ok: true, order: data });
 }
 
