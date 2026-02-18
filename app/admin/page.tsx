@@ -13,50 +13,58 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/login", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ password }),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      
       const text = await res.text();
-let json: any = {};
-try { json = JSON.parse(text); } catch { /* era HTML */ }
+      let json: any = {};
+      try { json = JSON.parse(text); } catch { }
 
-if (!res.ok) throw new Error(json?.error || text.slice(0, 120));
+      if (!res.ok) throw new Error(json?.error || "Contraseña incorrecta");
+      
       router.push("/admin/orders");
     } catch (e: any) {
-      setErr(e?.message || "Error");
+      setErr(e?.message || "Error al ingresar");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-50 flex items-center justify-center px-6">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        <h1 className="text-2xl font-bold">Admin</h1>
-        <p className="mt-2 text-sm text-zinc-400">Ingresá tu contraseña.</p>
+    <main className="min-h-screen bg-black text-white flex items-center justify-center px-6">
+      <div className="w-full max-w-sm rounded-[2.5rem] border border-zinc-800 bg-zinc-900/30 p-10 shadow-2xl text-center">
+        <h2 className="text-2xl font-black italic tracking-tighter uppercase">
+          Tujaque <span className="text-emerald-500">Strength</span>
+        </h2>
+        
+        <div className="mt-8 space-y-6">
+          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">
+            Acceso Admin
+          </p>
 
-        <input
-          type="password"
-          className="mt-5 w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 outline-none focus:border-emerald-500"
-          placeholder="ADMIN_PASSWORD"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <input
+            type="password"
+            className="w-full bg-black border border-zinc-800 rounded-2xl py-4 px-6 text-center text-white text-sm focus:border-emerald-500 outline-none transition-all font-medium"
+            placeholder="CONTRASEÑA"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && login()}
+          />
 
-        {err && (
-          <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-red-200">
-            {err}
-          </div>
-        )}
+          {err && (
+            <p className="text-red-500 text-xs font-bold uppercase italic">{err}</p>
+          )}
 
-        <button
-          onClick={login}
-          disabled={loading}
-          className="mt-5 w-full rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-60"
-        >
-          {loading ? "Entrando…" : "Entrar"}
-        </button>
+          <button
+            onClick={login}
+            disabled={loading}
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-2xl transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] uppercase tracking-widest text-xs"
+          >
+            {loading ? "Entrando..." : "Ingresar al Panel"}
+          </button>
+        </div>
       </div>
     </main>
   );

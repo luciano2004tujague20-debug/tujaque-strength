@@ -12,14 +12,13 @@ const supabase = createClient(
 
 export default function TrainerDashboard() {
   const params = useParams();
-  // ✅ CORRECCIÓN: Usamos 'params.id' porque tu carpeta se llama [id]
-  const orderId = params.id as string;
+  const orderId = params.orderId as string;
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Pestañas
+  // Pestaña activa
   const [activeTab, setActiveTab] = useState<'rutina' | 'videos' | 'datos'>('rutina');
   const [activeDay, setActiveDay] = useState('d1');
 
@@ -33,8 +32,6 @@ export default function TrainerDashboard() {
   }, []);
 
   async function fetchData() {
-    if (!orderId) return;
-
     const { data, error } = await supabase
       .from("orders")
       .select("*, plans(name)")
@@ -43,7 +40,7 @@ export default function TrainerDashboard() {
 
     if (data) {
       setOrder(data);
-      // Precargamos los datos
+      // Precargamos los datos existentes en los estados
       setRoutine({
         d1: data.routine_d1 || "", d2: data.routine_d2 || "", d3: data.routine_d3 || "",
         d4: data.routine_d4 || "", d5: data.routine_d5 || "", d6: data.routine_d6 || "",
@@ -66,10 +63,13 @@ export default function TrainerDashboard() {
         const { error } = await supabase
             .from('orders')
             .update({
+                // Guardamos Rutina
                 routine_d1: routine.d1, routine_d2: routine.d2, routine_d3: routine.d3,
                 routine_d4: routine.d4, routine_d5: routine.d5, routine_d6: routine.d6, routine_d7: routine.d7,
+                // Guardamos Feedback
                 feedback_squat: feedback.squat, feedback_bench: feedback.bench, 
                 feedback_deadlift: feedback.deadlift, feedback_dips: feedback.dips,
+                // Guardamos RMs
                 rm_squat: rms.squat, rm_bench: rms.bench, rm_deadlift: rms.deadlift
             })
             .eq('order_id', orderId);
@@ -84,24 +84,17 @@ export default function TrainerDashboard() {
   }
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-black animate-pulse uppercase tracking-widest">Cargando Atleta...</div>;
-  
-  if (!order) return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
-        <p>Atleta no encontrado.</p>
-        <Link href="/admin/athletes" className="text-emerald-500 underline">Volver a la lista</Link>
-    </div>
-  );
+  if (!order) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Atleta no encontrado.</div>;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans pb-20">
       
-      {/* HEADER */}
+      {/* HEADER FIJO SUPERIOR */}
       <div className="sticky top-0 z-50 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 p-6">
          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-6 w-full md:w-auto">
                 <Link href="/admin/athletes" className="bg-zinc-900 border border-zinc-800 hover:bg-white hover:text-black w-10 h-10 flex items-center justify-center rounded-xl transition-all font-bold">←</Link>
                 <div>
-                    {/* Usamos customer_name que es el campo real de tu base */}
                     <h1 className="text-2xl font-black italic uppercase tracking-tighter">{order.customer_name}</h1>
                     <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">
                         Panel de Entrenador
@@ -121,16 +114,17 @@ export default function TrainerDashboard() {
 
       <div className="max-w-7xl mx-auto p-6 md:p-8">
         
-        {/* TABS */}
+        {/* PESTAÑAS DE NAVEGACIÓN */}
         <div className="flex gap-1 mb-8 bg-zinc-900/50 p-1 rounded-2xl w-fit border border-zinc-800">
             <button onClick={() => setActiveTab('rutina')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'rutina' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Rutina</button>
             <button onClick={() => setActiveTab('videos')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'videos' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Videos</button>
             <button onClick={() => setActiveTab('datos')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'datos' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Datos</button>
         </div>
 
-        {/* --- PESTAÑA 1: RUTINA --- */}
+        {/* --- PESTAÑA 1: EDITOR DE RUTINA --- */}
         {activeTab === 'rutina' && (
             <div className="grid lg:grid-cols-4 gap-6 h-[calc(100vh-250px)]">
+                {/* Selector de Días */}
                 <div className="lg:col-span-1 space-y-2 overflow-y-auto pr-2">
                     {['d1','d2','d3','d4','d5','d6','d7'].map(day => (
                         <button 
@@ -144,6 +138,7 @@ export default function TrainerDashboard() {
                     ))}
                 </div>
 
+                {/* Área de Texto */}
                 <div className="lg:col-span-3 h-full">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 h-full flex flex-col shadow-2xl">
                         <div className="flex justify-between mb-4 items-center">
@@ -162,7 +157,7 @@ export default function TrainerDashboard() {
             </div>
         )}
 
-        {/* --- PESTAÑA 2: VIDEOS --- */}
+        {/* --- PESTAÑA 2: VIDEOS Y FEEDBACK --- */}
         {activeTab === 'videos' && (
             <div className="grid md:grid-cols-2 gap-6">
                 {['squat', 'bench', 'deadlift', 'dips'].map(lift => (
@@ -172,6 +167,7 @@ export default function TrainerDashboard() {
                             <span className="text-emerald-500 text-xl">📹</span>
                         </div>
                         
+                        {/* Link del Atleta */}
                         <div className="mb-6">
                             <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2">Video del Atleta</p>
                             {order[`video_${lift}`] ? (
@@ -186,11 +182,12 @@ export default function TrainerDashboard() {
                             )}
                         </div>
 
+                        {/* Feedback */}
                         <div>
                             <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-2">Tu Devolución</p>
                             <textarea 
                                 className="w-full bg-black border border-zinc-800 focus:border-emerald-500/50 rounded-xl p-4 text-zinc-300 text-sm h-32 resize-none outline-none transition-all"
-                                placeholder={`Correcciones para ${lift}...`}
+                                placeholder={`Escribí tus correcciones técnicas para ${lift}...`}
                                 value={feedback[lift]}
                                 onChange={(e) => setFeedback({...feedback, [lift]: e.target.value})}
                             />
@@ -200,9 +197,10 @@ export default function TrainerDashboard() {
             </div>
         )}
 
-        {/* --- PESTAÑA 3: DATOS --- */}
+        {/* --- PESTAÑA 3: DATOS Y CONFIG --- */}
         {activeTab === 'datos' && (
             <div className="max-w-4xl mx-auto space-y-8">
+                 {/* RMs */}
                  <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[2.5rem]">
                     <h3 className="text-xl font-black italic uppercase mb-8 text-center">Marcas Históricas (1RM)</h3>
                     <div className="grid grid-cols-3 gap-8">
@@ -224,11 +222,12 @@ export default function TrainerDashboard() {
                     </div>
                  </div>
 
+                 {/* INFO DE LA CUENTA */}
                  <div className="bg-zinc-900/30 border border-zinc-800/50 p-8 rounded-[2rem]">
-                    <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6">Credenciales</h3>
+                    <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6">Credenciales de Acceso</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-black p-4 rounded-xl border border-zinc-800">
-                            <p className="text-[9px] text-zinc-500 uppercase mb-1">Usuario</p>
+                            <p className="text-[9px] text-zinc-500 uppercase mb-1">Usuario / Email</p>
                             <p className="text-sm font-bold text-white">{order.customer_email}</p>
                         </div>
                         <div className="bg-black p-4 rounded-xl border border-zinc-800">
@@ -239,6 +238,7 @@ export default function TrainerDashboard() {
                  </div>
             </div>
         )}
+
       </div>
     </div>
   );
