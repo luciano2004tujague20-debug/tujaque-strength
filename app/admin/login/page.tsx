@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+// Ya no necesitamos useRouter
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,10 +18,9 @@ export default function AdminLogin() {
     });
 
     if (res.ok) {
-      // Si la contraseña es correcta, Next.js ya puso la cookie.
-      // Recargamos para que el Middleware nos deje pasar.
-      router.refresh(); 
-      router.push("/admin/orders");
+      // ✅ SOLUCIÓN IMPLEMENTADA: Forzamos la recarga real del navegador
+      // Esto le da tiempo al navegador de guardar la cookie en Vercel antes de avanzar
+      window.location.href = "/admin/orders";
     } else {
       alert("❌ ACCESO DENEGADO: Contraseña incorrecta");
       setLoading(false);
