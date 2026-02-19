@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +9,6 @@ const supabase = createClient(
 );
 
 export default function AthleteDashboard() {
-  const router = useRouter();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
@@ -20,10 +18,12 @@ export default function AthleteDashboard() {
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("ts_client_email");
-    if (savedEmail) {
+    // Si ya hay un mail guardado y NO es el tuyo, entra automático
+    if (savedEmail && savedEmail !== "luciano2004tujague20@gmail.com") {
         setEmail(savedEmail);
         fetchPlayerData(savedEmail);
     } else {
+        if (savedEmail) setEmail(savedEmail); // Si es el tuyo, solo llena el campo
         setLoading(false);
     }
   }, []);
@@ -34,7 +34,7 @@ export default function AthleteDashboard() {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 🛡️ NUEVA LÓGICA DE ADMIN: Llamamos al servidor para que nos dé la llave oficial
+    // 🛡️ ACCESO ESPECIAL PARA LUCIANO (ADMIN)
     if (cleanEmail === "luciano2004tujague20@gmail.com") {
       try {
         const res = await fetch("/api/auth/login", {
@@ -44,11 +44,12 @@ export default function AthleteDashboard() {
         });
 
         if (res.ok) {
-          // Si el servidor nos dio el OK, la cookie ya está en el navegador
+          localStorage.setItem("ts_client_email", cleanEmail);
+          // Redirección completa para forzar la carga de la cookie
           window.location.href = "/admin/orders";
           return;
         } else {
-          setErr("Credenciales de administrador inválidas.");
+          setErr("Contraseña de administrador inválida.");
           setLoading(false);
           return;
         }
@@ -59,7 +60,7 @@ export default function AthleteDashboard() {
       }
     }
 
-    // ✅ LÓGICA DE ATLETA NORMAL
+    // ✅ ACCESO PARA ATLETAS NORMALES
     await fetchPlayerData(cleanEmail);
   }
 
@@ -82,19 +83,23 @@ export default function AthleteDashboard() {
         setOrder({ ...orderData, plans: planData });
         localStorage.setItem("ts_client_email", emailToSearch);
       } else {
-        setErr("No encontramos un plan activo para este email.");
+        setErr("No se encontró un plan activo para este email.");
       }
     } catch (err) {
-      console.error(err);
-      setErr("Error de conexión al sistema.");
+      setErr("Error al conectar con la base de datos.");
     } finally {
       setLoading(false);
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("ts_client_email");
+    window.location.reload();
+  };
+
   if (loading) return (
-    <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-black italic animate-pulse uppercase tracking-tighter">
-      AUTENTICANDO...
+    <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-black italic animate-pulse">
+      CARGANDO...
     </div>
   );
 
@@ -107,8 +112,6 @@ export default function AthleteDashboard() {
           </h2>
 
           <div className="space-y-4">
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">Acceso Sistema</p>
-            
             <input
               type="email"
               placeholder="GMAIL"
@@ -126,15 +129,11 @@ export default function AthleteDashboard() {
               className="w-full bg-black border border-zinc-800 rounded-2xl py-4 px-6 text-center text-white text-sm focus:border-emerald-500 outline-none transition-all"
             />
 
-            {err && (
-              <p className="text-red-500 text-[10px] font-black uppercase italic animate-pulse">
-                ⚠️ {err}
-              </p>
-            )}
+            {err && <p className="text-red-500 text-[10px] font-black uppercase italic">⚠️ {err}</p>}
 
             <button 
               onClick={handleLogin}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-2xl transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] uppercase tracking-widest text-xs"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs"
             >
               Ingresar
             </button>
@@ -152,17 +151,11 @@ export default function AthleteDashboard() {
                 <h1 className="text-3xl font-black italic uppercase">Hola, <span className="text-emerald-500">{order.customer_name}</span></h1>
                 <p className="text-zinc-500 text-xs mt-2 uppercase font-bold tracking-widest">Plan: {order.plans?.name}</p>
              </div>
-             <button 
-                onClick={() => { localStorage.removeItem("ts_client_email"); setOrder(null); }} 
-                className="text-[10px] font-black uppercase text-zinc-600 hover:text-white transition-all tracking-[0.2em] underline underline-offset-4"
-              >
-                Cerrar Sesión
-              </button>
+             <button onClick={handleLogout} className="text-[10px] font-black uppercase text-zinc-600 hover:text-white underline">Cerrar Sesión</button>
           </div>
-          
-          <div className="mt-10 p-6 bg-black rounded-2xl border border-zinc-800 min-h-[300px]">
+          <div className="mt-10 p-6 bg-black rounded-2xl border border-zinc-800">
              <p className="text-zinc-400 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                {order[`routine_${activeDay}`] || "No hay rutina cargada para este día."}
+                {order[`routine_${activeDay}`] || "Sin rutina cargada."}
              </p>
           </div>
        </div>
