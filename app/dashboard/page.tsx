@@ -34,15 +34,32 @@ export default function AthleteDashboard() {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // ✅ LÓGICA DE ADMIN CORREGIDA
-    // Si sos vos, te fabricamos la llave secreta en el navegador y te mandamos al panel
-    if (cleanEmail === "luciano2004tujague20@gmail.com" && password === "Qb42hpGbB2AlTBXnD3g42004") {
-        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
-        window.location.href = "/admin/orders";
+    // 🛡️ NUEVA LÓGICA DE ADMIN: Llamamos al servidor para que nos dé la llave oficial
+    if (cleanEmail === "luciano2004tujague20@gmail.com") {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+
+        if (res.ok) {
+          // Si el servidor nos dio el OK, la cookie ya está en el navegador
+          window.location.href = "/admin/orders";
+          return;
+        } else {
+          setErr("Credenciales de administrador inválidas.");
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        setErr("Error de conexión con el servidor.");
+        setLoading(false);
         return;
+      }
     }
 
-    // ✅ LÓGICA DE ATLETA: Si no es admin, busca su plan
+    // ✅ LÓGICA DE ATLETA NORMAL
     await fetchPlayerData(cleanEmail);
   }
 
