@@ -11,18 +11,23 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
-    if (res.ok) {
-      // ✅ SOLUCIÓN IMPLEMENTADA: Forzamos la recarga real del navegador
-      // Esto le da tiempo al navegador de guardar la cookie en Vercel antes de avanzar
-      window.location.href = "/admin/orders";
-    } else {
-      alert("❌ ACCESO DENEGADO: Contraseña incorrecta");
+      if (res.ok) {
+        // 🚨 EL ENGAÑO: Le agregamos la hora exacta a la URL con ?t=numeros
+        // Esto destruye el caché del navegador y lo obliga a pasar por el patovica
+        window.location.href = `/admin/orders?t=${Date.now()}`;
+      } else {
+        alert("❌ ACCESO DENEGADO: Contraseña incorrecta");
+        setLoading(false);
+      }
+    } catch (error) {
+      alert("❌ Error de conexión");
       setLoading(false);
     }
   };
