@@ -16,7 +16,6 @@ export default function AthleteDashboard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); 
   const [activeDay, setActiveDay] = useState('d1');
-  // ✅ SOLUCIÓN AL ERROR: Definimos 'err' y 'setErr'
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,15 +29,16 @@ export default function AthleteDashboard() {
   }, []);
 
   async function handleLogin() {
-    setErr(null); // Ahora sí va a encontrar 'setErr'
+    setErr(null); 
     setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // ✅ LÓGICA DE ADMIN: Si los datos coinciden, vas al panel de gestión
-    // Cambiá esto por tus datos reales
+    // ✅ LÓGICA DE ADMIN CORREGIDA
+    // Si sos vos, te fabricamos la llave secreta en el navegador y te mandamos al panel
     if (cleanEmail === "luciano2004tujague20@gmail.com" && password === "Qb42hpGbB2AlTBXnD3g42004") {
-        router.push("/admin/orders");
+        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+        window.location.href = "/admin/orders";
         return;
     }
 
@@ -48,7 +48,6 @@ export default function AthleteDashboard() {
 
   async function fetchPlayerData(emailToSearch: string) {
     try {
-      // Buscamos la orden en dos pasos para evitar el error de relación de Supabase
       const { data: orderData } = await supabase
         .from('orders')
         .select('*')
@@ -82,7 +81,6 @@ export default function AthleteDashboard() {
     </div>
   );
 
-  // ✅ DISEÑO ORIGINAL RESTAURADO
   if (!order) return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-zinc-900/30 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">

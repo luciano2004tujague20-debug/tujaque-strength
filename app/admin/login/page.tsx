@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-// Ya no necesitamos useRouter
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
@@ -19,8 +18,10 @@ export default function AdminLogin() {
       });
 
       if (res.ok) {
-        // 🚨 EL ENGAÑO: Le agregamos la hora exacta a la URL con ?t=numeros
-        // Esto destruye el caché del navegador y lo obliga a pasar por el patovica
+        // ✅ EL GOLPE MAESTRO: Forzamos la creación de la cookie en el cliente
+        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+        
+        // 🚨 Redirección forzada sin caché
         window.location.href = `/admin/orders?t=${Date.now()}`;
       } else {
         alert("❌ ACCESO DENEGADO: Contraseña incorrecta");
@@ -34,7 +35,6 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Fondo Cyberpunk Sutil */}
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 pointer-events-none"></div>
       <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
 

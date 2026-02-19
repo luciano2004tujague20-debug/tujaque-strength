@@ -22,9 +22,11 @@ export default function CustomLogin() {
     if (error) {
       alert("ERROR: Credenciales no válidas para el protocolo BII.");
     } else {
-      // Lógica de redirección inteligente
+      // ✅ Lógica de redirección inteligente CORREGIDA
       if (email === "luciano2004tujague20@gmail.com") {
-        router.push("/admin/athletes"); // Te manda a tu centro de mando
+        // 🔥 CREAMOS LA LLAVE ANTES DE MANDARTE AL ADMIN
+        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+        window.location.href = "/admin/athletes"; 
       } else {
         router.push("/dashboard"); // Manda al atleta a su rutina
       }
