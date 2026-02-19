@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+// ✅ IMPORTAMOS LA HERRAMIENTA NATIVA DE NEXT.JS
+import { cookies } from "next/headers"; 
 
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
 
-    // Verificamos contra la contraseña del .env
     if (password === process.env.ADMIN_PASSWORD) {
       
-      // Creamos la "Llave" (Cookie)
-      // Dura 7 días (60 * 60 * 24 * 7)
-      cookies().set("ts_admin_session", "true", {
-        httpOnly: true, // No accesible por JS (Anti-Hackers)
-        secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
-        maxAge: 60 * 60 * 24 * 7, 
+      // ✅ LA MAGIA ESTÁ ACÁ: Forzamos la cookie directamente en el servidor de Vercel
+      cookies().set({
+        name: "ts_admin_session",
+        value: "true",
         path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 días
+        secure: process.env.NODE_ENV === "production", 
+        sameSite: "lax"
       });
 
       return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: "Contraseña incorrecta" }, { status: 401 });
+    
   } catch (error) {
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    console.error("Error en login:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
