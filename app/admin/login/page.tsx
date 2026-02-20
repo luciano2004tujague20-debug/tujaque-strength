@@ -23,8 +23,8 @@ export default function AdminLogin() {
 
       if (res.ok) {
         // Redirección directa al panel de control principal del Admin
-        // Usamos window.location para forzar la recarga del estado de Next.js
-        // y asegurar que el middleware lea la nueva cookie inmediatamente.
+        // Forzamos la creación de la cookie y recargamos para asegurar el acceso
+        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
         window.location.href = "/admin/athletes";
       } else {
         const data = await res.json();

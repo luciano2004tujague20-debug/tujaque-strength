@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
 
-    // Verificamos contra la contraseña del .env
     if (password === process.env.ADMIN_PASSWORD) {
-      
-      // Creamos la "Llave" (Cookie)
-      // Dura 7 días (60 * 60 * 24 * 7)
-      cookies().set("ts_admin_session", "true", {
-        httpOnly: true, // No accesible por JS (Anti-Hackers)
-        secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
-        maxAge: 60 * 60 * 24 * 7, 
+      const response = NextResponse.json({ success: true });
+
+      // ✅ Usamos la forma más compatible con Vercel
+      response.cookies.set("ts_admin_session", "true", {
         path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+        httpOnly: true,
+        secure: true, // Vercel siempre usa HTTPS
+        sameSite: "lax",
       });
 
-      return NextResponse.json({ success: true });
+      return response;
     }
 
-    return NextResponse.json({ error: "Contraseña incorrecta" }, { status: 401 });
+    return NextResponse.json({ error: "Password incorrecto" }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return NextResponse.json({ error: "Error de servidor" }, { status: 500 });
   }
 }

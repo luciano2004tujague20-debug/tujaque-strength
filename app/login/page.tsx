@@ -1,4 +1,3 @@
-// app/login/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -23,9 +22,14 @@ export default function CustomLogin() {
     if (error) {
       alert("ERROR: Credenciales no válidas para el protocolo BII.");
     } else {
-      // ✅ Solución Vercel: Todos los que usan ESTE login van al dashboard de clientes.
-      // Si tú (Admin) quieres entrar a tu panel, debes ir directamente a la URL: tusitio.com/admin/login
-      router.push("/dashboard"); 
+      // ✅ Lógica de redirección inteligente CORREGIDA
+      if (email === "luciano2004tujague20@gmail.com") {
+        // 🔥 CREAMOS LA LLAVE ANTES DE MANDARTE AL ADMIN
+        document.cookie = "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+        window.location.href = "/admin/athletes"; 
+      } else {
+        router.push("/dashboard"); // Manda al atleta a su rutina
+      }
     }
     setLoading(false);
   };
