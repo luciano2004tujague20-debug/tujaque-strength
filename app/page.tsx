@@ -84,7 +84,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen relative overflow-x-hidden bg-[#09090b] text-white font-sans selection:bg-emerald-500 selection:text-black">
+    <main className="min-h-screen relative overflow-x-hidden bg-[#050505] text-white font-sans selection:bg-emerald-500 selection:text-black">
       
       {/* ─── FONDO ÉPICO ─── */}
       <div className="fixed inset-0 z-0">
@@ -92,22 +92,22 @@ export default function Home() {
           src="/hero.png" 
           alt="Background"
           fill
-          className="object-cover opacity-20"
+          className="object-cover opacity-10"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/90 via-[#09090b]/95 to-[#09090b] z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/80 via-[#050505]/95 to-[#050505] z-10"></div>
       </div>
       
-      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none z-0"></div>
+      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-[0.03] pointer-events-none z-0"></div>
 
       {/* ─── NAVBAR FLOTANTE ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/70 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="text-xl md:text-2xl font-black italic tracking-tighter">
             TUJAQUE <span className="text-emerald-500">STRENGTH</span>
           </div>
           <Link href="/dashboard">
-            <button className="px-6 py-2 rounded-full border border-white/10 text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-black hover:border-emerald-500 transition-all">
+            <button className="px-6 py-2.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500 hover:text-black hover:border-emerald-500 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)]">
               Acceso Atletas
             </button>
           </Link>
@@ -120,47 +120,60 @@ export default function Home() {
         target="_blank" 
         className="fixed bottom-6 right-6 z-50 bg-emerald-500 p-4 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform active:scale-95 group border border-emerald-400/50"
       >
-        <span className="absolute -top-10 right-0 bg-white text-black text-[10px] font-bold px-3 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+        <span className="absolute -top-10 right-0 bg-zinc-900 border border-zinc-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
           ¿Dudas? Hablá con Luciano
         </span>
         <svg className="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.588-5.946 0-6.556 5.332-11.888 11.888-11.888 3.176 0 6.161 1.237 8.404 3.48s3.48 5.228 3.48 8.404c0 6.556-5.332 11.888-11.888 11.888-2.097 0-4.142-.547-5.946-1.588L0 .057zm12.026-2.137c1.892 0 3.738-.503 5.339-1.455l.382-.227 3.97 1.041-1.059-3.869.25-.397c1.046-1.666 1.599-3.593 1.599-5.606 0-5.833-4.744-10.577-10.577-10.577-2.827 0-5.483 1.1-7.481 3.098s-3.098 4.654-3.098 7.481c0 2.013.553 3.94 1.599 5.606l.25.397-1.059 3.869 4.074-1.069.382.227c1.6.952 3.447 1.455 5.339 1.455z"/></svg>
       </a>
 
       {/* ─── HERO SECTION ─── */}
-      <header className="relative z-10 pt-40 pb-20 md:pt-60 md:pb-40 text-center px-4 overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <header className="relative z-10 pt-40 pb-20 md:pt-52 md:pb-40 text-center px-4 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-[150px] pointer-events-none"></div>
 
-        <span className="inline-block mb-8 px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-[0.2em] backdrop-blur-md">
+        <span className="inline-flex items-center gap-2 mb-8 px-5 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-[0.2em] backdrop-blur-md">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           PROGRAMACIÓN DE ELITE
         </span>
-        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] mb-8 text-white drop-shadow-2xl">
-          ELEVA TU <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700">ESTÁNDAR</span>
+        
+        {/* CORRECCIÓN APLICADA AQUÍ ABAJO */}
+        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[1.1] mb-8 text-white drop-shadow-2xl">
+          ELEVA TU <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700 inline-block pb-2">ESTÁNDAR</span>
         </h1>
+        {/* FIN DE LA CORRECCIÓN */}
+
         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
           Dejá de adivinar en el gimnasio. Accedé a una planificación profesional basada en <span className="text-white font-bold">biomecánica</span>, gestión de carga y resultados reales.
         </p>
         <button 
           onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="bg-emerald-500 text-black px-10 py-5 rounded-2xl font-black tracking-widest text-xs hover:bg-emerald-400 hover:scale-105 hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all"
+          className="relative inline-flex items-center justify-center px-10 py-5 rounded-2xl bg-emerald-500 text-black font-black tracking-widest text-xs hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] transition-all overflow-hidden group"
         >
-          VER PLANES DISPONIBLES
+          <span className="relative z-10">VER PLANES DISPONIBLES</span>
+          <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
         </button>
+
+        {/* Badges de confianza */}
+        <div className="flex flex-wrap justify-center gap-6 mt-16 opacity-60">
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Cupos Limitados</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Pagos Seguros</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Soporte Directo</div>
+        </div>
       </header>
 
       {/* ─── CARACTERÍSTICAS ─── */}
-      <section className="relative z-10 py-20 bg-zinc-900/30 border-y border-white/5 backdrop-blur-sm">
+      <section className="relative z-10 py-24 bg-zinc-900/20 border-y border-white/5 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
           {[
             { title: "100% Individual", desc: "Nada de rutinas genéricas. Ajustamos volumen e intensidad según tu capacidad de recuperación." },
             { title: "Análisis de Video", desc: "Subí tus levantamientos y recibí correcciones biomecánicas detalladas cuadro por cuadro." },
             { title: "Gestión de Cargas", desc: "Calculamos tu 1RM estimado y progresamos semana a semana para evitar estancamientos." }
           ].map((item, i) => (
-            <div key={i} className="p-8 rounded-[2rem] bg-black/40 border border-zinc-800 hover:border-emerald-500/30 transition-all group">
-              <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center mb-6 text-emerald-500 font-black text-xl group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <div key={i} className="p-8 rounded-[2rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/30 hover:bg-zinc-800/50 transition-all duration-300 group">
+              <div className="w-14 h-14 bg-black border border-white/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-500 font-black text-2xl group-hover:scale-110 group-hover:border-emerald-500/50 transition-all shadow-[0_0_20px_rgba(16,185,129,0.05)]">
                 {i + 1}
               </div>
-              <h3 className="text-xl font-black italic mb-3 text-white">{item.title}</h3>
-              <p className="text-zinc-500 text-sm leading-relaxed font-medium">{item.desc}</p>
+              <h3 className="text-2xl font-black italic mb-3 text-white">{item.title}</h3>
+              <p className="text-zinc-400 text-sm leading-relaxed font-medium">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -168,21 +181,20 @@ export default function Home() {
 
       {/* ─── SECCIÓN: EL ENTRENADOR ─── */}
       <section className="relative z-10 py-32 px-4">
-        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-16">
-          <div className="relative group w-[280px] h-[380px] md:w-[400px] md:h-[500px]">
-             <div className="absolute -inset-4 bg-emerald-500/20 blur-[60px] rounded-full opacity-50 group-hover:opacity-75 transition-opacity"></div>
-             <div className="relative w-full h-full rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black">
-                <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-20">
+          <div className="relative group w-[300px] h-[400px] md:w-[450px] md:h-[550px]">
+             <div className="absolute -inset-4 bg-emerald-500/20 blur-[80px] rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700"></div>
+             <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-zinc-900">
+                <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700 group-hover:scale-105" />
              </div>
           </div>
 
           <div className="flex-1 text-center lg:text-left">
-            <span className="text-emerald-500 font-black tracking-widest text-xs mb-4 inline-block uppercase border-b border-emerald-500/20 pb-2">Head Coach</span>
-            
-            <h2 className="text-5xl md:text-7xl font-black mb-8 italic tracking-tighter text-white">LUCIANO <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-800">TUJAGUE</span></h2>
+            <span className="text-emerald-500 font-black tracking-widest text-xs mb-4 inline-block uppercase border-b border-emerald-500/30 pb-2">Head Coach</span>
+            <h2 className="text-5xl md:text-7xl font-black mb-8 italic tracking-tighter text-white">LUCIANO <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700">TUJAGUE</span></h2>
             <div className="space-y-6 text-zinc-400 text-lg leading-relaxed font-medium">
-                <p>Aplico la metodología <strong>BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
-                <p>Mi filosofía exige <strong>tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong>RPE y RIR</strong>.</p>
+                <p>Aplico la metodología <strong className="text-white">BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
+                <p>Mi filosofía exige <strong className="text-white">tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong className="text-emerald-400">RPE y RIR</strong>.</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
@@ -192,8 +204,8 @@ export default function Home() {
                  { v: "110 KG", l: "Deadlift" },
                  { v: "+60 KG", l: "Fondos" }
                ].map((stat, i) => (
-                 <div key={i} className="bg-white/5 backdrop-blur-sm p-4 rounded-2xl border border-white/10 hover:border-emerald-500/50 transition-colors group">
-                    <p className="text-white font-black text-2xl italic leading-none group-hover:text-emerald-400 transition-colors">{stat.v}</p>
+                 <div key={i} className="bg-zinc-900/50 backdrop-blur-md p-5 rounded-2xl border border-white/5 hover:border-emerald-500/50 hover:bg-zinc-800/80 transition-all group">
+                    <p className="text-white font-black text-3xl italic leading-none group-hover:text-emerald-400 transition-colors drop-shadow-md">{stat.v}</p>
                     <p className="text-[10px] text-zinc-500 font-black tracking-widest mt-2 uppercase">{stat.l}</p>
                  </div>
                ))}
@@ -203,30 +215,33 @@ export default function Home() {
       </section>
 
       {/* ─── CÓMO FUNCIONA + SOPORTE ─── */}
-      <section className="relative z-10 py-20 border-t border-white/5 bg-zinc-900/20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-black italic mb-12 text-white tracking-tighter">
+      <section className="relative z-10 py-24 border-t border-white/5 bg-gradient-to-b from-[#050505] to-zinc-900/20">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <h2 className="text-4xl md:text-5xl font-black italic mb-16 text-white tracking-tighter">
             TU RUTA AL <span className="text-emerald-500">DASHBOARD</span>
           </h2>
           <div className="grid md:grid-cols-3 gap-8 relative">
-            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-emerald-500/0 via-emerald-500/50 to-emerald-500/0 z-0"></div>
+            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 z-0"></div>
             {[
               { step: "01", title: "Elección & Pago", desc: "Seleccionás tu plan (semanal o mensual) y completás el pago seguro." },
               { step: "02", title: "Onboarding", desc: "Llenás el formulario de atleta: lesiones, RM estimados y objetivos." },
               { step: "03", title: "Acceso Total", desc: "En <48hs recibís tu acceso al Dashboard y comenzamos a trabajar." }
             ].map((s, i) => (
-              <div key={i} className="relative z-10 bg-[#09090b] p-6 rounded-2xl border border-zinc-800 hover:border-emerald-500/50 transition-colors">
-                <div className="text-4xl font-black text-emerald-500/20 mb-4 italic">{s.step}</div>
-                <h3 className="text-xl font-bold text-white mb-2">{s.title}</h3>
+              <div key={i} className="relative z-10 bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2rem] border border-white/5 hover:border-emerald-500/40 transition-all hover:-translate-y-2 shadow-xl">
+                <div className="text-5xl font-black text-emerald-500/10 mb-6 italic drop-shadow-md">{s.step}</div>
+                <h3 className="text-xl font-bold text-white mb-3">{s.title}</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
           
-          <div className="mt-16 p-6 rounded-xl bg-emerald-900/10 border border-emerald-500/20 inline-block">
-            <h4 className="text-emerald-500 font-bold uppercase tracking-widest text-xs mb-2">Soporte Oficial</h4>
-            <p className="text-zinc-300 text-sm font-medium">
-              <span className="text-white">📅 Lunes a Viernes (18:00 - 20:00 hs)</span> <br/>
+          <div className="mt-16 p-8 rounded-3xl bg-emerald-900/10 border border-emerald-500/20 inline-block backdrop-blur-md">
+            <h4 className="text-emerald-500 font-black uppercase tracking-widest text-xs mb-3 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Soporte Oficial Activo
+            </h4>
+            <p className="text-zinc-300 text-sm font-medium leading-relaxed">
+              <span className="text-white font-bold block mb-1">📅 Lunes a Viernes (18:00 - 20:00 hs)</span>
               Respuesta garantizada en 24hs hábiles vía WhatsApp Privado.
             </p>
           </div>
@@ -234,51 +249,53 @@ export default function Home() {
       </section>
 
       {/* ─── PRICING SECTION ─── */}
-      <section id="pricing-section" className="relative z-20 py-24 px-4 bg-black/40">
+      <section id="pricing-section" className="relative z-20 py-32 px-4 bg-zinc-950/80 border-t border-white/5">
         <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-4xl md:text-6xl font-black italic text-center mb-12 tracking-tighter">
+          <h2 className="text-5xl md:text-7xl font-black italic text-center mb-12 tracking-tighter drop-shadow-xl">
             ELIGE TU <span className="text-emerald-500">CAMINO</span>
           </h2>
           
-          <div className="inline-flex bg-zinc-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-zinc-800 mb-16 shadow-2xl">
-            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-10 py-4 rounded-xl text-xs md:text-sm font-black transition-all tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>SEMANAL</button>
-            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-10 py-4 rounded-xl text-xs md:text-sm font-black transition-all tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}>MENSUAL</button>
+          {/* Toggle Semanal / Mensual */}
+          <div className="inline-flex bg-zinc-900/80 backdrop-blur-xl p-1.5 rounded-2xl border border-zinc-800 mb-20 shadow-2xl">
+            <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-12 py-4 rounded-xl text-xs md:text-sm font-black transition-all duration-300 tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'text-zinc-500 hover:text-white'}`}>SEMANAL</button>
+            <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-12 py-4 rounded-xl text-xs md:text-sm font-black transition-all duration-300 tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'text-zinc-500 hover:text-white'}`}>MENSUAL</button>
           </div>
 
-          <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-8 max-w-7xl mx-auto mb-20">
+          <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-8 max-w-7xl mx-auto mb-24">
             {currentPlans.map((plan) => (
               <div 
                 key={plan.id} 
                 onClick={() => handleSelectPlan(plan)}
-                className={`p-8 md:p-10 cursor-pointer group transition-all duration-300 relative flex flex-col rounded-[2.5rem] border backdrop-blur-sm ${
+                className={`p-8 md:p-10 cursor-pointer group transition-all duration-500 relative flex flex-col rounded-[2.5rem] border backdrop-blur-xl ${
                   selectedPlan?.id === plan.id 
-                  ? 'bg-zinc-900/80 border-emerald-500 scale-[1.03] shadow-[0_0_60px_rgba(16,185,129,0.15)] z-10' 
-                  : 'bg-[#0c0c0e]/80 border-white/5 hover:border-emerald-500/30 hover:bg-zinc-900/50'
+                  ? 'bg-zinc-900/90 border-emerald-500 scale-[1.03] shadow-[0_0_60px_rgba(16,185,129,0.2)] z-10' 
+                  : 'bg-zinc-900/40 border-white/5 hover:border-emerald-500/40 hover:bg-zinc-900/70'
                 }`}
               >
                 {plan.highlight && (
-                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-500 text-black text-[10px] font-black px-6 py-2 rounded-full tracking-widest shadow-lg shadow-emerald-500/20">
+                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-emerald-400 to-emerald-600 text-black text-[10px] font-black px-6 py-2 rounded-full tracking-widest shadow-lg shadow-emerald-500/30">
                      MÁS ELEGIDO
                    </div>
                 )}
-                <h3 className="text-2xl font-black italic mb-2 tracking-tighter text-white">{plan.title}</h3>
-                <p className="text-emerald-400 font-bold tracking-widest text-[10px] mb-8 border-b border-white/5 pb-4 uppercase">{plan.subtitle}</p>
-                <div className="text-4xl md:text-5xl font-black mb-8 text-white tracking-tight">
-                    ${plan.price.toLocaleString('es-AR')} 
-                    <span className="text-xs text-zinc-500 font-bold ml-2 tracking-wide align-middle">/{isWeekly ? 'SEM' : 'MES'}</span>
+                <h3 className="text-3xl font-black italic mb-2 tracking-tighter text-white">{plan.title}</h3>
+                <p className="text-emerald-400 font-bold tracking-widest text-[10px] mb-8 border-b border-white/10 pb-4 uppercase">{plan.subtitle}</p>
+                <div className="text-4xl md:text-5xl font-black mb-8 text-white tracking-tight flex items-center justify-center">
+                    <span className="text-2xl text-zinc-500 mr-1">$</span>
+                    {plan.price.toLocaleString('es-AR')} 
+                    <span className="text-sm text-zinc-500 font-bold ml-2 tracking-wide align-bottom">/{isWeekly ? 'SEM' : 'MES'}</span>
                 </div>
-                <p className="text-zinc-400 mb-8 text-sm leading-relaxed flex-grow font-medium">{plan.description}</p>
-                <ul className="space-y-4 mb-10 text-left">
+                <p className="text-zinc-400 mb-10 text-sm leading-relaxed flex-grow font-medium">{plan.description}</p>
+                <ul className="space-y-4 mb-10 text-left bg-black/20 p-6 rounded-2xl border border-white/5">
                   {plan.features.map((f, idx) => (
-                    <li key={idx} className="flex items-center gap-4 text-zinc-300 font-medium text-xs md:text-sm">
-                      <span className="text-emerald-500 font-black">✔</span>
+                    <li key={idx} className="flex items-start gap-4 text-zinc-300 font-medium text-xs md:text-sm">
+                      <span className="text-emerald-500 font-black mt-0.5">✓</span>
                       {f}
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-5 rounded-xl font-black tracking-[0.2em] text-[10px] transition-all uppercase ${
+                <button className={`w-full py-5 rounded-2xl font-black tracking-[0.2em] text-[10px] transition-all duration-300 uppercase ${
                   selectedPlan?.id === plan.id 
-                  ? 'bg-emerald-500 text-black shadow-lg' 
+                  ? 'bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]' 
                   : 'bg-white/5 text-zinc-400 group-hover:bg-white group-hover:text-black'
                 }`}>
                   {selectedPlan?.id === plan.id ? 'PLAN SELECCIONADO' : 'ELEGIR ESTE PLAN'}
@@ -287,44 +304,51 @@ export default function Home() {
             ))}
           </div>
           
-          {/* ✅ NUEVA SECCIÓN "DETALLE PRO": LO QUE SÍ / LO QUE NO (PUNTO 9 AUDITORÍA) */}
-          <div className="max-w-4xl mx-auto mb-20 bg-zinc-900/30 border border-white/5 rounded-[2rem] p-8 md:p-12 relative overflow-hidden backdrop-blur-md">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -mr-16 -mt-16"></div>
-             <h3 className="text-2xl font-black italic text-center text-white mb-8 tracking-tighter">TRANSPARENCIA TOTAL</h3>
+          {/* SECCIÓN "DETALLE PRO": LO QUE SÍ / LO QUE NO */}
+          <div className="max-w-4xl mx-auto mb-20 bg-zinc-900/60 border border-white/5 rounded-[2.5rem] p-8 md:p-14 relative overflow-hidden backdrop-blur-xl shadow-2xl">
+             <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
+             <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none -ml-20 -mb-20"></div>
              
-             <div className="grid md:grid-cols-2 gap-12">
-                <div className="space-y-4">
-                  <h4 className="text-emerald-500 font-black tracking-widest text-xs uppercase border-b border-emerald-500/20 pb-2 mb-4">Lo que SÍ Incluye</h4>
-                  <ul className="space-y-3">
-                    <li className="flex items-start gap-3 text-sm text-zinc-300">
-                      <span className="text-emerald-500 font-bold">✓</span> Programación 100% personalizada según tu nivel.
+             <h3 className="text-3xl font-black italic text-center text-white mb-12 tracking-tighter">TRANSPARENCIA <span className="text-emerald-500">TOTAL</span></h3>
+             
+             <div className="grid md:grid-cols-2 gap-12 md:gap-20">
+                <div className="space-y-6 text-left">
+                  <h4 className="text-emerald-500 font-black tracking-widest text-sm uppercase flex items-center gap-2 border-b border-white/5 pb-4 mb-6">
+                    <span className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">✓</span> Lo que SÍ Incluye
+                  </h4>
+                  <ul className="space-y-4">
+                    <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Programación 100% personalizada según tu nivel.
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-300">
-                      <span className="text-emerald-500 font-bold">✓</span> Correcciones técnicas vía video (Dashboard).
+                    <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Correcciones técnicas vía video (Dashboard).
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-300">
-                      <span className="text-emerald-500 font-bold">✓</span> Soporte directo por WhatsApp (Lun-Vie 18-20hs).
+                    <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Soporte directo por WhatsApp (Lun-Vie 18-20hs).
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-300">
-                      <span className="text-emerald-500 font-bold">✓</span> Ajustes de carga semanales para evitar estancamientos.
+                    <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Ajustes de carga semanales.
                     </li>
                   </ul>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-red-500 font-black tracking-widest text-xs uppercase border-b border-red-500/20 pb-2 mb-4">Lo que NO Incluye</h4>
-                  <ul className="space-y-3">
-                    <li className="flex items-start gap-3 text-sm text-zinc-400">
-                      <span className="text-red-500 font-bold">✕</span> Planes de alimentación o nutrición clínica.
+                <div className="space-y-6 text-left relative">
+                  <div className="hidden md:block absolute -left-10 top-0 bottom-0 w-[1px] bg-white/5"></div>
+                  <h4 className="text-red-500 font-black tracking-widest text-sm uppercase flex items-center gap-2 border-b border-white/5 pb-4 mb-6">
+                    <span className="bg-red-500/10 p-2 rounded-lg text-red-400">✕</span> Lo que NO Incluye
+                  </h4>
+                  <ul className="space-y-4">
+                    <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Planes de alimentación o nutrición clínica.
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-400">
-                      <span className="text-red-500 font-bold">✕</span> Respuestas instantáneas 24/7 (respetamos los horarios).
+                    <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Respuestas instantáneas 24/7.
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-400">
-                      <span className="text-red-500 font-bold">✕</span> Cambios ilimitados de rutina por capricho.
+                    <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Cambios ilimitados de rutina por capricho.
                     </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-400">
-                      <span className="text-red-500 font-bold">✕</span> Consultas médicas o rehabilitación de lesiones graves.
+                    <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Consultas médicas o rehabilitación.
                     </li>
                   </ul>
                 </div>
@@ -332,19 +356,19 @@ export default function Home() {
           </div>
 
           {selectedPlan && (
-            <div className="max-w-2xl mx-auto mb-24 animate-in fade-in slide-in-from-bottom-8 duration-500">
-              <label className={`flex items-center justify-between p-8 border cursor-pointer transition-all rounded-[2rem] backdrop-blur-md ${addVideoReview ? 'bg-emerald-900/10 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.1)]' : 'bg-zinc-900/50 border-white/10 hover:border-white/20'}`}>
+            <div className="max-w-3xl mx-auto mb-24 animate-in fade-in slide-in-from-bottom-10 duration-500">
+              <label className={`flex items-center justify-between p-8 md:p-10 border cursor-pointer transition-all duration-300 rounded-[2.5rem] backdrop-blur-xl ${addVideoReview ? 'bg-emerald-900/10 border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.15)] scale-[1.02]' : 'bg-zinc-900/50 border-white/10 hover:border-white/20 hover:bg-zinc-800/50'}`}>
                 <div className="flex items-center gap-6 text-left">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors border ${addVideoReview ? 'bg-emerald-500 border-emerald-500 text-black' : 'border-zinc-700 bg-black/40 text-transparent'}`}>
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 border shadow-inner ${addVideoReview ? 'bg-emerald-500 border-emerald-400 text-black shadow-emerald-500/50' : 'border-zinc-700 bg-black/50 text-transparent'}`}>
+                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <div>
-                    <h4 className="font-black text-lg md:text-xl leading-none mb-2 text-white italic">Auditoría Técnica Biomecánica</h4>
-                    <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">Análisis detallado SBD + Corrección de palancas.</p>
+                    <h4 className="font-black text-xl md:text-2xl leading-none mb-2 text-white italic">Auditoría Técnica Biomecánica</h4>
+                    <p className="text-[10px] md:text-xs text-emerald-400 font-bold tracking-widest uppercase mt-2">Análisis detallado SBD + Corrección de palancas.</p>
                   </div>
                 </div>
-                <div className="text-right">
-                    <span className="text-2xl font-black text-white block tracking-tight">+${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
+                <div className="text-right pl-4">
+                    <span className="text-3xl font-black text-white block tracking-tight">+${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
                 </div>
                 <input type="checkbox" className="hidden" checked={addVideoReview} onChange={(e) => setAddVideoReview(e.target.checked)}/>
               </label>
@@ -354,26 +378,30 @@ export default function Home() {
       </section>
 
       {/* ─── CHECKOUT SECTION ─── */}
-      <section id="checkout-section" className="relative z-10 py-32 px-4 bg-black/80 border-t border-white/5">
-        <div className="max-w-4xl mx-auto">
+      <section id="checkout-section" className="relative z-10 py-32 px-4 bg-black border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black italic mb-6 tracking-tighter text-white">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
-            <p className="text-zinc-400 text-sm font-medium tracking-wide">Completá tus datos para recibir acceso inmediato al panel de entrenamiento.</p>
+            <h2 className="text-5xl md:text-6xl font-black italic mb-6 tracking-tighter text-white">FINALIZAR <span className="text-emerald-500">INSCRIPCIÓN</span></h2>
+            <p className="text-zinc-400 text-base font-medium tracking-wide">Completá tus datos para recibir acceso inmediato al panel de entrenamiento.</p>
           </div>
           {selectedPlan ? (
-            <div className="bg-[#0c0c0e] p-8 md:p-14 border border-emerald-500/20 rounded-[3rem] shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -mr-16 -mt-16"></div>
+            <div className="bg-[#09090b] border border-white/5 rounded-[3rem] shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
+              {/* Aquí se inyecta tu componente actual LandingCheckout sin alterar su lógica */}
               <CheckoutClient selectedPlan={selectedPlan} extraVideo={addVideoReview} extraPrice={EXTRA_VIDEO_PRICE} />
             </div>
           ) : (
-            <div className="text-center p-20 border-2 border-dashed border-zinc-800 rounded-[3rem] bg-white/[0.02]">
-              <p className="text-xl font-bold text-zinc-600 italic tracking-widest">▲ SELECCIONÁ UN PLAN ARRIBA PARA CONTINUAR</p>
+            <div className="text-center p-24 border-2 border-dashed border-zinc-800 rounded-[3rem] bg-white/[0.01] backdrop-blur-sm">
+              <p className="text-xl font-bold text-zinc-500 italic tracking-widest flex flex-col items-center gap-4">
+                <svg className="w-12 h-12 text-zinc-700 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                SELECCIONÁ UN PLAN ARRIBA PARA CONTINUAR
+              </p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ─── FOOTER CON LEGALES ─── */}
+      {/* ─── FOOTER CON LEGALES (RECUPERADO Y MANTENIDO INTACTO) ─── */}
       <footer className="relative z-50 py-20 border-t border-white/10 bg-[#09090b] px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-start gap-12 text-center md:text-left">
           

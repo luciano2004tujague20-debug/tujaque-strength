@@ -3,12 +3,32 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
+// Tipo para estructurar los ejercicios en el constructor
+interface ExerciseBlock {
+  id: string;
+  name: string;
+  sets: string;
+  reps: string;
+  rpe: string;
+  rest: string;
+  tempo: string;
+  notes: string;
+}
+
 export default function AdminTemplates() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  // Estados del Modo Texto (El original, mantenido intacto por seguridad)
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  // Estados del NUEVO MODO CONSTRUCTOR ÉLITE
+  const [buildMode, setBuildMode] = useState<"visual" | "text">("visual");
+  const [metaPhase, setMetaPhase] = useState("Fuerza Máxima");
+  const [metaMethodology, setMetaMethodology] = useState("BII-Vintage");
+  const [exercises, setExercises] = useState<ExerciseBlock[]>([]);
 
   useEffect(() => {
     fetchTemplates();
@@ -24,106 +44,281 @@ export default function AdminTemplates() {
     setLoading(false);
   }
 
+  // Agregar un ejercicio vacío al constructor
+  const addExercise = () => {
+    setExercises([...exercises, { 
+      id: Math.random().toString(), 
+      name: "", sets: "", reps: "", rpe: "", rest: "", tempo: "", notes: "" 
+    }]);
+  };
+
+  // Actualizar un ejercicio específico
+  const updateExercise = (id: string, field: keyof ExerciseBlock, value: string) => {
+    setExercises(exercises.map(ex => ex.id === id ? { ...ex, [field]: value } : ex));
+  };
+
+  // Quitar un ejercicio
+  const removeExercise = (id: string) => {
+    setExercises(exercises.filter(ex => ex.id !== id));
+  };
+
+  // Compilador Inteligente: Convierte los campos visuales en texto estructurado
+  const compileTemplate = () => {
+    if (!newTitle) return alert("⚠️ Falta el Título de la Plantilla");
+    if (exercises.length === 0) return alert("⚠️ Agrega al menos un ejercicio");
+
+    let compiledText = `🔥 FASE: ${metaPhase} | ⚙️ METODOLOGÍA: ${metaMethodology}\n\n`;
+
+    exercises.forEach((ex, index) => {
+      compiledText += `${index + 1}️⃣ ${ex.name.toUpperCase() || "EJERCICIO SIN NOMBRE"}\n`;
+      if (ex.sets || ex.reps) compiledText += `   🔸 Series/Reps: ${ex.sets} x ${ex.reps}\n`;
+      if (ex.rpe) compiledText += `   🔸 Intensidad: ${ex.rpe}\n`;
+      if (ex.rest) compiledText += `   🔸 Descanso: ${ex.rest}\n`;
+      if (ex.tempo) compiledText += `   🔸 Cadencia/Tempo: ${ex.tempo}\n`;
+      if (ex.notes) compiledText += `   📝 Notas: ${ex.notes}\n`;
+      compiledText += `\n`;
+    });
+
+    return compiledText;
+  };
+
+  // ✅ AQUÍ ESTÁ LA ÚNICA MODIFICACIÓN: Detector de errores detallado
   async function saveTemplate() {
-    if (!newTitle || !newContent) return alert("Completá título y contenido");
+    let finalContent = newContent;
+
+    if (buildMode === "visual") {
+      const compiled = compileTemplate();
+      if (!compiled) return; // Si faltan datos, frena acá
+      finalContent = compiled;
+    } else {
+      if (!newTitle || !newContent) return alert("Completá título y contenido");
+    }
 
     const { error } = await supabase
       .from("templates")
-      .insert([{ title: newTitle, content: newContent }]);
+      .insert([{ title: newTitle, content: finalContent }]);
 
     if (error) {
-      alert("Error al guardar plantilla");
+      console.error("Error completo de Supabase:", error);
+      alert(`❌ ERROR DE SUPABASE:\n${error.message}\n\nDetalles: ${error.details || "Ninguno"}`);
     } else {
       setNewTitle("");
       setNewContent("");
+      setExercises([]); // Reseteamos el constructor
       fetchTemplates();
+      alert("✅ ¡Plantilla guardada con éxito!");
     }
   }
 
-  // FUNCIÓN CLAVE: COPIAR AL PORTAPAPELES
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopyStatus(id);
-    setTimeout(() => setCopyStatus(null), 2000); // El aviso dura 2 segundos
+    setTimeout(() => setCopyStatus(null), 2000);
   };
 
   async function deleteTemplate(id: string) {
-    if (!confirm("¿Borrar esta plantilla?")) return;
+    if (!confirm("¿Borrar esta plantilla permanentemente?")) return;
     await supabase.from("templates").delete().eq("id", id);
     fetchTemplates();
   }
 
-  if (loading) return <div className="p-20 text-center text-emerald-500 font-black  italic animate-pulse">Abriendo el archivo maestro...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-32 gap-4 min-h-screen bg-transparent">
+       <div className="w-10 h-10 border-4 border-zinc-800 border-t-emerald-500 rounded-full animate-spin"></div>
+       <p className="text-xs font-bold text-zinc-500 tracking-widest uppercase">Cargando Laboratorio...</p>
+    </div>
+  );
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 px-4 animate-fade-in">
-      <header className="mb-12">
-        <h1 className="text-5xl font-black text-white italic tracking-tighter  leading-none">
-          Plantillas <span className="text-emerald-400 text-3xl block mt-2 not-italic tracking-[0.3em]">BII-VINTAGE</span>
-        </h1>
+    <div className="max-w-7xl mx-auto pb-20 animate-fade-in bg-transparent text-white font-sans">
+      
+      {/* HEADER PREMIUM */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 bg-zinc-900/20 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-sm">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter drop-shadow-md text-white">
+            Librería <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">BII-VINTAGE</span>
+          </h1>
+          <p className="text-zinc-400 text-sm mt-2 font-medium">Laboratorio de Programación y Bloques Maestros</p>
+        </div>
+        <div className="bg-black/30 border border-zinc-800 px-6 py-3 rounded-2xl flex items-center gap-3">
+           <span className="text-2xl">🧪</span>
+           <div>
+             <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Bloques Activos</p>
+             <p className="text-xl font-black text-white">{templates.length}</p>
+           </div>
+        </div>
       </header>
 
       {/* CREADOR DE PLANTILLAS */}
-      <section className="bg-[#0c0c0e] border border-white/10 rounded-[2.5rem] p-10 mb-16 shadow-2xl">
-        <h2 className="text-xs font-black text-emerald-500  tracking-[0.4em] mb-8 italic">Crear Nuevo Bloque Maestro</h2>
-        <div className="space-y-6">
-          <input 
-            type="text" 
-            placeholder="TÍTULO (EJ: BLOQUE A - EMPUJE PIERNAS)"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-xs font-black  tracking-widest text-white outline-none focus:border-emerald-500/50 transition-all"
-          />
-          <textarea 
-            placeholder="ESCRIBÍ LA ESTRUCTURA DE LA RUTINA ACÁ..."
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            className="w-full bg-black/40 border border-white/5 rounded-2xl p-6 text-sm text-zinc-300 outline-none focus:border-emerald-500/50 transition-all h-48 font-mono leading-relaxed"
-          />
-          <button 
-            onClick={saveTemplate}
-            className="w-full bg-emerald-500 text-black font-black  text-xs py-4 rounded-2xl hover:bg-emerald-400 hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98]"
-          >
-            Guardar en la Librería 💾
-          </button>
+      <section className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-10 mb-16 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -mr-20 -mt-20"></div>
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-white/5 pb-6 gap-4 relative z-10">
+            <h2 className="flex items-center gap-3 text-emerald-500 font-black tracking-widest text-xs uppercase">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Constructor Inteligente
+            </h2>
+            
+            {/* SWITCH DE MODOS */}
+            <div className="flex bg-black/50 border border-zinc-800 rounded-xl p-1">
+               <button 
+                 onClick={() => setBuildMode('visual')}
+                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${buildMode === 'visual' ? 'bg-emerald-500 text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}
+               >
+                 Avanzado (Élite)
+               </button>
+               <button 
+                 onClick={() => setBuildMode('text')}
+                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${buildMode === 'text' ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}
+               >
+                 Texto Libre
+               </button>
+            </div>
+        </div>
+        
+        <div className="space-y-6 relative z-10">
+          <div>
+             <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-2 block ml-1">Título del Bloque / Día</label>
+             <input 
+               type="text" 
+               placeholder="Ej: DÍA 1 - PIERNAS (FOCO SENTADILLA)"
+               value={newTitle}
+               onChange={(e) => setNewTitle(e.target.value)}
+               className="w-full bg-black/50 border border-zinc-800 rounded-xl px-6 py-4 text-sm font-bold text-white outline-none focus:border-emerald-500 transition-all placeholder:text-zinc-700"
+             />
+          </div>
+
+          {/* MODO TEXTO ANTIGUO */}
+          {buildMode === "text" && (
+             <div>
+               <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-2 block ml-1">Contenido Libre</label>
+               <textarea 
+                 placeholder="Escribí la estructura a mano..."
+                 value={newContent}
+                 onChange={(e) => setNewContent(e.target.value)}
+                 className="w-full bg-black/50 border border-zinc-800 rounded-xl p-6 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition-all h-56 font-mono leading-relaxed resize-y placeholder:text-zinc-700"
+               />
+             </div>
+          )}
+
+          {/* MODO CONSTRUCTOR ÉLITE */}
+          {buildMode === "visual" && (
+             <div className="space-y-6 bg-black/20 p-6 rounded-3xl border border-zinc-800/50">
+                <div className="grid grid-cols-2 gap-4 border-b border-zinc-800/50 pb-6">
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-emerald-500 tracking-widest mb-2 block ml-1">Fase del Mesociclo</label>
+                      <input type="text" value={metaPhase} onChange={e => setMetaPhase(e.target.value)} className="w-full bg-black/50 border border-zinc-800 rounded-lg px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none" />
+                   </div>
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-emerald-500 tracking-widest mb-2 block ml-1">Metodología / Sistema</label>
+                      <input type="text" value={metaMethodology} onChange={e => setMetaMethodology(e.target.value)} className="w-full bg-black/50 border border-zinc-800 rounded-lg px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none" />
+                   </div>
+                </div>
+
+                {/* Lista de Ejercicios */}
+                <div className="space-y-4">
+                   {exercises.map((ex, idx) => (
+                      <div key={ex.id} className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-5 relative group">
+                         <div className="absolute -left-3 -top-3 w-8 h-8 bg-zinc-800 border border-zinc-700 rounded-full flex items-center justify-center text-emerald-500 font-black text-xs shadow-lg">{idx + 1}</div>
+                         <button onClick={() => removeExercise(ex.id)} className="absolute top-4 right-4 text-red-500 hover:text-red-400 font-bold text-xs opacity-0 group-hover:opacity-100 transition-all">✕ Eliminar</button>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-2">
+                            <div className="md:col-span-12">
+                               <input type="text" placeholder="Nombre del Ejercicio (Ej: Sentadilla Low Bar)" value={ex.name} onChange={e => updateExercise(ex.id, 'name', e.target.value)} className="w-full bg-black/50 border border-zinc-800 rounded-lg px-4 py-3 text-sm font-bold text-white focus:border-emerald-500 outline-none placeholder:text-zinc-600" />
+                            </div>
+                            <div className="md:col-span-3">
+                               <label className="text-[9px] text-zinc-500 uppercase font-black ml-1 mb-1 block">Series</label>
+                               <input type="text" placeholder="Ej: 4" value={ex.sets} onChange={e => updateExercise(ex.id, 'sets', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none text-center" />
+                            </div>
+                            <div className="md:col-span-3">
+                               <label className="text-[9px] text-zinc-500 uppercase font-black ml-1 mb-1 block">Reps</label>
+                               <input type="text" placeholder="Ej: 5 o 8-10" value={ex.reps} onChange={e => updateExercise(ex.id, 'reps', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none text-center" />
+                            </div>
+                            <div className="md:col-span-3">
+                               <label className="text-[9px] text-emerald-500 uppercase font-black ml-1 mb-1 block">RPE / RIR</label>
+                               <input type="text" placeholder="Ej: RPE 8" value={ex.rpe} onChange={e => updateExercise(ex.id, 'rpe', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none text-center" />
+                            </div>
+                            <div className="md:col-span-3">
+                               <label className="text-[9px] text-zinc-500 uppercase font-black ml-1 mb-1 block">Descanso</label>
+                               <input type="text" placeholder="Ej: 3-5 min" value={ex.rest} onChange={e => updateExercise(ex.id, 'rest', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none text-center" />
+                            </div>
+                            <div className="md:col-span-4">
+                               <label className="text-[9px] text-zinc-500 uppercase font-black ml-1 mb-1 block">Tempo (Opcional)</label>
+                               <input type="text" placeholder="Ej: 3-1-X-1" value={ex.tempo} onChange={e => updateExercise(ex.id, 'tempo', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none text-center" />
+                            </div>
+                            <div className="md:col-span-8">
+                               <label className="text-[9px] text-zinc-500 uppercase font-black ml-1 mb-1 block">Notas del Coach</label>
+                               <input type="text" placeholder="Ej: Pausa de 1 seg en el hoyo." value={ex.notes} onChange={e => updateExercise(ex.id, 'notes', e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none" />
+                            </div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+
+                <button 
+                   onClick={addExercise}
+                   className="w-full border-2 border-dashed border-zinc-700 hover:border-emerald-500 text-zinc-500 hover:text-emerald-400 font-black text-[10px] uppercase tracking-widest py-4 rounded-xl transition-all"
+                >
+                   + Agregar Ejercicio
+                </button>
+             </div>
+          )}
+
+          <div className="flex justify-end pt-4 border-t border-white/5">
+             <button 
+               onClick={saveTemplate}
+               className="w-full md:w-auto bg-emerald-500 text-black font-black text-xs px-10 py-5 rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95 uppercase tracking-widest flex justify-center items-center gap-2"
+             >
+               {buildMode === 'visual' ? 'Generar y Guardar Plantilla ⚙️' : 'Guardar Plantilla Libre 💾'}
+             </button>
+          </div>
         </div>
       </section>
 
       {/* LISTADO DE PLANTILLAS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {templates.map((t) => (
-          <article key={t.id} className="bg-[#111113] border border-white/5 rounded-[2rem] p-8 flex flex-col group hover:border-emerald-500/30 transition-all">
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-lg font-black  italic text-white tracking-tight">{t.title}</h3>
+          <article key={t.id} className="bg-zinc-900/30 border border-white/5 rounded-[2rem] p-8 flex flex-col group hover:bg-zinc-900/60 hover:border-emerald-500/30 transition-all duration-300 shadow-lg">
+            
+            <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+              <h3 className="text-xl font-black italic text-white tracking-tight leading-tight pr-4">{t.title}</h3>
               <button 
                 onClick={() => deleteTemplate(t.id)}
-                className="opacity-0 group-hover:opacity-100 text-[8px] font-black text-red-500/50 hover:text-red-500  transition-all"
+                className="opacity-0 group-hover:opacity-100 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg transition-all border border-red-500/20 flex-shrink-0"
+                title="Eliminar Plantilla"
               >
-                Eliminar
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               </button>
             </div>
             
-            <div className="bg-black/40 rounded-xl p-6 text-[11px] text-zinc-500 font-mono mb-6 flex-1 line-clamp-6 leading-relaxed">
-              {t.content}
+            <div className="bg-black/60 border border-zinc-800/50 rounded-xl p-6 text-xs text-zinc-400 font-mono mb-6 flex-1 overflow-hidden relative">
+              <div className="line-clamp-[10] leading-relaxed whitespace-pre-wrap">{t.content}</div>
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0c] to-transparent"></div>
             </div>
 
             <button 
               onClick={() => copyToClipboard(t.content, t.id)}
-              className={`w-full py-4 rounded-xl font-black  text-[10px] tracking-widest transition-all border ${
+              className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border flex items-center justify-center gap-2 ${
                 copyStatus === t.id 
-                ? "bg-emerald-500 text-black border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]" 
-                : "bg-white/5 text-white border-white/10 hover:bg-white/10"
+                ? "bg-emerald-500 text-black border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]" 
+                : "bg-zinc-800/50 text-white border-zinc-700 hover:bg-zinc-800 hover:border-emerald-500/50"
               }`}
             >
-              {copyStatus === t.id ? "¡COPIADO! 🦍" : "Copiar Bloque 📋"}
+              {copyStatus === t.id ? (
+                <>¡RUTINA COPIADA AL PORTAPAPELES! <span className="text-lg leading-none">✅</span></>
+              ) : (
+                <>Copiar Bloque a Memoria <span className="text-lg leading-none">📋</span></>
+              )}
             </button>
           </article>
         ))}
       </div>
 
-      {templates.length === 0 && (
-        <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
-          <p className="text-zinc-700 font-black  italic text-sm tracking-[0.2em]">Tu librería de plantillas está vacía</p>
+      {templates.length === 0 && !loading && (
+        <div className="py-24 text-center border-2 border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/10">
+          <span className="text-4xl mb-4 block">📭</span>
+          <p className="text-zinc-500 font-black uppercase tracking-widest">Tu librería de plantillas está vacía</p>
+          <p className="text-zinc-600 text-sm mt-2">Crea tu primer bloque maestro arriba.</p>
         </div>
       )}
     </div>

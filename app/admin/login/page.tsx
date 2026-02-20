@@ -6,67 +6,90 @@ import { useRouter } from "next/navigation";
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(""); // Limpiamos errores previos
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
-    if (res.ok) {
-      // Si la contraseña es correcta, Next.js ya puso la cookie.
-      // Recargamos para que el Middleware nos deje pasar.
-      router.refresh(); 
-      router.push("/admin/orders");
-    } else {
-      alert("❌ ACCESO DENEGADO: Contraseña incorrecta");
+      if (res.ok) {
+        // Redirección directa al panel de control principal del Admin
+        // Usamos window.location para forzar la recarga del estado de Next.js
+        // y asegurar que el middleware lea la nueva cookie inmediatamente.
+        window.location.href = "/admin/athletes";
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.error || "Contraseña incorrecta. Acceso denegado.");
+        setPassword(""); // Limpiamos el input para intentar de nuevo
+      }
+    } catch (error) {
+      setErrorMsg("Error de conexión con el servidor.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Fondo Cyberpunk Sutil */}
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 pointer-events-none"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="relative z-10 w-full max-w-sm bg-zinc-900/80 border border-white/10 p-10 rounded-[2rem] backdrop-blur-xl shadow-2xl">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-black italic text-white tracking-tighter">
             ADMIN <span className="text-emerald-500">ACCESS</span>
           </h1>
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em] mt-2">Sistema de Control Elite</p>
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em] mt-2">
+            Sistema de Control Elite
+          </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Credencial de Acceso</label>
+            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+              Credencial de Acceso
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-4 text-white text-center font-bold tracking-widest outline-none focus:border-emerald-500 focus:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
-              placeholder="••••••••••••"
+              className="w-full bg-black/60 border border-zinc-700/50 rounded-xl px-4 py-4 text-white text-center font-bold tracking-[0.3em] outline-none focus:border-emerald-500 focus:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all placeholder:tracking-normal placeholder:text-zinc-700"
+              placeholder="••••••••"
               autoFocus
+              required
             />
           </div>
 
+          {/* Mensaje de Error Visual */}
+          {errorMsg && (
+            <p className="text-red-500 text-xs font-bold text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">
+              ⚠️ {errorMsg}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-white text-black font-black py-4 rounded-xl uppercase tracking-[0.2em] hover:bg-emerald-400 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || !password}
+            className="w-full bg-white text-black font-black py-4 rounded-xl uppercase tracking-[0.2em] hover:bg-emerald-400 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
-            {loading ? "Verificando..." : "Desbloquear"}
+            {loading ? "VERIFICANDO..." : "DESBLOQUEAR"}
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-            <p className="text-[9px] text-zinc-600 font-mono">ID: TUJAQUE-SECURE-V1</p>
+        <div className="mt-8 text-center border-t border-white/5 pt-6">
+          <p className="text-[9px] text-zinc-600 font-mono tracking-widest">
+            ID: TUJAQUE-SECURE-V2
+          </p>
         </div>
       </div>
     </div>

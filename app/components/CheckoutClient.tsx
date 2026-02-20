@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { getConversions } from "@/lib/pricing";
 
 interface CheckoutClientProps {
-  // ✅ Importante: selectedPlan.id debe ser el "code" del plan (ej: "semanal-5-6")
   selectedPlan: { id: string; title: string; subtitle: string; price: number; };
   extraVideo: boolean;
   extraPrice: number;
@@ -18,14 +17,14 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mercadopago");
   
-  // ─── NUEVO ESTADO PARA EL ONBOARDING ───
+  // ─── ESTADO INTACTO ───
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     instagram: "",
     age: "",
     phone: "",
-    experience: "intermedio", // valor por defecto
+    experience: "intermedio",
     goal: "fuerza",
     injuries: "no",
     equipment: "gimnasio"
@@ -34,10 +33,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
   const totalAmount = selectedPlan.price + (extraVideo ? extraPrice : 0);
   const conversions = getConversions(totalAmount);
 
+  // ─── LÓGICA DE SUBMIT INTACTA ───
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validación básica: Verificamos que los campos obligatorios (*) estén llenos
     if (!formData.name || !formData.email || !formData.phone || !formData.age) {
       alert("Por favor, completá todos los campos obligatorios (*)");
       return;
@@ -46,7 +45,6 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     setLoading(true);
 
     try {
-      // 1. Mapeo de métodos para que coincidan con tu backend
       const methodMapping = {
         mercadopago: "mercado_pago",
         transferencia: "transfer_ars",
@@ -54,19 +52,16 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         usd: "international_usd"
       };
 
-      // 2. Llamada a tu API (/api/orders/route.ts)
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // ✅ ENVIAMOS EL CÓDIGO: Este valor debe coincidir con la columna 'code' en Supabase
           planCode: selectedPlan.id,       
           paymentMethod: methodMapping[paymentMethod],
           name: formData.name.trim(),
           email: formData.email.trim().toLowerCase(),
           customerRef: formData.instagram.trim() || null, 
           extraVideo: extraVideo,
-          // ✅ NUEVO: Enviamos la ficha técnica del atleta
           onboardingData: {
             age: formData.age,
             phone: formData.phone,
@@ -84,12 +79,9 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
         throw new Error(data.error || "Error al procesar la orden");
       }
 
-      // 3. Redirección automática
       if (data.paymentUrl) {
-        // Redirección a Mercado Pago
         window.location.href = data.paymentUrl;
       } else if (data.orderId) {
-        // Redirección a la página de éxito (Transferencia/Crypto/USD)
         router.push(`/order/${data.orderId}?email=${encodeURIComponent(formData.email.trim())}`);
       }
       
@@ -101,77 +93,84 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
     }
   };
 
-  // Clases CSS reutilizables para mantener el código limpio
-  const inputClass = "w-full bg-zinc-900/50 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-600";
-  const labelClass = "block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide";
+  // ─── CLASES CSS MEJORADAS PARA DISEÑO ELITE ───
+  const inputClass = "w-full bg-black/40 border-2 border-zinc-800/80 rounded-xl px-5 py-4 text-white font-bold text-sm focus:border-emerald-500 focus:bg-zinc-900 outline-none transition-all placeholder:text-zinc-600 placeholder:font-medium";
+  const labelClass = "block text-[10px] font-black text-zinc-400 mb-2 uppercase tracking-widest ml-1";
+  const selectClass = "w-full bg-black/40 border-2 border-zinc-800/80 rounded-xl px-5 py-4 text-white font-bold text-sm focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer";
 
   return (
-    <div className="grid lg:grid-cols-2 gap-12 text-left">
+    <div className="grid lg:grid-cols-12 gap-12 text-left p-6 md:p-14 relative z-10">
       
-      {/* ─── COLUMNA IZQUIERDA: FORMULARIO + PAGO ─── */}
-      <div className="space-y-8">
+      {/* ─── COLUMNA IZQUIERDA: FORMULARIO (7 Columnas) ─── */}
+      <div className="lg:col-span-7 space-y-12">
         
-        {/* SECCIÓN 1: PERFIL DE ATLETA (ONBOARDING) */}
+        {/* SECCIÓN 1: PERFIL DE ATLETA */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-            <span className="bg-emerald-500 text-black text-xs font-black px-2 py-1 rounded">PASO 1</span>
-            <h3 className="text-xl font-black text-white italic tracking-tight">Ficha del Atleta</h3>
+          <div className="flex items-center gap-5 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.15)] shrink-0">
+              1
+            </div>
+            <div>
+              <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">Ficha del Atleta</h3>
+              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em] mt-1">Datos de Onboarding Obligatorios</p>
+            </div>
           </div>
           
-          <div className="space-y-5">
-            {/* Datos Personales */}
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-6 bg-zinc-900/30 p-6 md:p-8 rounded-[2rem] border border-white/5 backdrop-blur-sm">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className={labelClass}>Nombre Completo *</label>
+                <label className={labelClass}>Nombre Completo <span className="text-emerald-500">*</span></label>
                 <input required className={inputClass} placeholder="Ej: Juan Pérez" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
               <div>
-                <label className={labelClass}>Edad *</label>
+                <label className={labelClass}>Edad <span className="text-emerald-500">*</span></label>
                 <input required type="number" className={inputClass} placeholder="Ej: 24" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className={labelClass}>Email *</label>
+                <label className={labelClass}>Email (Para tu cuenta) <span className="text-emerald-500">*</span></label>
                 <input required type="email" className={inputClass} placeholder="tu@email.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div>
-                <label className={labelClass}>WhatsApp *</label>
+                <label className={labelClass}>WhatsApp (Soporte) <span className="text-emerald-500">*</span></label>
                 <input required type="tel" className={inputClass} placeholder="+54 9 11..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
               </div>
             </div>
             
             <div>
-               <label className={labelClass}>Instagram (Opcional)</label>
+               <label className={labelClass}>Instagram (Opcional - Para referencias)</label>
                <input className={inputClass} placeholder="@usuario" value={formData.instagram} onChange={e => setFormData({...formData, instagram: e.target.value})} />
             </div>
 
-            {/* Datos Entrenamiento (NUEVO) */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-               <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+               <div className="relative">
                  <label className={labelClass}>Objetivo Principal</label>
-                 <select className={inputClass} value={formData.goal} onChange={e => setFormData({...formData, goal: e.target.value})}>
+                 <select className={selectClass} value={formData.goal} onChange={e => setFormData({...formData, goal: e.target.value})}>
                    <option value="fuerza">Fuerza (Powerlifting)</option>
                    <option value="hipertrofia">Hipertrofia (Estética)</option>
                    <option value="mixto">Híbrido (Powerbuilding)</option>
                  </select>
+                 <div className="absolute right-4 top-[38px] pointer-events-none text-zinc-500">▼</div>
                </div>
-               <div>
+               <div className="relative">
                  <label className={labelClass}>Nivel Experiencia</label>
-                 <select className={inputClass} value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})}>
+                 <select className={selectClass} value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})}>
                    <option value="principiante">Principiante</option>
                    <option value="intermedio">Intermedio</option>
                    <option value="avanzado">Avanzado</option>
                  </select>
+                 <div className="absolute right-4 top-[38px] pointer-events-none text-zinc-500">▼</div>
                </div>
             </div>
 
             <div>
               <label className={labelClass}>¿Lesiones actuales o dolores?</label>
               <textarea 
-                className={`${inputClass} h-20 resize-none`} 
-                placeholder="No, ninguna / Sí, dolor en hombro izquierdo..." 
+                className={`${inputClass} h-24 resize-none`} 
+                placeholder="Describí brevemente si tenés alguna molestia o lesión previa..." 
                 value={formData.injuries} 
                 onChange={e => setFormData({...formData, injuries: e.target.value})} 
               />
@@ -181,96 +180,125 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         {/* SECCIÓN 2: MÉTODOS DE PAGO */}
         <section>
-          <div className="flex items-center gap-3 mb-6 pt-6 border-t border-white/5">
-            <span className="bg-emerald-500 text-black text-xs font-black px-2 py-1 rounded">PASO 2</span>
-            <h3 className="text-xl font-black text-white italic tracking-tight">Método de Pago</h3>
+          <div className="flex items-center gap-5 mb-8 pt-8 border-t border-white/5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.15)] shrink-0">
+              2
+            </div>
+            <div>
+              <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">Método de Pago</h3>
+              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em] mt-1">Seleccioná tu divisa</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <button 
               type="button"
               onClick={() => setPaymentMethod("mercadopago")} 
-              className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'mercadopago' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+              className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'mercadopago' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30'}`}
             >
               Mercado Pago
             </button>
             <button 
               type="button"
               onClick={() => setPaymentMethod("transferencia")} 
-              className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'transferencia' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+              className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'transferencia' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30'}`}
             >
               Transferencia ARS
             </button>
             <button 
               type="button"
               onClick={() => setPaymentMethod("crypto")} 
-              className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+              className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'crypto' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30'}`}
             >
-              Cripto (USDT/BTC)
+              Cripto (USDT)
             </button>
             <button 
               type="button"
               onClick={() => setPaymentMethod("usd")} 
-              className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'usd' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+              className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'usd' ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30'}`}
             >
               Dólar (INTL)
             </button>
           </div>
 
-          <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 shadow-inner min-h-[80px] flex items-center">
-             {paymentMethod === 'mercadopago' && <p className="text-xs text-zinc-400 italic">Serás redirigido a Mercado Pago para abonar de forma automática.</p>}
-             {paymentMethod === 'transferencia' && <p className="text-xs text-zinc-400 italic">Al confirmar, verás los datos para transferir pesos.</p>}
+          {/* Cuadro de Información del Pago Seleccionado */}
+          <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 min-h-[90px] flex items-center justify-center text-center backdrop-blur-sm">
+             {paymentMethod === 'mercadopago' && <p className="text-sm font-medium text-zinc-300">Serás redirigido de forma segura a <span className="text-blue-400 font-bold">Mercado Pago</span> para abonar.</p>}
+             {paymentMethod === 'transferencia' && <p className="text-sm font-medium text-zinc-300">Al confirmar, verás los datos del <span className="text-emerald-400 font-bold">Alias/CBU</span> para transferir pesos.</p>}
              {paymentMethod === 'crypto' && (
-               <div className="text-xs text-zinc-400 space-y-1">
-                 <p className="text-emerald-400 font-bold mb-1">Total aproximado:</p>
-                 <p>USDT / USDC: <strong>{conversions.usdt}</strong></p>
-                 <p>BTC: <strong>{conversions.btc}</strong></p>
+               <div className="text-sm text-zinc-300">
+                 <p className="mb-2">Abonarás enviando a nuestra Billetera Virtual (Redes TRC20/BSC).</p>
+                 <p className="font-mono text-emerald-400 font-bold text-lg">{conversions.usdt} USDT <span className="text-zinc-500 text-sm">/</span> {conversions.btc} BTC</p>
                </div>
              )}
-             {paymentMethod === 'usd' && <p className="text-xs text-zinc-400 italic">Total aproximado: <strong>U$D {conversions.usd}</strong> (PayPal/Zelle).</p>}
+             {paymentMethod === 'usd' && <p className="text-sm font-medium text-zinc-300">Abonarás un total de <span className="font-mono text-emerald-400 font-bold text-lg">U$D {conversions.usd}</span> (Instrucciones en el próximo paso).</p>}
           </div>
           
-          {/* Disclaimer Legal Pequeño */}
-          <div className="text-[10px] text-zinc-600 italic mt-4 px-2">
-            * Al continuar, aceptás que este es un servicio de pago único y declarás estar apto físicamente para realizar actividad física de alta intensidad.
+          {/* ✅ AVISO LEGAL REDISEÑADO: Ahora sí se lee y se ve muy profesional */}
+          <div className="mt-8 bg-zinc-900/40 border border-zinc-700/50 rounded-2xl p-5 flex items-start gap-4 backdrop-blur-md">
+            <div className="w-8 h-8 rounded-full bg-black border border-zinc-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-inner">
+               <span className="text-zinc-400 font-black text-xs italic">i</span>
+            </div>
+            <div>
+               <strong className="text-white text-sm block mb-1 tracking-wide">Términos de Inscripción</strong>
+               <p className="text-xs text-zinc-400 leading-relaxed font-medium">
+                 Al continuar, aceptás que este es un servicio de pago único y declarás estar apto físicamente para realizar actividad física de alta intensidad. No se realizan reembolsos por bajas anticipadas.
+               </p>
+            </div>
           </div>
+
         </section>
       </div>
 
-      {/* ─── COLUMNA DERECHA: RESUMEN (STICKY) ─── */}
-      <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-3xl h-fit shadow-2xl sticky top-24">
-        <div className="mb-8">
-          <h3 className="text-zinc-500 text-xs font-bold mb-2 uppercase tracking-widest">Tu Selección</h3>
-          <p className="text-white font-black text-2xl tracking-tighter italic uppercase">{selectedPlan.title}</p>
-          <p className="text-emerald-500 text-xs font-bold">{selectedPlan.subtitle}</p>
-        </div>
-        
-        <div className="space-y-3 mb-8 border-y border-zinc-800 py-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-400 font-medium">Costo del Plan</span>
-            <span className="text-white font-mono">${selectedPlan.price.toLocaleString()}</span>
+      {/* ─── COLUMNA DERECHA: RESUMEN Y BOTÓN FINAL (5 Columnas) ─── */}
+      <div className="lg:col-span-5 relative">
+        <div className="bg-zinc-900/80 border border-white/5 p-8 md:p-10 rounded-[2.5rem] h-fit shadow-2xl sticky top-28 backdrop-blur-xl">
+          
+          <div className="mb-8">
+            <h3 className="text-emerald-500 text-[10px] font-black mb-2 uppercase tracking-[0.2em] border-b border-emerald-500/20 pb-2 inline-block">Tu Selección</h3>
+            <p className="text-white font-black text-3xl tracking-tighter italic uppercase mt-2">{selectedPlan.title}</p>
+            <p className="text-zinc-400 text-xs font-bold tracking-widest uppercase mt-2">{selectedPlan.subtitle}</p>
           </div>
-          {extraVideo && (
-            <div className="flex justify-between text-sm">
-              <span className="text-emerald-400 font-medium">+ Revisión Biomecánica</span>
-              <span className="text-emerald-400 font-mono">+${extraPrice.toLocaleString()}</span>
+          
+          <div className="space-y-4 mb-8 border-y border-zinc-800/80 py-6">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-300 font-medium">Suscripción Base</span>
+              <span className="text-white font-mono text-lg">${selectedPlan.price.toLocaleString()}</span>
             </div>
-          )}
-        </div>
+            {extraVideo && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-emerald-400 font-medium flex items-center gap-2">
+                  <span className="bg-emerald-500/20 px-1.5 rounded font-black">+</span> Video Análisis
+                </span>
+                <span className="text-emerald-400 font-mono text-lg">+${extraPrice.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
 
-        <div className="flex justify-between items-end mb-8">
-          <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Inversión Final</span>
-          <span className="text-4xl font-black text-white tracking-tighter">${totalAmount.toLocaleString()}</span>
-        </div>
+          <div className="flex justify-between items-end mb-10">
+            <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">Inversión Final (ARS)</span>
+            <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400 tracking-tighter">${totalAmount.toLocaleString()}</span>
+          </div>
 
-        <button 
-          onClick={handleSubmit} 
-          disabled={loading}
-          className="w-full bg-emerald-500 py-5 text-black font-black rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
-        >
-          {loading ? "Procesando..." : paymentMethod === 'mercadopago' ? "Ir a Pagar" : "Generar Pedido"}
-        </button>
+          <button 
+            onClick={handleSubmit} 
+            disabled={loading}
+            className="relative w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 overflow-hidden group border border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-black bg-emerald-500 hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] active:scale-95"
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {loading && <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>}
+              {loading ? "PROCESANDO PAGO..." : paymentMethod === 'mercadopago' ? "IR A PAGAR DE FORMA SEGURA" : "GENERAR PEDIDO AHORA"}
+            </span>
+            {!loading && <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>}
+          </button>
+          
+          <div className="mt-6 flex items-center justify-center gap-2 opacity-60">
+             <svg className="w-3 h-3 text-zinc-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2H9v-2h2v-2H9V9h2V7h2v2h2v2h-2v2h2v2h-2v2h-2z"/></svg>
+             <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Transacción 100% Segura y Encriptada</span>
+          </div>
+        </div>
       </div>
+
     </div>
   );
 }

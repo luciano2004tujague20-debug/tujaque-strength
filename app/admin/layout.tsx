@@ -1,60 +1,49 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase"; 
+import React from "react";
+import { usePathname } from "next/navigation";
 import AdminSidebar from "../components/AdminSidebar"; 
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [authorized, setAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const pathname = usePathname();
 
-  // ⚠️ TU EMAIL DE ADMIN (La llave maestra)
-  // Verificá que este sea exactamente el mail con el que iniciás sesión
-  const ADMIN_EMAIL = "luciano2004tujague20@gmail.com";
-
-  useEffect(() => {
-    async function checkAdmin() {
-      // 1. Le preguntamos a Supabase quién está intentando entrar
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 2. Si no hay usuario o el mail no coincide, lo mandamos al dashboard de clientes
-      if (!user || user.email !== ADMIN_EMAIL) {
-        router.push("/dashboard"); 
-      } else {
-        // 3. Si sos vos, abrimos la puerta
-        setAuthorized(true);
-      }
-      setLoading(false);
-    }
-    checkAdmin();
-  }, [router]);
-
-  // Pantalla de carga mientras verificamos quién sos
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <div className="text-emerald-500 font-black italic animate-pulse tracking-widest">
-          Verificando credenciales de Coach...
-        </div>
-      </div>
-    );
+  // 1. EXCEPCIÓN PARA EL LOGIN
+  if (pathname === "/admin/login" || pathname === "/admin") {
+    return <>{children}</>;
   }
 
-  // Si no está autorizado, no mostramos nada (el router ya lo sacó de acá)
-  if (!authorized) return null;
-
-  // SI SOS VOS, CARGAMOS EL DISEÑO QUE YA TENÍAS
+  // 2. DISEÑO PARA EL PANEL SEGURO (Nivel Élite)
   return (
-    <div className="flex min-h-screen bg-[#09090b]">
-      {/* Esto se queda FIJO a la izquierda */}
-      <AdminSidebar />
+    <div className="flex min-h-screen bg-[#050505] text-white font-sans overflow-hidden selection:bg-emerald-500 selection:text-black">
+      
+      {/* Luces Ambientales (Fondo Profesional) */}
+      <div className="fixed top-0 left-[15%] w-[800px] h-[800px] bg-emerald-500/5 rounded-full blur-[150px] pointer-events-none z-0"></div>
+      <div className="fixed bottom-0 right-0 w-[600px] h-[600px] bg-emerald-900/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-[0.02] pointer-events-none z-0"></div>
 
-      {/* Esto es lo que CAMBIA (tus órdenes, atletas, etc.) */}
-      <main className="flex-1 relative overflow-y-auto">
-        <div className="fixed inset-0 tech-grid opacity-10 pointer-events-none" />
-        <div className="relative z-10 p-4 md:p-10 text-white">
+      {/* Contenedor de la Barra Lateral con efecto Cristalizado */}
+      <div className="relative z-20 shadow-[10px_0_50px_rgba(0,0,0,0.5)] border-r border-white/5 bg-[#0a0a0c]/80 backdrop-blur-xl">
+        <AdminSidebar />
+      </div>
+
+      {/* Contenido Principal con mejor espaciado y scroll */}
+      <main className="flex-1 relative z-10 overflow-y-auto h-screen scroll-smooth">
+        
+        {/* Topbar decorativa VIP para el Admin */}
+        <header className="sticky top-0 z-30 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 px-8 py-4 flex justify-end items-center shadow-sm">
+            <div className="flex items-center gap-4 hover:bg-white/5 p-2 rounded-xl transition-colors cursor-default">
+              <div className="text-right hidden md:block">
+                 <p className="text-xs font-black uppercase tracking-widest text-emerald-500">Luciano Tujague</p>
+                 <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-0.5">Head Coach (Admin)</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-black shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                LT
+              </div>
+            </div>
+        </header>
+
+        {/* Aquí se inyectan tus páginas (Órdenes, Atletas, etc) */}
+        <div className="p-6 md:p-10 lg:p-12">
           {children} 
         </div>
       </main>
