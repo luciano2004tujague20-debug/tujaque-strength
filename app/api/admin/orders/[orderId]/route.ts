@@ -47,9 +47,9 @@ export async function PATCH(req: Request, { params }: { params: { orderId: strin
     if (status === 'paid' && data) {
       try {
           await resend.emails.send({
-              from: 'Tujaque Strength <onboarding@resend.dev>',
+              from: 'Tujague Strength <onboarding@resend.dev>',
               to: data.customer_email,
-              subject: '🔥 Acceso Habilitado - Tujaque Strength',
+              subject: '🔥 Acceso Habilitado - Tujague Strength',
               react: WelcomeEmail({ customerName: data.customer_name, planName: data.plans?.name || 'Plan Personalizado' }),
           });
       } catch (e) { console.error(e); }

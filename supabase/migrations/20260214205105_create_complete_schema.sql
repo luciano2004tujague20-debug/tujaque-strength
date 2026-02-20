@@ -1,5 +1,5 @@
 /*
-  # Esquema Completo Tujaque Strength v2.0
+  # Esquema Completo Tujague Strength v2.0
   
   ## Descripción
   Creación completa del esquema de base de datos para el sistema de coaching de fuerza.

@@ -20,11 +20,11 @@ interface WelcomeEmailProps {
 export const WelcomeEmail = ({ customerName, planName }: WelcomeEmailProps) => (
   <Html>
     <Head />
-    <Preview>Tu acceso a Tujaque Strength está listo.</Preview>
+    <Preview>Tu acceso a Tujague Strength está listo.</Preview>
     <Body style={main}>
       <Container style={container}>
         <Section style={header}>
-          <Text style={logo}>TUJAQUE <span style={{color: '#10b981'}}>STRENGTH</span></Text>
+          <Text style={logo}>TUJAGUE <span style={{color: '#10b981'}}>STRENGTH</span></Text>
         </Section>
         
         <Section style={content}>
@@ -41,7 +41,7 @@ export const WelcomeEmail = ({ customerName, planName }: WelcomeEmailProps) => (
 
           <Button 
             style={btn} 
-            href="https://tujaque-strength.vercel.app/dashboard"
+            href="https://tujague-strength.vercel.app/dashboard"
           >
             INGRESAR AL DASHBOARD
           </Button>

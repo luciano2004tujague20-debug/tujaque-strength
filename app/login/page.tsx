@@ -43,7 +43,7 @@ export default function CustomLogin() {
           
           <header className="text-center mb-12">
             <h1 className="text-5xl font-black text-white italic tracking-tighter leading-none">
-              TUJAQUE<br/>
+              TUJAGUE<br/>
               <span className="text-emerald-400">STRENGTH</span>
             </h1>
             <p className="text-[9px] font-black text-zinc-500 tracking-[0.4em] mt-4">Protocolo de Acceso Elite</p>

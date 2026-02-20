@@ -7,7 +7,7 @@ import { loadSlim } from "@tsparticles/slim";
 export default function AnimatedBackground() {
   const [init, setInit] = useState(false);
 
-  // Inicialización del motor de partículas para Tujaque Strength
+  // Inicialización del motor de partículas para Tujague Strength
   useEffect(() => {
     initParticlesEngine(async (engine) => {
       await loadSlim(engine);

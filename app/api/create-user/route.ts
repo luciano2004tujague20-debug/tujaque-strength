@@ -44,7 +44,7 @@ export async function POST(request: Request) {
           bench_pr: 0,
           deadlift_pr: 0,
           // Textos por defecto para que no quede vacío
-          routine_d1: "Bienvenido a Tujaque Strength. Esta es tu primera semana de evaluación.",
+          routine_d1: "Bienvenido a Tujague Strength. Esta es tu primera semana de evaluación.",
           routine_d2: "Descanso activo o movilidad.",
           routine_d3: "Testeo de técnica en básicos.",
           routine_d4: "Descanso.",

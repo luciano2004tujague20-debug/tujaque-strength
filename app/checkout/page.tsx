@@ -152,7 +152,7 @@ function CheckoutContent() {
           <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm">
             ← Volver a planes
           </Link>
-          <div className="text-[10px] font-black tracking-[0.2em] text-emerald-500 uppercase italic">Tujaque Strength System</div>
+          <div className="text-[10px] font-black tracking-[0.2em] text-emerald-500 uppercase italic">Tujague Strength System</div>
         </div>
       </nav>
 

@@ -64,7 +64,7 @@ export async function POST(req: Request) {
         body: {
           items: [{
             id: plan.code,
-            title: `Plan ${plan.name} - Tujaque Strength`,
+            title: `Plan ${plan.name} - Tujague Strength`,
             quantity: 1,
             unit_price: totalAmount,
             currency_id: 'ARS',

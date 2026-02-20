@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
     <main className="min-h-screen bg-black text-white flex items-center justify-center px-6">
       <div className="w-full max-w-sm rounded-[2.5rem] border border-zinc-800 bg-zinc-900/30 p-10 shadow-2xl text-center">
         <h2 className="text-2xl font-black italic tracking-tighter uppercase">
-          Tujaque <span className="text-emerald-500">Strength</span>
+          Tujague <span className="text-emerald-500">Strength</span>
         </h2>
         
         <div className="mt-8 space-y-6">

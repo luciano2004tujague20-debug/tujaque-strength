@@ -8,7 +8,7 @@ export default function LegalPage() {
       <nav className="border-b border-white/5 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="text-xl font-black italic tracking-tighter text-white">
-            TUJAQUE <span className="text-emerald-500">STRENGTH</span>
+            TUJAGUE <span className="text-emerald-500">STRENGTH</span>
           </Link>
           <Link href="/" className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white">
             ← Volver al Inicio
@@ -35,7 +35,7 @@ export default function LegalPage() {
           </h2>
           <div className="space-y-4 text-sm leading-relaxed text-zinc-400 text-justify">
             <p>
-              Al contratar los servicios de <strong>Luciano Tujague (Tujaque Strength)</strong>, usted acepta adherirse a los siguientes términos. Estos servicios están destinados exclusivamente a la mejora del rendimiento físico y la fuerza bajo una metodología específica.
+              Al contratar los servicios de <strong>Luciano Tujague (Tujague Strength)</strong>, usted acepta adherirse a los siguientes términos. Estos servicios están destinados exclusivamente a la mejora del rendimiento físico y la fuerza bajo una metodología específica.
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Pagos:</strong> Todos los pagos realizados a través de la plataforma son definitivos. No se realizan reembolsos parciales ni totales una vez enviada la planificación, debido a la naturaleza intelectual y personalizada del servicio digital.</li>
@@ -116,7 +116,7 @@ export default function LegalPage() {
       {/* FOOTER */}
       <footer className="py-10 border-t border-white/5 text-center bg-black">
         <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest">
-          © {new Date().getFullYear()} Tujaque Strength System.
+          © {new Date().getFullYear()} Tujague Strength System.
         </p>
       </footer>
     </div>

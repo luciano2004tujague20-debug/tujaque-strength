@@ -88,7 +88,7 @@ export default function AdminLogin() {
 
         <div className="mt-8 text-center border-t border-white/5 pt-6">
           <p className="text-[9px] text-zinc-600 font-mono tracking-widest">
-            ID: TUJAQUE-SECURE-V2
+            ID: TUJAGUE-SECURE-V2
           </p>
         </div>
       </div>

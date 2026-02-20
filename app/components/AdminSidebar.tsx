@@ -14,7 +14,7 @@ export default function AdminSidebar() {
     <aside className="w-64 border-r border-white/5 bg-black/20 flex-col sticky top-0 h-screen hidden md:flex">
       <div className="p-8 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
         <h2 className="text-2xl font-black italic tracking-tighter text-white">
-          TUJAQUE <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600 block text-[10px] not-italic tracking-[0.4em] mt-1">ADMIN CONTROL</span>
+          TUJAGUE <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600 block text-[10px] not-italic tracking-[0.4em] mt-1">ADMIN CONTROL</span>
         </h2>
       </div>
       

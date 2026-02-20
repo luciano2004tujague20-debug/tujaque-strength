@@ -83,6 +83,10 @@ export default function Home() {
     }, 100);
   };
 
+  // Mensaje predeterminado para WhatsApp
+  const whatsappMessage = encodeURIComponent("Hola Coach, quiero aplicar para ingresar al equipo BII-Vintage y llevar mi fuerza al siguiente nivel. ¿Qué datos necesitas?");
+  const whatsappUrl = `https://wa.me/5491123021760?text=${whatsappMessage}`;
+
   return (
     <main className="min-h-screen relative overflow-x-hidden bg-[#050505] text-white font-sans selection:bg-emerald-500 selection:text-black">
       
@@ -104,7 +108,7 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/70 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="text-xl md:text-2xl font-black italic tracking-tighter">
-            TUJAQUE <span className="text-emerald-500">STRENGTH</span>
+            TUJAGUE <span className="text-emerald-500">STRENGTH</span>
           </div>
           <Link href="/dashboard">
             <button className="px-6 py-2.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500 hover:text-black hover:border-emerald-500 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)]">
@@ -116,7 +120,7 @@ export default function Home() {
 
       {/* ─── BOTÓN WHATSAPP FLOTANTE ─── */}
       <a 
-        href="https://wa.me/5491123021760" 
+        href={whatsappUrl} 
         target="_blank" 
         className="fixed bottom-6 right-6 z-50 bg-emerald-500 p-4 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform active:scale-95 group border border-emerald-400/50"
       >
@@ -126,51 +130,83 @@ export default function Home() {
         <svg className="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.588-5.946 0-6.556 5.332-11.888 11.888-11.888 3.176 0 6.161 1.237 8.404 3.48s3.48 5.228 3.48 8.404c0 6.556-5.332 11.888-11.888 11.888-2.097 0-4.142-.547-5.946-1.588L0 .057zm12.026-2.137c1.892 0 3.738-.503 5.339-1.455l.382-.227 3.97 1.041-1.059-3.869.25-.397c1.046-1.666 1.599-3.593 1.599-5.606 0-5.833-4.744-10.577-10.577-10.577-2.827 0-5.483 1.1-7.481 3.098s-3.098 4.654-3.098 7.481c0 2.013.553 3.94 1.599 5.606l.25.397-1.059 3.869 4.074-1.069.382.227c1.6.952 3.447 1.455 5.339 1.455z"/></svg>
       </a>
 
-      {/* ─── HERO SECTION ─── */}
+      {/* ─── HERO SECTION (VIDRIERA ÉLITE) ─── */}
       <header className="relative z-10 pt-40 pb-20 md:pt-52 md:pb-40 text-center px-4 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-[150px] pointer-events-none"></div>
 
         <span className="inline-flex items-center gap-2 mb-8 px-5 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black tracking-[0.2em] backdrop-blur-md">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          PROGRAMACIÓN DE ELITE
+          EL MÉTODO BII-VINTAGE
         </span>
         
-        {/* CORRECCIÓN APLICADA AQUÍ ABAJO */}
-        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[1.1] mb-8 text-white drop-shadow-2xl">
-          ELEVA TU <br className="md:hidden"/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700 inline-block pb-2">ESTÁNDAR</span>
+        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[1.1] mb-6 text-white drop-shadow-2xl">
+          FUERZA BRUTA, <br className="md:hidden"/> SIN VIVIR EN EL <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700 inline-block pb-2">GIMNASIO.</span>
         </h1>
-        {/* FIN DE LA CORRECCIÓN */}
 
         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-          Dejá de adivinar en el gimnasio. Accedé a una planificación profesional basada en <span className="text-white font-bold">biomecánica</span>, gestión de carga y resultados reales.
+          Rompé el estancamiento. Dejá las rutinas genéricas de 6 días. Sumate al equipo y construí fuerza real dominando los 4 básicos: <span className="text-white font-bold border-b border-emerald-500/50">Sentadilla, Banca, Peso Muerto y Fondos.</span>
         </p>
-        <button 
-          onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="relative inline-flex items-center justify-center px-10 py-5 rounded-2xl bg-emerald-500 text-black font-black tracking-widest text-xs hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] transition-all overflow-hidden group"
-        >
-          <span className="relative z-10">VER PLANES DISPONIBLES</span>
-          <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-        </button>
+        
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <a 
+              href={whatsappUrl}
+              target="_blank"
+              className="relative inline-flex items-center justify-center px-10 py-5 rounded-2xl bg-emerald-500 text-black font-black tracking-widest text-xs hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] transition-all overflow-hidden group w-full sm:w-auto"
+            >
+              <span className="relative z-10">APLICAR PARA EL EQUIPO</span>
+              <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+            </a>
+            
+            <button 
+              onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-10 py-5 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-black tracking-widest text-xs hover:bg-zinc-800 transition-all w-full sm:w-auto"
+            >
+              VER PLANES
+            </button>
+        </div>
 
         {/* Badges de confianza */}
         <div className="flex flex-wrap justify-center gap-6 mt-16 opacity-60">
-           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Cupos Limitados</div>
-           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Pagos Seguros</div>
-           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Soporte Directo</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Cupos Mensuales Limitados</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Corrección Biomecánica</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest"><span className="text-emerald-500">✔</span> Control de Fatiga Exacto</div>
         </div>
       </header>
 
-      {/* ─── CARACTERÍSTICAS ─── */}
-      <section className="relative z-10 py-24 bg-zinc-900/20 border-y border-white/5 backdrop-blur-xl">
+      {/* ─── SECCIÓN: EL PANEL (MOSTRANDO EL "JUGUETE") ─── */}
+      <section className="relative z-10 py-24 bg-black border-y border-white/5 overflow-hidden">
+         <div className="max-w-7xl mx-auto px-6 text-center">
+            <h2 className="text-3xl md:text-5xl font-black italic mb-4 text-white tracking-tighter">TECNOLOGÍA AL SERVICIO DE <span className="text-emerald-500">TU RM</span></h2>
+            <p className="text-zinc-400 mb-16 max-w-2xl mx-auto">No te envío un PDF por correo. Al sumarte al equipo, recibís acceso a tu propio Dashboard Privado, diseñado para atletas serios.</p>
+            
+            <div className="grid md:grid-cols-4 gap-4">
+                {[
+                  { icon: "📈", title: "Curva de Progreso", desc: "Gráfico interactivo de tus levantamientos." },
+                  { icon: "⚡", title: "Control de Fatiga", desc: "Monitoreo diario de sueño, peso y estrés." },
+                  { icon: "📹", title: "Auditoría en Video", desc: "Devoluciones cuadro por cuadro del Coach." },
+                  { icon: "🧠", title: "Ajuste de RPE", desc: "Cargas calculadas según tu rendimiento diario." }
+                ].map((feature, i) => (
+                    <div key={i} className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-3xl text-left hover:border-emerald-500/50 transition-colors">
+                        <div className="text-4xl mb-6">{feature.icon}</div>
+                        <h3 className="text-white font-black italic text-lg uppercase tracking-tight mb-2">{feature.title}</h3>
+                        <p className="text-zinc-500 text-xs font-medium leading-relaxed">{feature.desc}</p>
+                    </div>
+                ))}
+            </div>
+         </div>
+      </section>
+
+      {/* ─── LA FILOSOFÍA BII-VINTAGE ─── */}
+      <section className="relative z-10 py-24 bg-zinc-900/20 border-b border-white/5 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
           {[
-            { title: "100% Individual", desc: "Nada de rutinas genéricas. Ajustamos volumen e intensidad según tu capacidad de recuperación." },
-            { title: "Análisis de Video", desc: "Subí tus levantamientos y recibí correcciones biomecánicas detalladas cuadro por cuadro." },
-            { title: "Gestión de Cargas", desc: "Calculamos tu 1RM estimado y progresamos semana a semana para evitar estancamientos." }
+            { title: "Brief (Breve)", desc: "Entrenamientos cortos y directos al punto. Si puedes entrenar más de una hora a esta intensidad, no estás entrenando lo suficientemente duro." },
+            { title: "Intense (Intenso)", desc: "Series llevadas al verdadero límite (RIR 0). Técnica estricta bajo fatiga extrema. Aquí es donde ocurre el crecimiento." },
+            { title: "Infrequent (Infrecuente)", desc: "El músculo crece cuando descansas, no cuando levantas. Controlamos la frecuencia para evitar destrozar tu Sistema Nervioso Central." }
           ].map((item, i) => (
             <div key={i} className="p-8 rounded-[2rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/30 hover:bg-zinc-800/50 transition-all duration-300 group">
-              <div className="w-14 h-14 bg-black border border-white/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-500 font-black text-2xl group-hover:scale-110 group-hover:border-emerald-500/50 transition-all shadow-[0_0_20px_rgba(16,185,129,0.05)]">
-                {i + 1}
+              <div className="w-14 h-14 bg-black border border-white/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-500 font-black text-xl italic tracking-tighter group-hover:scale-110 group-hover:border-emerald-500/50 transition-all shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+                {item.title.split(' ')[0]}
               </div>
               <h3 className="text-2xl font-black italic mb-3 text-white">{item.title}</h3>
               <p className="text-zinc-400 text-sm leading-relaxed font-medium">{item.desc}</p>
@@ -179,9 +215,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── SECCIÓN: EL ENTRENADOR ─── */}
-      <section className="relative z-10 py-32 px-4">
+      {/* ─── SECCIÓN: EL ENTRENADOR Y LOS LEVANTAMIENTOS ─── */}
+      <section className="relative z-10 py-32 px-4 border-b border-white/5">
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-20">
+          
           <div className="relative group w-[300px] h-[400px] md:w-[450px] md:h-[550px]">
              <div className="absolute -inset-4 bg-emerald-500/20 blur-[80px] rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700"></div>
              <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-zinc-900">
@@ -193,8 +230,8 @@ export default function Home() {
             <span className="text-emerald-500 font-black tracking-widest text-xs mb-4 inline-block uppercase border-b border-emerald-500/30 pb-2">Head Coach</span>
             <h2 className="text-5xl md:text-7xl font-black mb-8 italic tracking-tighter text-white">LUCIANO <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700">TUJAGUE</span></h2>
             <div className="space-y-6 text-zinc-400 text-lg leading-relaxed font-medium">
-                <p>Aplico la metodología <strong className="text-white">BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica de la sentadilla y la gestión de la fatiga.</p>
-                <p>Mi filosofía exige <strong className="text-white">tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad mediante <strong className="text-emerald-400">RPE y RIR</strong>.</p>
+                <p>Aplico la metodología <strong className="text-white">BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica y la gestión absoluta de la fatiga.</p>
+                <p>Mi filosofía exige <strong className="text-white">tolerancia al dolor</strong>: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad real.</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
@@ -214,37 +251,40 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── CÓMO FUNCIONA + SOPORTE ─── */}
-      <section className="relative z-10 py-24 border-t border-white/5 bg-gradient-to-b from-[#050505] to-zinc-900/20">
-        <div className="max-w-5xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-black italic mb-16 text-white tracking-tighter">
-            TU RUTA AL <span className="text-emerald-500">DASHBOARD</span>
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 z-0"></div>
-            {[
-              { step: "01", title: "Elección & Pago", desc: "Seleccionás tu plan (semanal o mensual) y completás el pago seguro." },
-              { step: "02", title: "Onboarding", desc: "Llenás el formulario de atleta: lesiones, RM estimados y objetivos." },
-              { step: "03", title: "Acceso Total", desc: "En <48hs recibís tu acceso al Dashboard y comenzamos a trabajar." }
-            ].map((s, i) => (
-              <div key={i} className="relative z-10 bg-zinc-900/80 backdrop-blur-xl p-8 rounded-[2rem] border border-white/5 hover:border-emerald-500/40 transition-all hover:-translate-y-2 shadow-xl">
-                <div className="text-5xl font-black text-emerald-500/10 mb-6 italic drop-shadow-md">{s.step}</div>
-                <h3 className="text-xl font-bold text-white mb-3">{s.title}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-16 p-8 rounded-3xl bg-emerald-900/10 border border-emerald-500/20 inline-block backdrop-blur-md">
-            <h4 className="text-emerald-500 font-black uppercase tracking-widest text-xs mb-3 flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Soporte Oficial Activo
-            </h4>
-            <p className="text-zinc-300 text-sm font-medium leading-relaxed">
-              <span className="text-white font-bold block mb-1">📅 Lunes a Viernes (18:00 - 20:00 hs)</span>
-              Respuesta garantizada en 24hs hábiles vía WhatsApp Privado.
-            </p>
-          </div>
+      {/* ─── 🆕 SECCIÓN DE VIDEOS "EL BIG 4" PREPARADA ─── */}
+      <section className="relative z-10 py-32 px-4 bg-black border-b border-white/5">
+        <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+               <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-white">PREDICAR CON EL <span className="text-emerald-500">EJEMPLO</span></h2>
+               <p className="text-zinc-500 mt-4 font-medium uppercase tracking-widest text-xs">Registros Oficiales de Levantamientos Base</p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+               {[
+                 { title: "Sentadilla (152 KG)", state: "pending" },
+                 { title: "Press de Banca (110 KG)", state: "pending" },
+                 { title: "Peso Muerto (110 KG)", state: "pending" },
+                 { title: "Fondos Lastrados (+60 KG)", state: "pending" }
+               ].map((video, idx) => (
+                   <div key={idx} className="bg-zinc-900 border border-zinc-800 rounded-[2rem] overflow-hidden group relative">
+                       {/* CONTENEDOR DEL VIDEO (Actualmente con Placeholder) */}
+                       <div className="aspect-video bg-zinc-950 flex flex-col items-center justify-center p-8 relative">
+                           <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800 mb-4 opacity-50">
+                               <span className="text-2xl">🔒</span>
+                           </div>
+                           <h4 className="text-zinc-600 font-black tracking-widest text-xs uppercase text-center">Video de Registro en Producción</h4>
+                           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5 pointer-events-none"></div>
+                       </div>
+                       
+                       <div className="p-6 border-t border-zinc-800 bg-zinc-900/50 flex justify-between items-center">
+                           <p className="font-black italic text-white uppercase text-xl">{video.title}</p>
+                           <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest">
+                               Próximamente
+                           </span>
+                       </div>
+                   </div>
+               ))}
+            </div>
         </div>
       </section>
 
@@ -255,7 +295,6 @@ export default function Home() {
             ELIGE TU <span className="text-emerald-500">CAMINO</span>
           </h2>
           
-          {/* Toggle Semanal / Mensual */}
           <div className="inline-flex bg-zinc-900/80 backdrop-blur-xl p-1.5 rounded-2xl border border-zinc-800 mb-20 shadow-2xl">
             <button onClick={() => { setIsWeekly(true); setSelectedPlan(null); }} className={`px-12 py-4 rounded-xl text-xs md:text-sm font-black transition-all duration-300 tracking-widest ${isWeekly ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'text-zinc-500 hover:text-white'}`}>SEMANAL</button>
             <button onClick={() => { setIsWeekly(false); setSelectedPlan(null); }} className={`px-12 py-4 rounded-xl text-xs md:text-sm font-black transition-all duration-300 tracking-widest ${!isWeekly ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'text-zinc-500 hover:text-white'}`}>MENSUAL</button>
@@ -318,16 +357,16 @@ export default function Home() {
                   </h4>
                   <ul className="space-y-4">
                     <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
-                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Programación 100% personalizada según tu nivel.
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Programación 100% personalizada en Dashboard.
                     </li>
                     <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
-                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Correcciones técnicas vía video (Dashboard).
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Correcciones técnicas vía video.
                     </li>
                     <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
-                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Soporte directo por WhatsApp (Lun-Vie 18-20hs).
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Soporte directo por WhatsApp.
                     </li>
                     <li className="flex items-start gap-3 text-sm text-zinc-300 font-medium">
-                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Ajustes de carga semanales.
+                      <span className="text-emerald-500 font-bold mt-0.5">•</span> Directrices de rendimiento (Agua y Macros).
                     </li>
                   </ul>
                 </div>
@@ -339,16 +378,13 @@ export default function Home() {
                   </h4>
                   <ul className="space-y-4">
                     <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
-                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Planes de alimentación o nutrición clínica.
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Menús de alimentación cerrados (Pollo y arroz).
                     </li>
                     <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
                       <span className="text-red-500/70 font-bold mt-0.5">•</span> Respuestas instantáneas 24/7.
                     </li>
                     <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
-                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Cambios ilimitados de rutina por capricho.
-                    </li>
-                    <li className="flex items-start gap-3 text-sm text-zinc-400 font-medium">
-                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Consultas médicas o rehabilitación.
+                      <span className="text-red-500/70 font-bold mt-0.5">•</span> Consultas médicas o de rehabilitación.
                     </li>
                   </ul>
                 </div>
@@ -364,7 +400,7 @@ export default function Home() {
                   </div>
                   <div>
                     <h4 className="font-black text-xl md:text-2xl leading-none mb-2 text-white italic">Auditoría Técnica Biomecánica</h4>
-                    <p className="text-[10px] md:text-xs text-emerald-400 font-bold tracking-widest uppercase mt-2">Análisis detallado SBD + Corrección de palancas.</p>
+                    <p className="text-[10px] md:text-xs text-emerald-400 font-bold tracking-widest uppercase mt-2">Análisis detallado de los 4 Básicos + Corrección de palancas.</p>
                   </div>
                 </div>
                 <div className="text-right pl-4">
@@ -377,7 +413,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── CHECKOUT SECTION ─── */}
+      {/* ─── CHECKOUT SECTION (MANTENIDO INTACTO) ─── */}
       <section id="checkout-section" className="relative z-10 py-32 px-4 bg-black border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
@@ -407,7 +443,7 @@ export default function Home() {
           
           <div className="space-y-4 max-w-xs">
              <h3 className="font-black text-2xl italic text-white tracking-tighter">
-               TUJAQUE <span className="text-emerald-500">STRENGTH</span>
+               TUJAGUE <span className="text-emerald-500">STRENGTH</span>
              </h3>
              <p className="text-zinc-500 text-xs italic tracking-tight font-medium leading-relaxed">
                "Te doy las herramientas, vos ponés el esfuerzo. Biomecánica aplicada y entrenamiento de fuerza real."
@@ -421,8 +457,8 @@ export default function Home() {
              <h4 className="text-emerald-500 font-black tracking-widest text-xs border-b border-emerald-500/20 pb-2 inline-block uppercase">Contacto Directo</h4>
              <div className="flex flex-col gap-3 text-sm font-bold text-white tracking-wide">
                 <a href="mailto:luciano2004tujague20@gmail.com" className="hover:text-emerald-400 transition-colors">Email Oficial</a>
-                <a href="https://instagram.com/tujaquestrength" target="_blank" className="hover:text-emerald-400 transition-colors">Instagram</a>
-                <a href="https://wa.me/5491123021760" target="_blank" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
+                <a href="https://instagram.com/tujague.strenght" target="_blank" className="hover:text-emerald-400 transition-colors">Instagram</a>
+                <a href={whatsappUrl} target="_blank" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
              </div>
           </div>
 
