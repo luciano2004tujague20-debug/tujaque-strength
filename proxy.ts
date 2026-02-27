@@ -1,26 +1,32 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server"; // Cambiamos 'next/request' por 'next/server'
+import type { NextRequest } from "next/server";
 
-const ADMIN_COOKIE_NAME = "ts_admin";
+export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
 
-export default function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // 1. PROTEGER RUTAS DE ADMIN
+  // Si la ruta empieza con /admin...
+  if (path.startsWith("/admin")) {
+    
+    // Excepción: Permitir entrar a la página de login sin llave
+    if (path === "/admin/login") {
+        return NextResponse.next();
+    }
 
-  // Protegemos el panel de administración
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-    const session = request.cookies.get(ADMIN_COOKIE_NAME);
+    // Verificamos si tiene la cookie "ts_admin_session"
+    const isAdmin = request.cookies.get("ts_admin_session");
 
-    if (!session) {
-      const loginUrl = new URL("/admin/login", request.url);
-      return NextResponse.redirect(loginUrl);
+    // Si NO tiene la cookie, lo mandamos al login
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
+  // Si todo está bien, dejamos pasar
   return NextResponse.next();
 }
 
+// Configuración: Solo vigilar estas rutas para no afectar el rendimiento
 export const config = {
-  matcher: [
-    "/admin/:path*",
-  ],
+  matcher: ["/admin/:path*"],
 };

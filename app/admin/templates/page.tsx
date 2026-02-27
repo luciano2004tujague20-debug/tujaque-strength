@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import Link from "next/link"; // ✅ ACÁ ESTÁ EL IMPORT CORREGIDO
 
-// Tipo para estructurar los ejercicios en el constructor
+// Tipo para estructurar los ejercicios en el constructor visual
 interface ExerciseBlock {
   id: string;
   name: string;
@@ -24,11 +25,15 @@ export default function AdminTemplates() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
 
-  // Estados del NUEVO MODO CONSTRUCTOR ÉLITE
-  const [buildMode, setBuildMode] = useState<"visual" | "text">("visual");
+  // Estados del MODO CONSTRUCTOR ÉLITE
+  const [buildMode, setBuildMode] = useState<"visual" | "text" | "ai">("ai");
   const [metaPhase, setMetaPhase] = useState("Fuerza Máxima");
   const [metaMethodology, setMetaMethodology] = useState("BII-Vintage");
   const [exercises, setExercises] = useState<ExerciseBlock[]>([]);
+
+  // 🤖 NUEVOS ESTADOS: MODO IA
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -43,6 +48,37 @@ export default function AdminTemplates() {
     if (!error) setTemplates(data || []);
     setLoading(false);
   }
+
+  // 🤖 GENERAR PLANTILLA CON IA
+  const handleGenerateWithAI = async () => {
+      if (!aiPrompt.trim()) return alert("Fiera, escribí qué tipo de rutina querés generar.");
+      
+      setIsGeneratingAi(true);
+      try {
+          const res = await fetch('/api/admin/ai', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                 action: 'generate_template', 
+                 data: { prompt: aiPrompt } 
+              })
+          });
+          const data = await res.json();
+          
+          if (data.result) {
+              setNewContent(data.result);
+              // Cambiamos automáticamente a modo texto para que el Coach la vea y la edite
+              setBuildMode("text");
+              setAiPrompt("");
+          } else {
+              alert("Error procesando la solicitud con la IA.");
+          }
+      } catch (error) {
+          alert("Error de conexión con el Asistente Experto.");
+      } finally {
+          setIsGeneratingAi(false);
+      }
+  };
 
   // Agregar un ejercicio vacío al constructor
   const addExercise = () => {
@@ -82,7 +118,6 @@ export default function AdminTemplates() {
     return compiledText;
   };
 
-  // ✅ AQUÍ ESTÁ LA ÚNICA MODIFICACIÓN: Detector de errores detallado
   async function saveTemplate() {
     let finalContent = newContent;
 
@@ -140,11 +175,16 @@ export default function AdminTemplates() {
           </h1>
           <p className="text-zinc-400 text-sm mt-2 font-medium">Laboratorio de Programación y Bloques Maestros</p>
         </div>
-        <div className="bg-black/30 border border-zinc-800 px-6 py-3 rounded-2xl flex items-center gap-3">
-           <span className="text-2xl">🧪</span>
-           <div>
-             <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Bloques Activos</p>
-             <p className="text-xl font-black text-white">{templates.length}</p>
+        <div className="flex items-center gap-4">
+           <Link href="/admin/orders" className="text-zinc-400 hover:text-white uppercase tracking-widest text-xs font-bold transition-colors">
+              Ir a Órdenes 💸
+           </Link>
+           <div className="bg-black/30 border border-zinc-800 px-6 py-3 rounded-2xl flex items-center gap-3">
+             <span className="text-2xl">🧪</span>
+             <div>
+               <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Bloques Activos</p>
+               <p className="text-xl font-black text-white">{templates.length}</p>
+             </div>
            </div>
         </div>
       </header>
@@ -159,13 +199,19 @@ export default function AdminTemplates() {
               Constructor Inteligente
             </h2>
             
-            {/* SWITCH DE MODOS */}
-            <div className="flex bg-black/50 border border-zinc-800 rounded-xl p-1">
+            {/* SWITCH DE MODOS ACTUALIZADO */}
+            <div className="flex flex-wrap bg-black/50 border border-zinc-800 rounded-xl p-1 gap-1">
+               <button 
+                 onClick={() => setBuildMode('ai')}
+                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${buildMode === 'ai' ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'text-zinc-500 hover:text-white'}`}
+               >
+                 <span>🧠</span> IA Experta
+               </button>
                <button 
                  onClick={() => setBuildMode('visual')}
                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${buildMode === 'visual' ? 'bg-emerald-500 text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}
                >
-                 Avanzado (Élite)
+                 Avanzado (Visual)
                </button>
                <button 
                  onClick={() => setBuildMode('text')}
@@ -188,22 +234,55 @@ export default function AdminTemplates() {
              />
           </div>
 
+          {/* 🤖 NUEVO: MODO IA GENERATIVA */}
+          {buildMode === "ai" && (
+             <div className="bg-indigo-950/20 border border-indigo-500/30 rounded-3xl p-6 md:p-8 animate-in fade-in zoom-in duration-300">
+                <div className="flex items-start gap-4 mb-6">
+                   <span className="text-4xl drop-shadow-lg">🧠</span>
+                   <div>
+                      <h3 className="text-indigo-400 font-black italic uppercase tracking-tighter text-xl">Generador Asistido por IA</h3>
+                      <p className="text-xs text-indigo-200/70 font-medium mt-1">
+                         Describe la rutina que necesitas. La IA aplicará metodologías avanzadas (DUP, BII, Cluster Sets) y armará la estructura perfecta. Luego podrás editarla.
+                      </p>
+                   </div>
+                </div>
+                
+                <textarea 
+                   className="w-full bg-black/60 border border-indigo-900/50 rounded-2xl p-6 text-sm text-zinc-300 outline-none focus:border-indigo-500 transition-all h-32 resize-none custom-scrollbar placeholder:text-zinc-700 mb-4"
+                   placeholder="Ej: Armame un Día 1 de Fuerza Base enfocado en Pecho. Quiero que el primer ejercicio sea Press Banca usando un protocolo DUP, y luego 2 accesorios con técnica de Rest-Pause..."
+                   value={aiPrompt}
+                   onChange={(e) => setAiPrompt(e.target.value)}
+                />
+                
+                <button 
+                   onClick={handleGenerateWithAI}
+                   disabled={isGeneratingAi}
+                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-8 py-5 rounded-2xl transition-all disabled:opacity-50 uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(79,70,229,0.3)] flex items-center justify-center gap-3"
+                >
+                   {isGeneratingAi ? 'Diseñando Estructura Fisiológica...' : 'Generar Plantilla Mágica ⚡'}
+                </button>
+             </div>
+          )}
+
           {/* MODO TEXTO ANTIGUO */}
           {buildMode === "text" && (
-             <div>
-               <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-2 block ml-1">Contenido Libre</label>
+             <div className="animate-in fade-in duration-300">
+               <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-2 flex justify-between items-center ml-1">
+                  <span>Contenido Libre</span>
+                  <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded">Editor Activo</span>
+               </label>
                <textarea 
-                 placeholder="Escribí la estructura a mano..."
+                 placeholder="Escribí la estructura a mano o edita la que generó la IA..."
                  value={newContent}
                  onChange={(e) => setNewContent(e.target.value)}
-                 className="w-full bg-black/50 border border-zinc-800 rounded-xl p-6 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition-all h-56 font-mono leading-relaxed resize-y placeholder:text-zinc-700"
+                 className="w-full bg-black/50 border border-zinc-800 rounded-xl p-6 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition-all h-64 font-mono leading-relaxed resize-y placeholder:text-zinc-700 custom-scrollbar"
                />
              </div>
           )}
 
           {/* MODO CONSTRUCTOR ÉLITE */}
           {buildMode === "visual" && (
-             <div className="space-y-6 bg-black/20 p-6 rounded-3xl border border-zinc-800/50">
+             <div className="space-y-6 bg-black/20 p-6 rounded-3xl border border-zinc-800/50 animate-in fade-in duration-300">
                 <div className="grid grid-cols-2 gap-4 border-b border-zinc-800/50 pb-6">
                    <div>
                       <label className="text-[9px] font-black uppercase text-emerald-500 tracking-widest mb-2 block ml-1">Fase del Mesociclo</label>
@@ -218,7 +297,7 @@ export default function AdminTemplates() {
                 {/* Lista de Ejercicios */}
                 <div className="space-y-4">
                    {exercises.map((ex, idx) => (
-                      <div key={ex.id} className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-5 relative group">
+                      <div key={ex.id} className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-5 relative group hover:border-zinc-500 transition-colors">
                          <div className="absolute -left-3 -top-3 w-8 h-8 bg-zinc-800 border border-zinc-700 rounded-full flex items-center justify-center text-emerald-500 font-black text-xs shadow-lg">{idx + 1}</div>
                          <button onClick={() => removeExercise(ex.id)} className="absolute top-4 right-4 text-red-500 hover:text-red-400 font-bold text-xs opacity-0 group-hover:opacity-100 transition-all">✕ Eliminar</button>
                          
@@ -264,14 +343,17 @@ export default function AdminTemplates() {
              </div>
           )}
 
-          <div className="flex justify-end pt-4 border-t border-white/5">
-             <button 
-               onClick={saveTemplate}
-               className="w-full md:w-auto bg-emerald-500 text-black font-black text-xs px-10 py-5 rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95 uppercase tracking-widest flex justify-center items-center gap-2"
-             >
-               {buildMode === 'visual' ? 'Generar y Guardar Plantilla ⚙️' : 'Guardar Plantilla Libre 💾'}
-             </button>
-          </div>
+          {/* BOTÓN MAESTRO DE GUARDADO */}
+          {buildMode !== "ai" && (
+             <div className="flex justify-end pt-4 border-t border-white/5">
+                <button 
+                  onClick={saveTemplate}
+                  className="w-full md:w-auto bg-emerald-500 text-black font-black text-xs px-10 py-5 rounded-2xl hover:bg-emerald-400 hover:scale-[1.02] shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95 uppercase tracking-widest flex justify-center items-center gap-2"
+                >
+                  {buildMode === 'visual' ? 'Compilar y Guardar Plantilla ⚙️' : 'Guardar Plantilla en Bóveda 💾'}
+                </button>
+             </div>
+          )}
         </div>
       </section>
 
@@ -291,9 +373,8 @@ export default function AdminTemplates() {
               </button>
             </div>
             
-            <div className="bg-black/60 border border-zinc-800/50 rounded-xl p-6 text-xs text-zinc-400 font-mono mb-6 flex-1 overflow-hidden relative">
-              <div className="line-clamp-[10] leading-relaxed whitespace-pre-wrap">{t.content}</div>
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0c] to-transparent"></div>
+            <div className="bg-black/60 border border-zinc-800/50 rounded-xl p-6 text-xs text-zinc-400 font-mono mb-6 flex-1 overflow-hidden relative custom-scrollbar overflow-y-auto max-h-[300px]">
+              <div className="leading-relaxed whitespace-pre-wrap">{t.content}</div>
             </div>
 
             <button 
@@ -305,7 +386,7 @@ export default function AdminTemplates() {
               }`}
             >
               {copyStatus === t.id ? (
-                <>¡RUTINA COPIADA AL PORTAPAPELES! <span className="text-lg leading-none">✅</span></>
+                <>¡RUTINA COPIADA! <span className="text-lg leading-none">✅</span></>
               ) : (
                 <>Copiar Bloque a Memoria <span className="text-lg leading-none">📋</span></>
               )}
@@ -315,12 +396,20 @@ export default function AdminTemplates() {
       </div>
 
       {templates.length === 0 && !loading && (
-        <div className="py-24 text-center border-2 border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/10">
+        <div className="py-24 text-center border-2 border-dashed border-zinc-800 rounded-[3rem] bg-zinc-900/10 mt-10">
           <span className="text-4xl mb-4 block">📭</span>
           <p className="text-zinc-500 font-black uppercase tracking-widest">Tu librería de plantillas está vacía</p>
           <p className="text-zinc-600 text-sm mt-2">Crea tu primer bloque maestro arriba.</p>
         </div>
       )}
+
+      {/* ESTILOS DEL SCROLL Y TEXTO */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+        textarea { overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; }
+      `}} />
     </div>
   );
 }

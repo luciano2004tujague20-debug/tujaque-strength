@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -33,13 +34,18 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center px-6">
-      <div className="w-full max-w-sm rounded-[2.5rem] border border-zinc-800 bg-zinc-900/30 p-10 shadow-2xl text-center">
-        <h2 className="text-2xl font-black italic tracking-tighter uppercase">
-          Tujague <span className="text-emerald-500">Strength</span>
-        </h2>
+    <main className="min-h-screen bg-black text-white flex items-center justify-center px-6 selection:bg-emerald-500 selection:text-black">
+      <div className="w-full max-w-sm rounded-[2.5rem] border border-zinc-800 bg-zinc-900/30 p-10 shadow-2xl text-center backdrop-blur-md relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-emerald-500/10 rounded-full blur-[50px] pointer-events-none"></div>
         
-        <div className="mt-8 space-y-6">
+        {/* LOGO CLICKEABLE AL HOME */}
+        <Link href="/" className="inline-block hover:opacity-80 transition-opacity relative z-10">
+          <h2 className="text-2xl font-black italic tracking-tighter uppercase">
+            Tujague <span className="text-emerald-500">Strength</span>
+          </h2>
+        </Link>
+        
+        <div className="mt-8 space-y-6 relative z-10">
           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">
             Acceso Admin
           </p>
@@ -60,7 +66,7 @@ export default function AdminLoginPage() {
           <button
             onClick={login}
             disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-2xl transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] uppercase tracking-widest text-xs"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-4 rounded-2xl transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] uppercase tracking-widest text-xs disabled:opacity-50"
           >
             {loading ? "Entrando..." : "Ingresar al Panel"}
           </button>

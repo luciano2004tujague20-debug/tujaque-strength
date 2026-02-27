@@ -19,20 +19,44 @@ export async function POST(req: Request) {
 
       // 3. Si el pago está aprobado, actualizamos la orden
       if (status === 'approved' && external_reference) {
-        console.log(`Pago aprobado para orden ${external_reference}`);
+        console.log(`Pago aprobado para referencia: ${external_reference}`);
 
-        const { error } = await supabaseAdmin
-          .from('orders')
-          .update({ 
-            status: 'paid', // ✅ CAMBIO A PAGADO AUTOMÁTICAMENTE
-            payment_id: paymentId, // Guardamos el ID de MP por si acaso
-            updated_at: new Date().toISOString()
-          })
-          .eq('order_id', external_reference); // Usamos el external_reference que seteamos antes
+        // 🌟 BIFURCACIÓN INTELIGENTE: ¿Qué estamos cobrando?
+        
+        if (external_reference.startsWith('upsell_')) {
+            // 🎬 ES UNA COMPRA DEL MÓDULO DE VIDEOS
+            // Le sacamos el prefijo "upsell_" para quedarnos solo con el ID de la base de datos
+            const realOrderId = external_reference.replace('upsell_', '');
+            
+            const { error } = await supabaseAdmin
+              .from('orders')
+              .update({ 
+                has_video_review: true, // ✅ ¡ABRIMOS EL CANDADO EN EL DASHBOARD!
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', realOrderId); 
 
-        if (error) {
-          console.error('Error actualizando orden:', error);
-          return NextResponse.json({ error: 'Error DB' }, { status: 500 });
+            if (error) {
+              console.error('Error abriendo candado de video:', error);
+              return NextResponse.json({ error: 'Error DB Upsell' }, { status: 500 });
+            }
+            console.log(`¡Módulo de video desbloqueado para la orden ID: ${realOrderId}!`);
+
+        } else {
+            // 🛒 ES LA COMPRA NORMAL DE UN PLAN NUEVO (Tu código original)
+            const { error } = await supabaseAdmin
+              .from('orders')
+              .update({ 
+                status: 'paid', // ✅ CAMBIO A PAGADO AUTOMÁTICAMENTE
+                payment_id: paymentId, // Guardamos el ID de MP por si acaso
+                updated_at: new Date().toISOString()
+              })
+              .eq('order_id', external_reference); // Usamos el external_reference que seteamos antes
+
+            if (error) {
+              console.error('Error actualizando orden:', error);
+              return NextResponse.json({ error: 'Error DB' }, { status: 500 });
+            }
         }
       }
     }

@@ -95,6 +95,43 @@ export default function AdminAthletesPage() {
     }
   }
 
+  // 🚦 LÓGICA DE SEMÁFOROS IA (GOD MODE)
+  const getAthleteStatus = (athlete: any) => {
+      // 1. Verificar Vencimiento (Filtro Rojo Máximo)
+      if (athlete.expires_at) {
+          const expDate = new Date(athlete.expires_at);
+          const today = new Date();
+          const daysLeft = Math.floor((expDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+          
+          if (daysLeft <= 3 || athlete.sub_status === 'vencido') {
+              return { 
+                  color: 'border-red-500/50 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]', 
+                  dot: 'bg-red-500', 
+                  text: athlete.sub_status === 'vencido' ? 'VENCIDO' : `VENCE EN ${daysLeft} DÍAS` 
+              };
+          }
+      }
+
+      // 2. Verificar Check-In (Filtro Amarillo - Riesgo de Fatiga/Abandono)
+      if (athlete.checkin_history && athlete.checkin_history.length > 0) {
+          const lastCheckin = athlete.checkin_history[athlete.checkin_history.length - 1];
+          if (Number(lastCheckin.stress) >= 8 || Number(lastCheckin.sleep) <= 5) {
+              return { 
+                  color: 'border-amber-500/50 bg-amber-950/20 shadow-[0_0_15px_rgba(245,158,11,0.15)]', 
+                  dot: 'bg-amber-500', 
+                  text: 'ALERTA FATIGA' 
+              };
+          }
+      }
+
+      // 3. Todo OK (Verde - Entrenando)
+      return { 
+          color: 'border-white/5 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-emerald-500/30 shadow-lg', 
+          dot: 'bg-emerald-500', 
+          text: 'ACTIVO' 
+      };
+  };
+
   return (
     <div className="bg-transparent min-h-screen text-white font-sans pb-10">
       <div className="max-w-7xl mx-auto">
@@ -108,12 +145,17 @@ export default function AdminAthletesPage() {
             <p className="text-zinc-400 text-sm mt-2 font-medium">Gestión de entrenamientos y credenciales activas</p>
           </div>
           
-          <button 
-              onClick={() => setShowModal(true)}
-              className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-400 text-black font-black px-8 py-4 rounded-2xl uppercase tracking-widest text-xs transition-all hover:scale-105 shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95"
-          >
-              + Nuevo Atleta
-          </button>
+          <div className="flex items-center gap-4">
+            <Link href="/admin/orders" className="text-zinc-400 hover:text-white uppercase tracking-widest text-xs font-bold transition-colors">
+              Ir a Órdenes 💸
+            </Link>
+            <button 
+                onClick={() => setShowModal(true)}
+                className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-400 text-black font-black px-8 py-4 rounded-2xl uppercase tracking-widest text-xs transition-all hover:scale-105 shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95"
+            >
+                + Nuevo Atleta
+            </button>
+          </div>
         </div>
 
         {/* LISTA DE ATLETAS */}
@@ -127,54 +169,66 @@ export default function AdminAthletesPage() {
                 <p className="text-zinc-500 font-bold uppercase tracking-widest">No hay atletas activos todavía.</p>
              </div>
           ) : (
-            athletes.map((athlete) => (
-              <div 
-                key={athlete.id} 
-                className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 md:p-8 rounded-[2rem] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 group hover:bg-zinc-900/80 hover:border-emerald-500/30 transition-all duration-300 shadow-lg"
-              >
-                {/* INFO DEL ATLETA */}
-                <div className="flex items-center gap-5 w-full sm:w-auto">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 flex items-center justify-center text-emerald-400 font-black text-2xl shadow-inner group-hover:scale-110 transition-transform">
-                    {athlete.customer_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-base md:text-lg font-black text-white uppercase tracking-tight">{athlete.customer_name}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <span className="bg-black text-[9px] text-zinc-400 font-mono px-2 py-1 rounded border border-zinc-800">{athlete.customer_email}</span>
-                        <span className="text-[10px] font-black tracking-widest text-emerald-500 uppercase px-2 py-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">{athlete.plans?.name || 'Personalizado'}</span>
+            athletes.map((athlete) => {
+              const status = getAthleteStatus(athlete);
+
+              return (
+                <div 
+                  key={athlete.id} 
+                  className={`backdrop-blur-xl p-6 md:p-8 rounded-[2rem] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 group transition-all duration-300 border ${status.color}`}
+                >
+                  {/* INFO DEL ATLETA */}
+                  <div className="flex items-center gap-5 w-full sm:w-auto">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 flex items-center justify-center text-emerald-400 font-black text-2xl shadow-inner group-hover:scale-110 transition-transform relative">
+                      {athlete.customer_name.charAt(0).toUpperCase()}
+                      {/* PUNTITO DEL SEMÁFORO */}
+                      <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-zinc-900 ${status.dot} ${status.dot !== 'bg-emerald-500' ? 'animate-pulse' : ''}`}></span>
                     </div>
-                    {athlete.password && (
-                        <p className="text-[10px] text-zinc-500 mt-2 font-medium flex items-center gap-1">
-                          <span className="text-emerald-500">🔑 Clave:</span> <span className="bg-black/50 px-2 py-0.5 rounded font-mono text-zinc-300">{athlete.password}</span>
-                        </p>
-                    )}
+                    <div>
+                      <p className="text-base md:text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
+                         {athlete.customer_name}
+                         {/* TEXTO DEL SEMÁFORO */}
+                         <span className={`text-[8px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest ${status.dot === 'bg-emerald-500' ? 'text-emerald-500 bg-emerald-500/10' : status.dot === 'bg-amber-500' ? 'text-amber-500 bg-amber-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                            {status.text}
+                         </span>
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="bg-black text-[9px] text-zinc-400 font-mono px-2 py-1 rounded border border-zinc-800">{athlete.customer_email}</span>
+                          <span className="text-[10px] font-black tracking-widest text-emerald-500 uppercase px-2 py-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">{athlete.plans?.name || 'Personalizado'}</span>
+                      </div>
+                      {athlete.password && (
+                          <p className="text-[10px] text-zinc-500 mt-2 font-medium flex items-center gap-1">
+                            <span className="text-emerald-500">🔑 Clave:</span> <span className="bg-black/50 px-2 py-0.5 rounded font-mono text-zinc-300">{athlete.password}</span>
+                          </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* BOTONES DE ACCIÓN */}
+                  <div className="flex gap-3 w-full sm:w-auto border-t border-white/5 sm:border-none pt-4 sm:pt-0">
+                     <Link 
+                        href={`/admin/athletes/${athlete.order_id}`} 
+                        className="flex-1 sm:flex-none bg-black hover:bg-emerald-500 text-white hover:text-black px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center border border-zinc-700 hover:border-emerald-500 shadow-md"
+                     >
+                        Gestión ⚙️
+                     </Link>
+
+                     <button 
+                        onClick={() => handleDelete(athlete.order_id, athlete.customer_name)}
+                        className="bg-zinc-900/50 hover:bg-red-600 hover:text-white text-zinc-600 px-5 py-4 rounded-xl transition-all border border-zinc-800 hover:border-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                        title="Eliminar Atleta"
+                     >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                     </button>
                   </div>
                 </div>
-
-                {/* BOTONES DE ACCIÓN */}
-                <div className="flex gap-3 w-full sm:w-auto border-t border-white/5 sm:border-none pt-4 sm:pt-0">
-                   <Link 
-                      href={`/admin/athletes/${athlete.order_id}`} 
-                      className="flex-1 sm:flex-none bg-black hover:bg-emerald-500 text-white hover:text-black px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center border border-zinc-700 hover:border-emerald-500 shadow-md"
-                   >
-                      Gestión ⚙️
-                   </Link>
-
-                   <button 
-                      onClick={() => handleDelete(athlete.order_id, athlete.customer_name)}
-                      className="bg-zinc-900/50 hover:bg-red-600 hover:text-white text-zinc-600 px-5 py-4 rounded-xl transition-all border border-zinc-800 hover:border-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-                      title="Eliminar Atleta"
-                   >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                   </button>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>
 
-      {/* --- MODAL ALTA MANUAL (ESTILO PREMIUM) --- */}
+      {/* --- MODAL ALTA MANUAL --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <div className="bg-zinc-950 border border-white/10 p-8 md:p-10 rounded-[2.5rem] w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden">

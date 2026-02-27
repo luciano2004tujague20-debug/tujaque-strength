@@ -3,16 +3,24 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function CustomLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🆕 ESTADOS PARA ERRORES Y RECUPERACIÓN DE CLAVE
+  const [errorMsg, setErrorMsg] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(""); // Limpiamos errores previos
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -20,7 +28,7 @@ export default function CustomLogin() {
     });
 
     if (error) {
-      alert("ERROR: Credenciales no válidas para el protocolo BII.");
+      setErrorMsg("Credenciales incorrectas. Verificá tu email y contraseña.");
     } else {
       // ✅ Lógica de redirección inteligente CORREGIDA
       if (email === "luciano2004tujague20@gmail.com") {
@@ -34,56 +42,126 @@ export default function CustomLogin() {
     setLoading(false);
   };
 
+  // 🆕 FUNCIÓN PARA RECUPERAR CONTRASEÑA
+  const handleResetPassword = async () => {
+    if (!email) {
+      setErrorMsg("Escribí tu email en el casillero de arriba para recuperar la clave.");
+      return;
+    }
+    
+    setIsResetting(true);
+    setErrorMsg("");
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      setErrorMsg("Error al enviar el correo. Verificá que esté bien escrito.");
+    } else {
+      setResetSent(true);
+    }
+    setIsResetting(false);
+  };
+
   return (
-    <main className="min-h-screen bg-[#09090b] flex items-center justify-center p-6 relative overflow-hidden font-sans">
-      <div className="fixed inset-0 tech-grid opacity-20 pointer-events-none"></div>
+    <main className="min-h-screen bg-[#050505] flex items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-black">
       
-      <div className="relative z-10 w-full max-w-md">
-        <div className="bg-white/[0.02] border border-white/5 backdrop-blur-xl p-10 rounded-[3rem] shadow-2xl">
+      {/* ─── FONDO ÉPICO ─── */}
+      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-[0.03] pointer-events-none z-0"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+      
+      <div className="relative z-10 w-full max-w-md animate-in fade-in zoom-in duration-500">
+        <div className="bg-zinc-900/60 border border-zinc-800 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl">
           
-          <header className="text-center mb-12">
-            <h1 className="text-5xl font-black text-white italic tracking-tighter leading-none">
+          <header className="text-center mb-10">
+            <div className="w-16 h-16 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+               <span className="text-emerald-500 text-2xl font-black italic">T</span>
+            </div>
+            <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">
               TUJAGUE<br/>
-              <span className="text-emerald-400">STRENGTH</span>
+              <span className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">STRENGTH</span>
             </h1>
-            <p className="text-[9px] font-black text-zinc-500 tracking-[0.4em] mt-4">Protocolo de Acceso Elite</p>
+            <p className="text-[9px] font-black text-zinc-500 tracking-[0.4em] uppercase mt-4">Protocolo de Acceso Elite</p>
           </header>
+
+          {/* 🆕 MENSAJES DE ERROR O ÉXITO */}
+          {errorMsg && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
+               <span className="text-red-500 text-lg leading-none mt-0.5">⚠️</span>
+               <p className="text-xs font-bold text-red-200/80">{errorMsg}</p>
+            </div>
+          )}
+
+          {resetSent && (
+            <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-3">
+               <span className="text-emerald-500 text-lg leading-none mt-0.5">✓</span>
+               <p className="text-xs font-bold text-emerald-200/80">Te enviamos un enlace de recuperación. Revisá tu bandeja de entrada (y el correo no deseado).</p>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-emerald-500 tracking-widest ml-2">Email del Atleta</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Email del Atleta</label>
               <input 
                 type="email" 
                 placeholder="atleta@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-zinc-800"
+                className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white font-medium outline-none focus:border-emerald-500 focus:bg-zinc-900 transition-all placeholder:text-zinc-700"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-emerald-500 tracking-widest ml-2">Contraseña</label>
+              <div className="flex justify-between items-center ml-1">
+                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Contraseña</label>
+                 {/* 🆕 ENLACE DE RECUPERACIÓN */}
+                 <button 
+                    type="button" 
+                    onClick={handleResetPassword}
+                    disabled={isResetting}
+                    className="text-[10px] font-bold text-emerald-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                 >
+                    {isResetting ? "Enviando..." : "¿Olvidaste tu clave?"}
+                 </button>
+              </div>
               <input 
                 type="password" 
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-zinc-800"
+                className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white font-medium outline-none focus:border-emerald-500 focus:bg-zinc-900 transition-all placeholder:text-zinc-700 tracking-widest"
                 required
               />
             </div>
 
             <button 
+              type="submit"
               disabled={loading}
-              className="w-full bg-emerald-500 text-black font-black text-xs py-5 rounded-2xl hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98] mt-4"
+              className="w-full bg-emerald-500 text-black font-black text-xs py-5 rounded-2xl tracking-[0.2em] uppercase hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
             >
-              {loading ? "VERIFICANDO..." : "INICIAR SESIÓN 🦍"}
+              {loading ? (
+                 <>
+                   <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                   <span>INICIANDO...</span>
+                 </>
+              ) : (
+                 "INICIAR SESIÓN 🦍"
+              )}
             </button>
           </form>
 
-          <footer className="mt-12 text-center border-t border-white/5 pt-8">
-            <p className="text-[8px] font-black text-zinc-700 tracking-[0.3em]">
+          <footer className="mt-10 text-center border-t border-zinc-800 pt-8 space-y-6">
+            {/* 🆕 ENLACE PARA APLICAR (VENTAS) */}
+            <div className="bg-black/30 p-4 rounded-xl border border-zinc-800/50">
+               <p className="text-xs text-zinc-400 font-medium mb-2">¿Aún no sos parte del equipo?</p>
+               <Link href="/" className="text-[10px] font-black text-white uppercase tracking-widest hover:text-emerald-400 transition-colors flex items-center justify-center gap-1">
+                  Aplicar al Protocolo <span className="text-emerald-500">→</span>
+               </Link>
+            </div>
+
+            <p className="text-[8px] font-black text-zinc-600 tracking-[0.3em] uppercase">
               Sistemas de Entrenamiento BII-Vintage
             </p>
           </footer>

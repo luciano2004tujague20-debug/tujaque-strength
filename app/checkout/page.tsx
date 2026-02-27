@@ -3,11 +3,17 @@
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EXTRA_VIDEO_PRICE_ARS } from "@/lib/pricing";
+import { createClient } from "@supabase/supabase-js"; // 🆕 Importamos Supabase
 import Link from "next/link";
 
-// --- PASO 1: EL CEREBRO DE PRECIOS Y CONVERSIÓN ---
+// 🆕 Inicializamos Supabase para crear el usuario en vivo
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 const TASAS_CAMBIO = {
-  dolar: 1200,      // 1 USD = 1200 ARS (Ajustalo según el blue/comisiones)
+  dolar: 1200,      // 1 USD = 1200 ARS
   btc: 85000000     // 1 BTC en ARS (Aproximado)
 };
 
@@ -42,7 +48,11 @@ function CheckoutContent() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(""); // Nuevo estado para el teléfono
+  const [phone, setPhone] = useState("");
+  
+  // 🆕 Nuevo estado para la Contraseña
+  const [password, setPassword] = useState(""); 
+  
   const [customerRef, setCustomerRef] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"ars" | "usd" | "crypto">("ars");
   const [extraVideo, setExtraVideo] = useState(false);
@@ -85,7 +95,6 @@ function CheckoutContent() {
     return plan.price_ars + (extraVideo ? EXTRA_VIDEO_PRICE_ARS : 0);
   }, [plan, extraVideo]);
 
-  // --- LÓGICA DE CONVERSIÓN AUTOMÁTICA ---
   const totalConvertido = useMemo(() => {
     if (paymentMethod === "usd") return `U$D ${(totalARS / TASAS_CAMBIO.dolar).toFixed(2)}`;
     if (paymentMethod === "crypto") {
@@ -103,13 +112,38 @@ function CheckoutContent() {
     if (!plan) return;
     if (!name.trim()) return setError("Ingresá tu nombre completo.");
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) return setError("Ingresá un email válido.");
-    if (!phone.trim() || phone.length < 8) return setError("Ingresá un WhatsApp de contacto válido.");
-    if (!confirmAdult) return setError("Debés confirmar que sos hombre mayor de 18 años.");
+    
+    // 🆕 Validación de la contraseña (mínimo 6 caracteres por seguridad)
+    if (password.length < 6) return setError("La contraseña debe tener al menos 6 caracteres.");
+    
+    if (!phone.trim() || phone.length < 8) return setError("Ingresá un WhatsApp válido.");
+    if (!confirmAdult) return setError("Debés confirmar que sos mayor de 18 años.");
     if (!acceptReqs) return setError("Debés aceptar los requisitos mínimos.");
 
     setSubmitting(true);
 
     try {
+      // 🆕 MAGIA 1: Creamos la cuenta del Atleta en Supabase antes de generar la orden
+      // Si el email ya existe, Supabase tirará error, pero lo manejamos de forma limpia
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: password,
+        options: {
+          data: {
+            full_name: name.trim()
+          }
+        }
+      });
+
+      if (authError) {
+          // Si el error es porque el usuario ya existe, le avisamos amablemente
+          if (authError.message.includes("User already registered")) {
+              throw new Error("Este correo ya tiene una cuenta registrada. Por favor inicia sesión primero o usa otro email.");
+          }
+          throw new Error("Error al crear tu cuenta de acceso: " + authError.message);
+      }
+
+      // MAGIA 2: Si la cuenta se creó bien, mandamos la orden de pago (con la contraseña encriptada)
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +152,8 @@ function CheckoutContent() {
           paymentMethod,
           name: name.trim(),
           email: email.trim().toLowerCase(),
-          customerPhone: "54" + phone.replace(/\D/g, ''), // Guardamos limpio con el 54
+          password: password, // Pasamos la clave a la orden para guardarla visible para el Coach
+          customerPhone: "54" + phone.replace(/\D/g, ''),
           customerRef: customerRef.trim(),
           extraVideo,
         }),
@@ -160,7 +195,7 @@ function CheckoutContent() {
         <div className="max-w-5xl mx-auto grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-3 space-y-6">
             <div className="glass-card p-8 animate-fade-in border-white/5">
-              <h2 className="text-2xl font-black mb-6 italic">Tus Datos de <span className="text-emerald-400">Atleta</span></h2>
+              <h2 className="text-2xl font-black mb-6 italic">Configura tu <span className="text-emerald-400">Acceso</span></h2>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -174,7 +209,23 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                {/* --- CAMPO DE TELÉFONO CON +54 FIJO --- */}
+                {/* 🆕 CAMPO DE CONTRASEÑA */}
+                <div className="bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800 focus-within:border-emerald-500/50 transition-colors">
+                  <label className="text-[10px] font-black text-emerald-500 tracking-widest uppercase mb-2 flex items-center gap-2">
+                     <span className="text-sm">🔐</span> Creá tu Contraseña
+                  </label>
+                  <p className="text-xs text-zinc-400 mb-3">La usarás para entrar al Dashboard una vez se confirme tu pago.</p>
+                  <input 
+                    type="password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-4 text-white outline-none focus:border-emerald-500 transition-all font-mono tracking-widest" 
+                    placeholder="Mínimo 6 caracteres" 
+                    required 
+                    minLength={6}
+                  />
+                </div>
+
                 <div>
                   <label className="text-[10px] font-black text-zinc-500 tracking-widest uppercase mb-2 block ml-1">WhatsApp de contacto</label>
                   <div className="flex">
@@ -219,17 +270,16 @@ function CheckoutContent() {
                   </label>
                 </div>
 
-                {/* --- AVISO DE LAS 48 HORAS --- */}
                 <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2xl">
                   <p className="text-[10px] text-emerald-400 leading-relaxed font-medium italic">
-                    ⚠️ <span className="font-black uppercase">Importante:</span> Una vez validado tu pago, Luciano Tujague dispone de hasta **48 horas hábiles** para cargar tu planificación personalizada en el Dashboard.
+                    ⚠️ <span className="font-black uppercase">Importante:</span> Una vez validado tu pago, Luciano Tujague dispone de hasta **48 horas hábiles** para cargar tu planificación.
                   </p>
                 </div>
 
-                {error && <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/30 text-red-400 text-xs">{error}</div>}
+                {error && <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/30 text-red-400 text-xs text-center font-bold">{error}</div>}
 
                 <button type="submit" disabled={submitting} className="btn-premium w-full py-5 text-sm tracking-[0.2em] font-black uppercase">
-                  {submitting ? "PROCESANDO..." : "GENERAR ORDEN DE PAGO"}
+                  {submitting ? "REGISTRANDO Y PROCESANDO..." : "GENERAR ORDEN DE PAGO"}
                 </button>
               </form>
             </div>
