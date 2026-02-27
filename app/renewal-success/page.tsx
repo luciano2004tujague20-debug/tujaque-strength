@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase"; 
 
-export default function RenewalSuccessPage() {
+// 1. Movemos toda tu lógica intacta a un componente "Hijo"
+function RenewalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
@@ -73,5 +74,18 @@ export default function RenewalSuccessPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// 2. El componente principal (Padre) ahora usa <Suspense> para proteger a Next.js
+export default function RenewalSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center text-emerald-500 font-black animate-pulse tracking-widest uppercase text-sm">
+        Preparando entorno seguro...
+      </div>
+    }>
+      <RenewalContent />
+    </Suspense>
   );
 }
