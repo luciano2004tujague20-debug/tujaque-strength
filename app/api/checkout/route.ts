@@ -45,8 +45,8 @@ export async function POST(req: Request) {
                 .single();
 
             if (ambassador) {
-                // Si el código existe y es de un alumno, le hacemos 10% de descuento
-                finalPrice = finalPrice - (finalPrice * 0.10); 
+                // 🔥 ACTUALIZADO: Si el código existe y es de un alumno, le hacemos 15% de descuento
+                finalPrice = finalPrice - (finalPrice * 0.15); 
                 appliedDiscount = true;
                 validReferralCode = cleanCode; // Guardamos quién lo refirió
             }
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         amount_ars: finalPrice,
         status: "pending",
         has_video_review: extraVideo || false,
-        referred_by: validReferralCode, // Quién lo trajo (para pagar comisión luego)
+        referred_by: validReferralCode, // Quién lo trajo (para pagar comisión luego en el webhook)
         referral_code: newPersonalCode, // Su código propio para el futuro
         wallet_balance: 0
       });

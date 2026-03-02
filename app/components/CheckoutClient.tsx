@@ -1,4 +1,3 @@
-// app/components/CheckoutClient.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -12,7 +11,8 @@ import { supabase } from "@/lib/supabase";
 // Aquí usted decide qué porcentaje de descuento se aplica. 
 // Estos números son porcentajes. Ej: 10 significa 10% de descuento.
 
-const DESCUENTO_POR_REFERIDO = 10; // Lo que se le descuenta al cliente si usa el código de un amigo.
+// 🔥 ACTUALIZADO: AHORA DA UN 15% OFF AL NUEVO ATLETA 🔥
+const DESCUENTO_POR_REFERIDO = 15; 
 
 // SUS CÓDIGOS PROPIOS (No le regalan saldo a nadie, solo hacen descuento)
 // Puede agregar los que quiera. Ej: "BLACKFRIDAY": 30
@@ -22,7 +22,6 @@ const MIS_CODIGOS_PROPIOS: Record<string, number> = {
   "TUJAGUE20": 20
 };
 // ============================================================================
-
 
 interface CheckoutClientProps {
   selectedPlan: { id: string; title: string; subtitle: string; price: number; };
@@ -56,6 +55,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
   const [codeError, setCodeError] = useState("");
 
   const abandonIdRef = useRef<string | null>(null);
+
+  // 🔥 CANDADO DE SEGURIDAD: Bloquear UpSells si es un plan estático
+  const isStaticPlan = selectedPlan.id.startsWith("static");
+  const finalExtraVideo = isStaticPlan ? false : extraVideo;
 
   const captureAbandon = async () => {
       if (!formData.email && !formData.phone) return;
@@ -130,7 +133,8 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
       }
   };
 
-  const subtotal = selectedPlan.price + (extraVideo ? extraPrice : 0);
+  // Cálculo matemático del total
+  const subtotal = selectedPlan.price + (finalExtraVideo ? extraPrice : 0);
   const discountMultiplier = discountApplied ? (1 - discountApplied.percentage / 100) : 1;
   const totalAmount = Math.round(subtotal * discountMultiplier);
   const originalConversions = getConversions(subtotal);
@@ -190,7 +194,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
           email: cleanEmail,
           password: formData.password, 
           customerRef: formData.instagram.trim() || null, 
-          extraVideo: extraVideo,
+          extraVideo: finalExtraVideo,
           referredBy: discountApplied?.code || null,
           finalPrice: totalAmount,
           onboardingData: {
@@ -237,10 +241,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
       <div className="lg:col-span-7 space-y-12">
         <section>
           <div className="flex items-center gap-5 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.15)] shrink-0">1</div>
+            <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center font-black text-xl shadow-lg shrink-0 ${isStaticPlan ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'}`}>1</div>
             <div>
               <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">Ficha de Acceso</h3>
-              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em] mt-1">Creación de cuenta privada</p>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ${isStaticPlan ? 'text-zinc-400' : 'text-emerald-500'}`}>Creación de cuenta privada</p>
             </div>
           </div>
           
@@ -274,9 +278,9 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
               </div>
             </div>
             
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl mt-4">
-              <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest text-center">
-                 Al completar el pago accederás a la auditoría clínica profunda.
+            <div className={`p-4 border rounded-xl mt-4 text-center ${isStaticPlan ? 'bg-zinc-950 border-zinc-800' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${isStaticPlan ? 'text-zinc-500' : 'text-emerald-400'}`}>
+                 {isStaticPlan ? "Obtendrás acceso automático al Dashboard al confirmar el pago." : "Al completar el pago accederás a la auditoría clínica profunda."}
               </p>
             </div>
           </div>
@@ -284,10 +288,10 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
 
         <section>
           <div className="flex items-center gap-5 mb-8 pt-8 border-t border-white/5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.15)] shrink-0">2</div>
+            <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center font-black text-xl shadow-lg shrink-0 ${isStaticPlan ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'}`}>2</div>
             <div>
               <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">Método de Pago</h3>
-              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em] mt-1">Seleccioná tu divisa</p>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ${isStaticPlan ? 'text-zinc-400' : 'text-emerald-500'}`}>Seleccioná tu divisa</p>
             </div>
           </div>
 
@@ -320,7 +324,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
       <div className="lg:col-span-5 relative">
         <div className="bg-zinc-900/80 border border-white/5 p-8 md:p-10 rounded-[2.5rem] h-fit shadow-2xl sticky top-28 backdrop-blur-xl">
           <div className="mb-8">
-            <h3 className="text-emerald-500 text-[10px] font-black mb-2 uppercase tracking-[0.2em] border-b border-emerald-500/20 pb-2 inline-block">Tu Selección</h3>
+            <h3 className={`text-[10px] font-black mb-2 uppercase tracking-[0.2em] border-b pb-2 inline-block ${isStaticPlan ? 'text-white border-white/20' : 'text-emerald-500 border-emerald-500/20'}`}>Tu Selección</h3>
             <p className="text-white font-black text-3xl tracking-tighter italic uppercase mt-2">{selectedPlan.title}</p>
             <p className="text-zinc-400 text-xs font-bold tracking-widest uppercase mt-2">{selectedPlan.subtitle}</p>
           </div>
@@ -332,7 +336,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
                 {paymentMethod === 'usd' ? `U$D ${getConversions(selectedPlan.price).usd}` : paymentMethod === 'crypto' ? `${getConversions(selectedPlan.price).usdt} USDT` : `$${selectedPlan.price.toLocaleString()}`}
               </span>
             </div>
-            {extraVideo && (
+            {finalExtraVideo && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-emerald-400 font-medium flex items-center gap-2"><span className="bg-emerald-500/20 px-1.5 rounded font-black">+</span> Video Análisis</span>
                 <span className="text-emerald-400 font-mono text-lg">
@@ -367,7 +371,7 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
             </div>
           </div>
 
-          <button onClick={handleSubmit} disabled={loading} className="relative w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 overflow-hidden group border border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-black bg-emerald-500 hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] active:scale-95">
+          <button onClick={handleSubmit} disabled={loading} className={`relative w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 overflow-hidden group border border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${isStaticPlan ? 'bg-white hover:bg-zinc-200 text-black shadow-[0_0_40px_rgba(255,255,255,0.2)]' : 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_40px_rgba(16,185,129,0.3)]'} active:scale-95`}>
             <span className="relative z-10 flex items-center justify-center gap-2">
               {loading && <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>}
               {loading ? "PROCESANDO PEDIDO..." : paymentMethod === 'mercadopago' ? "IR A PAGAR DE FORMA SEGURA" : "GENERAR PEDIDO AHORA"}

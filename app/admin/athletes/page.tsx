@@ -23,6 +23,9 @@ export default function AdminAthletesPage() {
     planCode: ""
   });
 
+  // 🔥 NUEVO ESTADO PARA LA FICHA CLÍNICA 🔥
+  const [selectedMedicalAthlete, setSelectedMedicalAthlete] = useState<any>(null);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -133,8 +136,8 @@ export default function AdminAthletesPage() {
   };
 
   return (
-    <div className="bg-transparent min-h-screen text-white font-sans pb-10">
-      <div className="max-w-7xl mx-auto">
+    <div className="bg-transparent min-h-screen text-white font-sans pb-10 flex">
+      <div className={`max-w-7xl mx-auto w-full transition-all duration-300 ${selectedMedicalAthlete ? 'lg:w-2/3 pr-6' : 'w-full'}`}>
         
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 bg-zinc-900/20 p-8 rounded-[2.5rem] border border-white/5 backdrop-blur-sm">
@@ -205,17 +208,24 @@ export default function AdminAthletesPage() {
                   </div>
 
                   {/* BOTONES DE ACCIÓN */}
-                  <div className="flex gap-3 w-full sm:w-auto border-t border-white/5 sm:border-none pt-4 sm:pt-0">
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto border-t border-white/5 sm:border-none pt-4 sm:pt-0">
+                     <button 
+                        onClick={() => setSelectedMedicalAthlete(selectedMedicalAthlete?.id === athlete.id ? null : athlete)}
+                        className={`flex-1 sm:flex-none px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center border shadow-md ${selectedMedicalAthlete?.id === athlete.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-blue-950/30 text-blue-400 border-blue-900/50 hover:bg-blue-900/50'}`}
+                     >
+                        Ficha Clínica 🔬
+                     </button>
+                     
                      <Link 
                         href={`/admin/athletes/${athlete.order_id}`} 
-                        className="flex-1 sm:flex-none bg-black hover:bg-emerald-500 text-white hover:text-black px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center border border-zinc-700 hover:border-emerald-500 shadow-md"
+                        className="flex-1 sm:flex-none bg-black hover:bg-emerald-500 text-white hover:text-black px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center border border-zinc-700 hover:border-emerald-500 shadow-md"
                      >
                         Gestión ⚙️
                      </Link>
 
                      <button 
                         onClick={() => handleDelete(athlete.order_id, athlete.customer_name)}
-                        className="bg-zinc-900/50 hover:bg-red-600 hover:text-white text-zinc-600 px-5 py-4 rounded-xl transition-all border border-zinc-800 hover:border-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                        className="bg-zinc-900/50 hover:bg-red-600 hover:text-white text-zinc-600 px-4 py-3 rounded-xl transition-all border border-zinc-800 hover:border-red-500"
                         title="Eliminar Atleta"
                      >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -227,6 +237,112 @@ export default function AdminAthletesPage() {
           )}
         </div>
       </div>
+
+      {/* 🔥 NUEVO: PANEL LATERAL MÉDICO (TORRE DE CONTROL) 🔥 */}
+      {selectedMedicalAthlete && (
+         <div className="hidden lg:block w-1/3 bg-[#0a0a0c] border-l border-zinc-800 fixed right-0 top-0 bottom-0 overflow-y-auto p-8 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] z-40 animate-in slide-in-from-right-8 custom-scrollbar">
+            <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
+               <div>
+                  <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">Auditoría Clínica</p>
+                  <h2 className="text-2xl font-black italic text-white uppercase tracking-tight">{selectedMedicalAthlete.customer_name}</h2>
+               </div>
+               <button onClick={() => setSelectedMedicalAthlete(null)} className="w-8 h-8 bg-zinc-900 rounded-full flex items-center justify-center text-zinc-500 hover:text-white transition-colors">✕</button>
+            </div>
+
+            {!selectedMedicalAthlete.is_onboarded ? (
+               <div className="bg-zinc-900/50 border border-dashed border-zinc-700 p-8 rounded-3xl text-center">
+                  <span className="text-4xl mb-4 block opacity-50">📋</span>
+                  <p className="text-zinc-400 font-bold text-sm">El atleta aún no ha completado su Ficha Clínica en el Dashboard.</p>
+               </div>
+            ) : (
+               <div className="space-y-8">
+                  {/* SECCIÓN 1: BIOMETRÍA Y LOGÍSTICA */}
+                  <div className="bg-black/40 border border-zinc-800 rounded-2xl p-6 shadow-inner">
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-2"><span>👤</span> Perfil Biométrico</h3>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/50">
+                           <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Edad</p>
+                           <p className="text-white font-black">{selectedMedicalAthlete.age || '-'} años</p>
+                        </div>
+                        <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/50">
+                           <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Peso Corp.</p>
+                           <p className="text-white font-black">{selectedMedicalAthlete.body_weight || '-'} kg</p>
+                        </div>
+                        <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/50">
+                           <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Altura</p>
+                           <p className="text-white font-black">{selectedMedicalAthlete.height || '-'} cm</p>
+                        </div>
+                        <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/50">
+                           <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Nivel</p>
+                           <p className="text-white font-black capitalize">{selectedMedicalAthlete.experience || '-'}</p>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* SECCIÓN 2: HISTORIAL CLÍNICO (LESIONES) */}
+                  <div className="bg-red-950/10 border border-red-900/30 rounded-2xl p-6 shadow-inner">
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-3 flex items-center gap-2"><span>🚨</span> Historial de Lesiones</h3>
+                     <p className="text-sm text-zinc-300 font-medium leading-relaxed bg-black/40 p-4 rounded-xl border border-zinc-800/50">
+                        {selectedMedicalAthlete.medical_history || 'Ninguna anomalía estructural declarada.'}
+                     </p>
+                  </div>
+
+                  {/* SECCIÓN 3: CONTROL SNC (EL CHECK-IN DIARIO) */}
+                  <div className="bg-blue-950/10 border border-blue-900/30 rounded-2xl p-6 shadow-inner">
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-4 flex items-center gap-2"><span>⚡</span> Último Check-In (SNC)</h3>
+                     {selectedMedicalAthlete.checkin_history && selectedMedicalAthlete.checkin_history.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-3">
+                           <div className="bg-black/40 p-3 rounded-xl border border-zinc-800/50 text-center">
+                              <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Peso Hoy</p>
+                              <p className="text-white font-black">{selectedMedicalAthlete.checkin_weight || '-'} kg</p>
+                           </div>
+                           <div className="bg-black/40 p-3 rounded-xl border border-zinc-800/50 text-center">
+                              <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Sueño</p>
+                              <p className={`font-black ${Number(selectedMedicalAthlete.checkin_sleep) < 6 ? 'text-red-400' : 'text-emerald-400'}`}>{selectedMedicalAthlete.checkin_sleep || '-'} hrs</p>
+                           </div>
+                           <div className="bg-black/40 p-3 rounded-xl border border-zinc-800/50 text-center">
+                              <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Estrés</p>
+                              <p className={`font-black ${Number(selectedMedicalAthlete.checkin_stress) > 7 ? 'text-red-400' : 'text-emerald-400'}`}>{selectedMedicalAthlete.checkin_stress || '-'}/10</p>
+                           </div>
+                           {selectedMedicalAthlete.checkin_notes && (
+                              <div className="col-span-3 mt-2 bg-black/40 p-3 rounded-xl border border-zinc-800/50">
+                                 <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Nota del Atleta</p>
+                                 <p className="text-xs text-zinc-300 italic">"{selectedMedicalAthlete.checkin_notes}"</p>
+                              </div>
+                           )}
+                        </div>
+                     ) : (
+                        <p className="text-xs text-zinc-500 italic font-medium">Aún no hay registros de fatiga.</p>
+                     )}
+                  </div>
+
+                  {/* SECCIÓN 4: MARCAS ESTRUCTURALES (1RM) */}
+                  <div className="bg-emerald-950/10 border border-emerald-900/30 rounded-2xl p-6 shadow-inner">
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-4 flex items-center gap-2"><span>📈</span> Marcas Verificadas (1RM)</h3>
+                     <div className="grid grid-cols-2 gap-3">
+                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800/50">
+                           <span className="text-[10px] text-zinc-400 uppercase font-bold">Sentadilla</span>
+                           <span className="text-white font-mono font-black">{selectedMedicalAthlete.rm_squat || 0} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800/50">
+                           <span className="text-[10px] text-zinc-400 uppercase font-bold">Banca</span>
+                           <span className="text-white font-mono font-black">{selectedMedicalAthlete.rm_bench || 0} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800/50">
+                           <span className="text-[10px] text-zinc-400 uppercase font-bold">P. Muerto</span>
+                           <span className="text-white font-mono font-black">{selectedMedicalAthlete.rm_deadlift || 0} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800/50">
+                           <span className="text-[10px] text-zinc-400 uppercase font-bold">Militar</span>
+                           <span className="text-white font-mono font-black">{selectedMedicalAthlete.rm_military || 0} kg</span>
+                        </div>
+                     </div>
+                  </div>
+
+               </div>
+            )}
+         </div>
+      )}
 
       {/* --- MODAL ALTA MANUAL --- */}
       {showModal && (
@@ -308,6 +424,13 @@ export default function AdminAthletesPage() {
             </div>
         </div>
       )}
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.8); }
+      `}} />
     </div>
   );
 }

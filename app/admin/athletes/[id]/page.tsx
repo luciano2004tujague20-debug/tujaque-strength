@@ -60,7 +60,6 @@ export default function TrainerDashboard() {
   const [saving, setSaving] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'rutina' | 'videos' | 'datos'>('rutina');
-  // Por defecto iniciamos en micro para que veas los 7 días rápido
   const [routineView, setRoutineView] = useState<'macro' | 'micro'>('micro');
   const [activeDay, setActiveDay] = useState('d1');
 
@@ -104,6 +103,9 @@ export default function TrainerDashboard() {
       tempo: "Excéntrica Controlada (3-1-X-1)",
       rpe: "RPE 8-9 (Cerca del fallo)"
   });
+
+  // 🔥 ESTADO DE DECISIÓN DEL COACH 🔥
+  const [coachDecision, setCoachDecision] = useState("mantener");
 
   const [loadingLupa, setLoadingLupa] = useState(false);
   const [lupaReport, setLupaReport] = useState<string | null>(null);
@@ -229,8 +231,8 @@ export default function TrainerDashboard() {
           });
           setAnnualPlan(data.annual_plan || {});
           
-          // CARGAMOS EL TEXTO DEL BUZÓN IA
           setAiDraftText(data.ai_draft_text || "");
+          setCoachDecision(data.coach_decision || "mantener");
           
           setSubStatus(data.sub_status || "active");
           setExpiresAt(data.expires_at ? new Date(data.expires_at).toISOString().split('T')[0] : "");
@@ -275,21 +277,6 @@ export default function TrainerDashboard() {
       }
       setRoutine({ ...routine, [activeDay]: selectedTemplate.content });
       alert(`✅ Plantilla inyectada.`);
-    }
-    e.target.value = ""; 
-  };
-
-  const handleApplyTemplateToMacro = (e: React.ChangeEvent<HTMLSelectElement>, weekNum: number, dayKey: string) => {
-    const templateId = e.target.value;
-    if (!templateId) return;
-
-    const selectedTemplate = templates.find(t => t.id === templateId);
-    if (selectedTemplate) {
-      if (annualPlan[weekNum]?.[dayKey] && !confirm(`¿Reemplazar lo escrito en el ${dayKey.replace('d', 'Día ')} de la Semana ${weekNum}?`)) {
-        e.target.value = ""; 
-        return;
-      }
-      updateAnnualWeek(weekNum, dayKey, selectedTemplate.content);
     }
     e.target.value = ""; 
   };
@@ -536,7 +523,7 @@ export default function TrainerDashboard() {
       try {
           const recentCheckins = order?.checkin_history?.slice(-7) || [];
           const checkinText = recentCheckins.length > 0 
-              ? recentCheckins.map((c: any) => `Fecha: ${c.date} | Peso: ${c.weight}kg | Sueño: ${c.sleep}h | Estrés: ${c.stress}/10`).join('\n')
+              ? recentCheckins.map((c: any) => `Fecha: ${c.date} | Peso: ${c.weight}kg | Sueño: ${c.sleep}h | Estrés: ${c.stress}/10 | Adherencia: ${c.adherence}% | Energía: ${c.energy} | Recuperación: ${c.recovery}`).join('\n')
               : "Sin reportes de SNC esta semana.";
 
           const res = await fetch('/api/assistant/insights', {
@@ -594,7 +581,8 @@ export default function TrainerDashboard() {
                 macro_calories: macros.calories, macro_protein: macros.protein, macro_carbs: macros.carbs, macro_fats: macros.fats, macro_water: macros.water,
                 macrocycle: cycles.macro, mesocycle: cycles.meso, microcycle: cycles.micro,
                 annual_plan: annualPlan,
-                ai_draft_text: aiDraftText, // ✅ GUARDA EL CONTENIDO DEL BUZÓN DE LA IA
+                ai_draft_text: aiDraftText, 
+                coach_decision: coachDecision, // ✅ GUARDA LA DECISIÓN DEL COACH
                 sub_status: subStatus,
                 expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
                 customer_phone: customerPhone
@@ -666,13 +654,69 @@ export default function TrainerDashboard() {
 
       <div className="max-w-7xl mx-auto p-6 md:p-8">
         
+        {/* 🔥 NUEVO: RADAR DE FATIGA Y DECISIÓN DEL COACH 🔥 */}
+        <div className="mb-10 bg-zinc-950 border border-zinc-800 rounded-[2rem] p-6 md:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
+           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none"></div>
+           
+           <div className="flex-1 w-full relative z-10">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-2"><span>📡</span> Radar Clínico (Último Check-In)</h3>
+              
+              {order.checkin_history && order.checkin_history.length > 0 ? (
+                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Peso</p>
+                       <p className="text-white font-black">{order.checkin_weight || '-'} kg</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Adherencia</p>
+                       <p className={`font-black ${Number(order.checkin_adherence) < 80 ? 'text-red-400' : 'text-emerald-400'}`}>{order.checkin_adherence || '-'}%</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Sueño</p>
+                       <p className={`font-black ${Number(order.checkin_sleep) < 6 ? 'text-red-400' : 'text-emerald-400'}`}>{order.checkin_sleep || '-'} hrs</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Estrés</p>
+                       <p className={`font-black ${Number(order.checkin_stress) >= 8 ? 'text-red-400' : 'text-emerald-400'}`}>{order.checkin_stress || '-'}/10</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Energía</p>
+                       <p className="text-yellow-400 font-black">{order.checkin_energy || '-'}/10</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Recuperación</p>
+                       <p className="text-blue-400 font-black">{order.checkin_recovery || '-'}/10</p>
+                    </div>
+                    <div className="bg-black border border-zinc-800 p-3 rounded-xl text-center col-span-2 md:col-span-1">
+                       <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Dolor</p>
+                       <p className={`font-black text-[10px] uppercase truncate ${order.checkin_joint_pain && order.checkin_joint_pain !== 'ninguno' ? 'text-red-500' : 'text-emerald-500'}`}>{order.checkin_joint_pain || 'Ninguno'}</p>
+                    </div>
+                 </div>
+              ) : (
+                 <p className="text-xs text-zinc-600 font-medium italic">El atleta aún no ha completado su Check-in Semanal.</p>
+              )}
+           </div>
+
+           <div className="w-full lg:w-72 bg-black/60 border border-zinc-800 p-5 rounded-2xl relative z-10 shrink-0">
+              <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-3">Decisión del Coach (Semana)</p>
+              <select 
+                 value={coachDecision} 
+                 onChange={(e) => setCoachDecision(e.target.value)} 
+                 className={`w-full bg-transparent text-sm font-black uppercase tracking-widest outline-none transition-colors border-b-2 pb-2 ${coachDecision === 'sobrecargar' ? 'text-emerald-500 border-emerald-500/50' : coachDecision === 'descargar' ? 'text-blue-500 border-blue-500/50' : 'text-zinc-300 border-zinc-700'}`}
+              >
+                 <option value="mantener" className="bg-zinc-900 text-white">Mantener Cargas</option>
+                 <option value="sobrecargar" className="bg-zinc-900 text-emerald-500">Progresar (Sobrecarga)</option>
+                 <option value="descargar" className="bg-zinc-900 text-blue-500">Descarga SNC (Deload)</option>
+              </select>
+           </div>
+        </div>
+
         {/* BOTONERA DE PESTAÑAS */}
         <div className="flex gap-1 mb-8 bg-zinc-900/50 p-1 rounded-2xl w-fit border border-zinc-800">
             <button onClick={() => setActiveTab('rutina')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'rutina' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Arquitectura de Entrenamiento</button>
             <button onClick={() => setActiveTab('videos')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'videos' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Auditoría Biomecánica 🤖</button>
             <button onClick={() => setActiveTab('datos')} className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'datos' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}>Administración Financiera</button>
         </div>
-
         {/* ─── PESTAÑA RUTINA Y LABORATORIO IA ─── */}
         {activeTab === 'rutina' && (
             <div className="animate-in fade-in duration-500">
@@ -908,13 +952,13 @@ export default function TrainerDashboard() {
                                           </div>
 
                                           <div className="flex flex-col md:flex-row justify-between mb-4 items-start md:items-center gap-4 relative z-10 border-b border-zinc-800/50 pb-4">
-                                               <div><h3 className="text-sm font-black italic uppercase text-white">Bloque Operativo: {activeDay.replace('d', 'Día ')}</h3></div>
-                                               <div className="flex items-center gap-3 w-full md:w-auto">
-                                                  <select onChange={handleApplyTemplate} className="bg-black border border-zinc-700 hover:border-emerald-500 text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-xl px-4 py-2 outline-none transition-all cursor-pointer shadow-lg w-full md:w-48 appearance-none" defaultValue="">
-                                                     <option value="" disabled>Inyectar Plantilla...</option>
-                                                     {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                                                  </select>
-                                               </div>
+                                              <div><h3 className="text-sm font-black italic uppercase text-white">Bloque Operativo: {activeDay.replace('d', 'Día ')}</h3></div>
+                                              <div className="flex items-center gap-3 w-full md:w-auto">
+                                                 <select onChange={handleApplyTemplate} className="bg-black border border-zinc-700 hover:border-emerald-500 text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-xl px-4 py-2 outline-none transition-all cursor-pointer shadow-lg w-full md:w-48 appearance-none" defaultValue="">
+                                                    <option value="" disabled>Inyectar Plantilla...</option>
+                                                    {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                                                 </select>
+                                              </div>
                                           </div>
 
                                           <textarea className="w-full flex-1 bg-black border border-zinc-800 rounded-xl p-4 text-zinc-300 font-mono text-sm leading-relaxed focus:border-emerald-500 outline-none resize-none transition-all placeholder:text-zinc-800 relative z-10 custom-scrollbar" placeholder={`Espacio de diseño estructural...`} value={routine[activeDay]} onChange={(e) => setRoutine({...routine, [activeDay]: e.target.value})} spellCheck={false}></textarea>
@@ -1061,7 +1105,7 @@ export default function TrainerDashboard() {
                                       <span>🛡️</span> Insight Privado para Head Coach
                                   </p>
                                   <p className="text-xs text-indigo-100/70 italic leading-relaxed">
-                                     {aiInsights[lift.id as keyof typeof aiInsights]}
+                                      {aiInsights[lift.id as keyof typeof aiInsights]}
                                   </p>
                                </div>
                             )}

@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Link from "next/link";
-// html2pdf se importa dinámicamente abajo para evitar el error "self is not defined"
 
 export default function DashboardAtleta() {
   const router = useRouter();
@@ -21,7 +20,20 @@ export default function DashboardAtleta() {
   const [rms, setRms] = useState({ squat: "", bench: "", deadlift: "", dips: "", military: "" });
 
   const [savingCheckin, setSavingCheckin] = useState(false);
-  const [checkin, setCheckin] = useState({ weight: "", sleep: "", stress: "5", notes: "" });
+  
+  // 🔥 ESTADO DEL SUPER CHECK-IN (NIVEL ÉLITE) 🔥
+  const [checkin, setCheckin] = useState({ 
+    weight: "", 
+    sleep: "", 
+    stress: "5", 
+    notes: "",
+    adherence: "100",
+    energy: "5",
+    hunger: "5",
+    recovery: "5",
+    joint_pain: "ninguno",
+    hit_failure: true
+  });
   
   const [checkinHistory, setCheckinHistory] = useState<any[]>([]);
 
@@ -174,11 +186,18 @@ export default function DashboardAtleta() {
         
         setCheckinHistory(currentOrder.checkin_history || []);
         
+        // 🔥 CARGAR DATOS PREVIOS DEL SUPER CHECK-IN 🔥
         setCheckin({
             weight: currentOrder.checkin_weight || "",
             sleep: currentOrder.checkin_sleep || "",
             stress: currentOrder.checkin_stress || "5",
-            notes: currentOrder.checkin_notes || ""
+            notes: currentOrder.checkin_notes || "",
+            adherence: currentOrder.checkin_adherence || "100",
+            energy: currentOrder.checkin_energy || "5",
+            hunger: currentOrder.checkin_hunger || "5",
+            recovery: currentOrder.checkin_recovery || "5",
+            joint_pain: currentOrder.checkin_joint_pain || "ninguno",
+            hit_failure: currentOrder.checkin_hit_failure !== false
         });
         
         setIsOnboarded(currentOrder.is_onboarded === true);
@@ -378,6 +397,7 @@ export default function DashboardAtleta() {
     }
   };
 
+  // 🔥 NUEVA LÓGICA DE GUARDADO DEL SÚPER CHECK-IN 🔥
   const handleSaveCheckin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCheckin(true);
@@ -399,13 +419,19 @@ export default function DashboardAtleta() {
               checkin_sleep: checkin.sleep, 
               checkin_stress: checkin.stress, 
               checkin_notes: checkin.notes,
+              checkin_adherence: checkin.adherence,
+              checkin_energy: checkin.energy,
+              checkin_hunger: checkin.hunger,
+              checkin_recovery: checkin.recovery,
+              checkin_joint_pain: checkin.joint_pain,
+              checkin_hit_failure: checkin.hit_failure,
               checkin_history: updatedHistory
           })
           .eq('id', order.id);
 
        if (error) throw error;
        
-       alert("✅ Parámetros fisiológicos reportados.");
+       alert("✅ Auditoría fisiológica enviada a la Base de Datos del Coach.");
        setCheckinHistory(updatedHistory);
     } catch (error: any) {
        alert("Error: " + error.message);
@@ -490,7 +516,7 @@ export default function DashboardAtleta() {
     }
   };
 
-  // 🔥 NUEVA FUNCIÓN DOWNLOAD PDF CON DISEÑO DE IMPRESIÓN PROFESIONAL (CORREGIDO) 🔥
+  // 🔥 NUEVO GENERADOR DE PDF A4 PREMIUM 🔥
   const downloadPDF = async () => {
       if (!pdfRef.current) return;
       setGeneratingPDF(true);
@@ -498,25 +524,20 @@ export default function DashboardAtleta() {
       try {
           const html2pdf = (await import('html2pdf.js')).default;
           
-          // ACTIVAR CLASE MODO IMPRESIÓN
           pdfRef.current.classList.add('exporting-pdf-mode');
 
           const opt = {
-              margin:       0.5, // <- FORMATO CORREGIDO PARA TYPESCRIPT
-              filename:     `Mesociclo_BII_${order?.customer_name?.replace(/\s+/g, '_') || 'Atleta'}.pdf`,
+              margin:       0.4,
+              filename:     `Tujague_Strength_${order?.customer_name?.replace(/\s+/g, '_') || 'Plan'}.pdf`,
               image:        { type: 'jpeg' as const, quality: 1 }, 
               html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
               jsPDF:        { unit: 'in' as const, format: 'a4' as const, orientation: 'portrait' as const }
           };
-
-          pdfRef.current.style.display = 'block';
           
           await html2pdf().set(opt).from(pdfRef.current).save();
           
-          // DESACTIVAR CLASE MODO IMPRESIÓN
           if (pdfRef.current) {
               pdfRef.current.classList.remove('exporting-pdf-mode');
-              pdfRef.current.style.display = ''; 
           }
       } catch (error) {
           console.error("Error generando PDF:", error);
@@ -876,7 +897,6 @@ export default function DashboardAtleta() {
     return (
       <main className="min-h-screen bg-[#050505] text-white flex flex-col items-center p-4 md:p-12 font-sans selection:bg-emerald-500 selection:text-black overflow-y-auto">
         <div className="w-full max-w-7xl mb-6 flex justify-between items-center">
-            {/* 🔥 BOTÓN PARA VOLVER A LA WEB PRINCIPAL (ESCAPE DE SEGURIDAD) 🔥 */}
             <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/50 hover:bg-zinc-800 px-4 py-2 rounded-xl border border-white/5 text-xs font-black uppercase tracking-widest shadow-md">
                <span className="text-sm">🏠</span> Volver a la Web
             </Link>
@@ -1044,7 +1064,6 @@ export default function DashboardAtleta() {
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 md:mb-12 gap-6 bg-[#0a0a0c] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
         <div className="w-full lg:w-auto">
           <div className="flex justify-between items-center w-full mb-4">
-              {/* 🔥 BOTÓN PARA VOLVER A LA WEB PRINCIPAL DESDE EL DASHBOARD 🔥 */}
               <Link href="/" className="flex items-center gap-2 text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500 hover:text-black px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border border-emerald-500/20 shadow-md">
                 <span className="text-sm">🏠</span> Volver a la Web Principal
               </Link>
@@ -1090,17 +1109,21 @@ export default function DashboardAtleta() {
               <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none"></div>
               
               <div className="grid lg:grid-cols-12 gap-8 items-center relative z-10">
-                  <div className="lg:col-span-5 space-y-4">
+                  <div className="lg:col-span-6 space-y-4">
                       <div className="flex items-center gap-3 mb-2">
                           <span className="text-2xl md:text-3xl">🤝</span>
                           <div>
                               <h3 className="text-xl md:text-2xl font-black italic text-white uppercase tracking-tighter">Programa de <span className="text-emerald-500">Afiliados</span></h3>
-                              <p className="text-[10px] md:text-xs text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Invita amigos. Entrena gratis.</p>
+                              <p className="text-[10px] md:text-xs text-emerald-400 font-bold uppercase tracking-widest mt-0.5">El sistema financia tu esfuerzo.</p>
                           </div>
                       </div>
+
+                      <p className="text-zinc-300 text-sm font-medium leading-relaxed bg-black/40 p-4 rounded-xl border border-zinc-800/80 mb-4">
+                          Si un prospecto usa tu código, él recibe un <strong className="text-emerald-500">15% de bonificación</strong> en su ingreso, y el sistema inyecta el <strong className="text-emerald-500">20% del valor de su plan</strong> directo en tu Billetera Virtual. Traé 5 personas y tu mesociclo te sale $0.
+                      </p>
                       
-                      <div className="bg-black/60 border border-zinc-800 p-5 rounded-2xl">
-                          <p className="text-[9px] md:text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-3">Tu Código Personal</p>
+                      <div className="bg-black/60 border border-zinc-800 p-5 rounded-2xl mt-4">
+                          <p className="text-[9px] md:text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-3">Tu Código Privado de Invasión</p>
                           <div className="flex items-center gap-3">
                               <p className="flex-1 text-2xl md:text-3xl font-mono font-black text-white tracking-widest bg-zinc-900 px-4 py-3 rounded-xl border border-zinc-700 text-center select-all">
                                   {order.referral_code}
@@ -1115,32 +1138,32 @@ export default function DashboardAtleta() {
                           </div>
                           
                           <a 
-                              href={`https://wa.me/?text=${encodeURIComponent(`¡Fiera! Estoy entrenando con la app de Tujague Strength y las marcas suben solas. Sumate al equipo usando mi código *${order.referral_code}* para que te apliquen descuento en tu inscripción: ${process.env.NEXT_PUBLIC_SITE_URL || 'https://tujague.com'}`)}`} 
+                              href={`https://wa.me/?text=${encodeURIComponent(`¡Fiera! Estoy entrenando con la app de Tujague Strength y las marcas suben solas. Sumate al equipo usando mi código VIP: *${order.referral_code}* al momento del pago y te hacen un 15% de descuento en tu inscripción. Entrá acá: ${process.env.NEXT_PUBLIC_SITE_URL || 'https://tujague.com'}`)}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="mt-4 w-full bg-[#25D366] hover:bg-[#20bd5a] text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)]"
                           >
                               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
-                              Recomendar por WhatsApp
+                              Bombardear Contactos por WhatsApp
                           </a>
                       </div>
                   </div>
 
-                  <div className="lg:col-span-7 border-t lg:border-t-0 lg:border-l border-zinc-800 pt-8 lg:pt-0 lg:pl-10">
+                  <div className="lg:col-span-6 border-t lg:border-t-0 lg:border-l border-zinc-800 pt-8 lg:pt-0 lg:pl-10">
                       <div className="flex flex-col sm:flex-row justify-between items-start mb-8 gap-4">
                           <div>
-                              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-50 mb-1">Billetera Virtual</p>
+                              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-50 mb-1">Caja Fuerte Virtual</p>
                               <p className="text-4xl md:text-6xl font-black italic tracking-tighter text-white">${balance.toLocaleString()}</p>
                           </div>
                           <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl text-center shadow-inner w-full sm:w-auto">
                               <p className="text-3xl mb-1">🏆</p>
-                              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Afiliado BII</p>
+                              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Socio Estratégico</p>
                           </div>
                       </div>
 
                       <div className="bg-black/50 p-6 md:p-8 rounded-[2rem] border border-zinc-800 shadow-lg">
                           <div className="flex justify-between items-end mb-4">
-                              <p className="text-xs md:text-sm font-bold text-zinc-400">Progreso hacia tu Mes Gratis</p>
+                              <p className="text-xs md:text-sm font-bold text-zinc-400">Progreso hacia tu Mes Financiado</p>
                               <p className="text-sm md:text-base font-black uppercase tracking-widest text-emerald-400">{Math.floor(affiliateProgress)}%</p>
                           </div>
                           
@@ -1155,11 +1178,11 @@ export default function DashboardAtleta() {
 
                           {isFreeMonthSecured ? (
                               <p className="text-xs md:text-sm text-emerald-400 font-bold bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 text-center shadow-inner">
-                                  🎉 ¡Felicidades! Tienes suficiente saldo para pagar tu próxima renovación al 100%.
+                                  🎉 ¡Felicidades, Atleta! El sistema tiene fondos suficientes para que tu próxima renovación cueste exactamente $0.
                               </p>
                           ) : (
                               <p className="text-[10px] md:text-xs text-zinc-500 font-bold uppercase tracking-widest text-center">
-                                  Faltan <span className="text-white">${(precioPlanAtleta - balance).toLocaleString()}</span> para que tu próximo mes cueste $0.
+                                  Faltan <span className="text-white">${(precioPlanAtleta - balance).toLocaleString()}</span> de saldo para financiar el próximo mes al 100%.
                               </p>
                           )}
                       </div>
@@ -1387,9 +1410,9 @@ export default function DashboardAtleta() {
            </>
         )}
 
-        {/* ─── PESTAÑA RUTINA + BOTÓN DE PÁNICO Y PDF ─── */}
+        {/* ─── PESTAÑA RUTINA + BOTÓN DE PÁNICO Y GENERADOR PDF PREMIUM ─── */}
         {activeTab === "rutina" && (
-          <div className="relative pb-24 max-w-6xl mx-auto"> 
+          <div className="relative pb-24 max-w-[100vw] overflow-x-hidden md:max-w-6xl mx-auto"> 
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6 bg-[#0a0a0c] p-6 rounded-[2rem] border border-white/5 shadow-lg">
                 <h2 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">Documento de Trabajo</h2>
@@ -1399,7 +1422,7 @@ export default function DashboardAtleta() {
                        disabled={generatingPDF || !hasRoutines}
                        className="flex-1 sm:flex-none justify-center bg-zinc-900 hover:bg-zinc-800 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 border border-zinc-700 transition-all disabled:opacity-50 shadow-md"
                    >
-                       {generatingPDF ? 'Generando...' : '📄 Exportar a PDF'}
+                       {generatingPDF ? 'Generando...' : '📄 Exportar a PDF Premium'}
                    </button>
 
                    {isMonthlyPlan && (
@@ -1632,7 +1655,7 @@ export default function DashboardAtleta() {
             ) : (
               <>
                  {logFeedback && (
-                    <div className="mb-10 p-6 md:p-8 bg-gradient-to-r from-blue-950/60 to-[#0a0a0c] border-l-4 border-l-blue-500 border-y border-r border-zinc-800 rounded-r-3xl shadow-xl animate-in slide-in-from-left-4 relative overflow-hidden">
+                    <div className="mb-10 p-6 md:p-8 bg-gradient-to-r from-blue-950/60 to-[#0a0a0c] border-l-4 border-l-blue-500 border-y border-r border-zinc-800 rounded-r-3xl shadow-xl animate-in slide-in-from-left-4 relative overflow-hidden screen-only">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] pointer-events-none"></div>
                         <span className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest flex items-center gap-3 mb-3 relative z-10">
                            <span className="text-2xl">🤖</span> Auditoría de Bitácora (Tujague AI)
@@ -1641,40 +1664,178 @@ export default function DashboardAtleta() {
                     </div>
                  )}
 
-                 {/* GRID DE RUTINAS ADAPTATIVO (CON REF PARA PDF) */}
-                 <div ref={pdfRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                   {days.map(day => {
-                     if (!order[`routine_${day.id}`]) return null;
-                     return (
-                       <div key={day.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex flex-col hover:border-emerald-500/30 transition-colors">
-                          <h3 className="text-2xl font-black italic text-emerald-400 mb-6 uppercase tracking-tight drop-shadow-md">{day.label}</h3>
+                 {/* 🔥 SISTEMA DE RENDERIZADO DUAL (PANTALLA VS PDF) 🔥 */}
+                 <div ref={pdfRef} className="w-full relative">
+                    
+                    {/* 👉 1. VISTA DE PANTALLA NORMAL (DASHBOARD) */}
+                    <div className="screen-only grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                      {days.map(day => {
+                        if (!order[`routine_${day.id}`]) return null;
+                        return (
+                          <div key={day.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex flex-col hover:border-emerald-500/30 transition-colors">
+                             <h3 className="text-2xl font-black italic text-emerald-400 mb-6 uppercase tracking-tight drop-shadow-md">{day.label}</h3>
+                             
+                             <div className="bg-black border border-zinc-800/80 rounded-2xl p-5 md:p-6 mb-8 shadow-inner flex-1">
+                                 <div 
+                                     className="text-zinc-200 font-medium text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words"
+                                     style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                                 >
+                                     {order[`routine_${day.id}`]}
+                                 </div>
+                             </div>
+
+                             <div className="mt-auto border-t border-zinc-800 pt-6 pdf-exclude">
+                                <p className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2"><span>📓</span> Registro Fisiológico de Sesión</p>
+                                <textarea 
+                                   className="w-full bg-black border border-zinc-700/80 rounded-xl p-4 text-zinc-300 text-xs md:text-sm font-medium outline-none focus:border-emerald-500/50 resize-none h-28 md:h-32 placeholder:text-zinc-700 custom-scrollbar whitespace-pre-wrap shadow-inner" 
+                                   placeholder="Ej: Sentadilla completada. RPE 8. Presencia de ligera fatiga sistémica..." 
+                                   value={logs[day.id as keyof typeof logs]} 
+                                   onChange={(e) => setLogs({...logs, [day.id]: e.target.value})} 
+                                 />
+                             </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* 👉 2. VISTA DE IMPRESIÓN PDF A4 PREMIUM (OCULTA EN PANTALLA) */}
+                    <div className="print-only text-black bg-white w-full mx-auto" style={{ display: 'none', fontFamily: 'Helvetica, Arial, sans-serif' }}>
+                       
+                       {/* PÁGINA 1: PORTADA */}
+                       <div style={{ pageBreakAfter: 'always', padding: '40px' }} className="min-h-[297mm] flex flex-col relative box-border">
+                          <div className="flex justify-between border-b-2 border-black pb-4 mb-16">
+                              <span className="font-black text-lg tracking-widest">TUJAGUE STRENGTH</span>
+                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Protocolo Oficial BII-Vintage</span>
+                          </div>
                           
-                          <div className="bg-black border border-zinc-800/80 rounded-2xl p-5 md:p-6 mb-8 shadow-inner flex-1">
-                              <div 
-                                  className="text-zinc-200 font-medium text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words"
-                                  style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-                              >
-                                  {order[`routine_${day.id}`]}
-                              </div>
+                          <div className="flex-1 flex flex-col items-center justify-center text-center -mt-20">
+                              <h1 className="text-6xl font-black italic mb-6 tracking-tighter uppercase text-black">TUJAGUE STRENGTH</h1>
+                              <h2 className="text-xl text-gray-800 font-bold mb-16 max-w-lg leading-relaxed uppercase tracking-widest">Documento de Trabajo Clínico y Registro de Sobrecarga</h2>
+                              
+                              <table className="w-full max-w-2xl border-2 border-black text-left text-sm uppercase">
+                                 <tbody>
+                                    <tr className="border-b-2 border-black">
+                                       <td className="border-r-2 border-black p-5 font-bold w-1/2 bg-gray-100">
+                                          ATLETA: <span className="font-black block mt-2 text-lg">{order.customer_name}</span>
+                                       </td>
+                                       <td className="p-5 font-bold w-1/2 bg-gray-100">
+                                          INICIO (fecha): <span className="font-black block mt-2 text-lg text-gray-400">__ / __ / 202_</span>
+                                       </td>
+                                    </tr>
+                                    <tr className="border-b-2 border-black">
+                                       <td className="border-r-2 border-black p-5 font-bold">
+                                          PESO (kg): <span className="font-black block mt-2 text-lg">{checkin.weight || order.body_weight || '____'}</span>
+                                       </td>
+                                       <td className="p-5 font-bold">
+                                          OBJETIVO: <span className="font-black block mt-2 text-lg">{order.goal?.toUpperCase() || 'FUERZA / HIPERTROFIA'}</span>
+                                       </td>
+                                    </tr>
+                                    <tr>
+                                       <td className="border-r-2 border-black p-5 font-bold h-24 align-top">
+                                          SUEÑO PROMEDIO (h): <span className="font-black block mt-2 text-lg text-gray-400">______</span>
+                                       </td>
+                                       <td className="p-5 font-bold h-24 align-top">
+                                          NOTAS Y LESIONES: 
+                                          <span className="font-medium normal-case block mt-2 text-xs text-gray-600 line-clamp-3">
+                                             {order.medical_history || 'Sin observaciones.'}
+                                          </span>
+                                       </td>
+                                    </tr>
+                                 </tbody>
+                              </table>
                           </div>
 
-                          {/* OCULTAR CAJA DE TEXTO EN EL PDF */}
-                          <div className="mt-auto border-t border-zinc-800 pt-6 pdf-exclude">
-                             <p className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2"><span>📓</span> Registro Fisiológico de Sesión</p>
-                             <textarea 
-                                className="w-full bg-black border border-zinc-700/80 rounded-xl p-4 text-zinc-300 text-xs md:text-sm font-medium outline-none focus:border-emerald-500/50 resize-none h-28 md:h-32 placeholder:text-zinc-700 custom-scrollbar whitespace-pre-wrap shadow-inner" 
-                                placeholder="Ej: Sentadilla completada. RPE 8. Presencia de ligera fatiga sistémica..." 
-                                value={logs[day.id as keyof typeof logs]} 
-                                onChange={(e) => setLogs({...logs, [day.id]: e.target.value})} 
-                             />
+                          <div className="absolute bottom-10 left-10 right-10 flex justify-between border-t-2 border-black pt-4 text-xs font-bold text-gray-600 uppercase tracking-widest">
+                              <span>Metodología: Intensidad Máxima + Control Motor</span>
+                              <span>Página 1</span>
                           </div>
                        </div>
-                     )
-                   })}
+
+                       {/* PÁGINA 2: CÓMO USAR ESTA PLANTILLA */}
+                       <div style={{ pageBreakAfter: 'always', padding: '40px' }} className="min-h-[297mm] flex flex-col relative box-border">
+                          <div className="flex justify-between border-b-2 border-black pb-4 mb-10">
+                              <span className="font-black text-lg tracking-widest">TUJAGUE STRENGTH</span>
+                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Manual de Ejecución</span>
+                          </div>
+                          
+                          <div className="flex-1">
+                              <h3 className="text-2xl font-black uppercase mb-4 bg-black text-white inline-block px-4 py-2">Reglas del Sistema BII-Vintage</h3>
+                              <p className="text-sm font-medium leading-relaxed mb-8 text-gray-800">
+                                 Este documento contiene la estructura exacta de tu mesociclo. El objetivo es aplicar la <strong>sobrecarga progresiva</strong> a lo largo de 4 semanas. Completa los casilleros de "Real ___kg" con lapicera en cada sesión. Si el RPE o el tempo se rompen, ajusta la carga.
+                              </p>
+
+                              <h4 className="font-black uppercase border-b-2 border-gray-300 pb-2 mb-4">Glosario Técnico y Escalas</h4>
+                              <table className="w-full border border-gray-300 mb-8 text-sm text-left">
+                                 <tbody>
+                                    <tr className="border-b border-gray-300">
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Escala RPE / RIR</td>
+                                       <td className="p-3"><strong>RPE 7:</strong> 3 reps en reserva. <strong>RPE 8:</strong> 2 reps en reserva. <strong>RPE 9:</strong> 1 rep en reserva. <strong>RPE 10:</strong> Fallo absoluto (0 reps).</td>
+                                    </tr>
+                                    <tr className="border-b border-gray-300">
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Lectura de Tempo (Ej: 4-1-X-1)</td>
+                                       <td className="p-3">4s de Bajada (Excéntrica) | 1s Pausa Abajo | X (Subida Explosiva) | 1s Pausa Arriba apretando.</td>
+                                    </tr>
+                                    <tr className="border-b border-gray-300">
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Rest-Pause (Pausa Descanso)</td>
+                                       <td className="p-3">Haces una serie fuerte sin fallar, descansas 20-25 segundos exactos, y sacas reps extra hasta el RPE indicado.</td>
+                                    </tr>
+                                    <tr className="border-b border-gray-300">
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Drop Set (Serie Descendente)</td>
+                                       <td className="p-3">Haces una serie fuerte, bajas el peso un 10-20% rápido, y haces otra serie sin llegar al fallo.</td>
+                                    </tr>
+                                    <tr className="border-b border-gray-300">
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Myo-reps</td>
+                                       <td className="p-3">1 serie de "activación" (cerca del límite) → descansos cortos de 15s → mini-series de 4-5 reps hasta el tope.</td>
+                                    </tr>
+                                    <tr>
+                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Cluster Sets</td>
+                                       <td className="p-3">Divides la serie en pequeños bloques (ej. 3 reps + 3 reps) con micropausas de 20s en el medio.</td>
+                                    </tr>
+                                 </tbody>
+                              </table>
+
+                              <h4 className="font-black uppercase border-b-2 border-gray-300 pb-2 mb-4">Protocolo "Día Malo" (Manejo de Fatiga)</h4>
+                              <ul className="list-disc pl-5 mb-8 text-sm font-medium space-y-2">
+                                 <li><strong>Nivel 1 (Leve):</strong> Bajá un 5% la carga programada y cumplí los reps/tempo a la perfección.</li>
+                                 <li><strong>Nivel 2 (Moderado):</strong> Bajá un 10%. Hacé solo el Top Set + 1 Back-off. Eliminá técnicas de intensidad.</li>
+                                 <li><strong>Nivel 3 (Alto / Dolor):</strong> Todo a RPE 6-7 (muy suave) o cortá el ejercicio que genera molestias articulares agudas.</li>
+                              </ul>
+                          </div>
+
+                          <div className="absolute bottom-10 left-10 right-10 flex justify-between border-t-2 border-black pt-4 text-xs font-bold text-gray-600 uppercase tracking-widest">
+                              <span>Lee detenidamente antes de iniciar la semana 1</span>
+                              <span>Página 2</span>
+                          </div>
+                       </div>
+
+                       {/* PÁGINAS DE RUTINAS (FLUJO CONTINUO) */}
+                       <div style={{ padding: '40px' }}>
+                          <div className="flex justify-between border-b-4 border-black pb-4 mb-10">
+                              <span className="font-black text-xl tracking-widest">HOJAS DE REGISTRO DIARIO</span>
+                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Complete con lapicera en el gimnasio</span>
+                          </div>
+
+                          {days.map(day => {
+                             if (!order[`routine_${day.id}`]) return null;
+                             return (
+                                <div key={day.id} style={{ pageBreakInside: 'avoid', marginBottom: '60px' }} className="border-4 border-black rounded-xl overflow-hidden shadow-sm">
+                                   <div className="bg-black text-white p-4 flex justify-between items-center">
+                                      <span className="text-2xl font-black uppercase tracking-widest">{day.label}</span>
+                                      <span className="text-xs font-bold bg-white text-black px-3 py-1 rounded-full uppercase tracking-widest">Bloque Activo</span>
+                                   </div>
+                                   <div className="p-6 whitespace-pre-wrap text-sm md:text-base font-bold leading-loose text-gray-900" style={{ fontFamily: 'monospace' }}>
+                                      {order[`routine_${day.id}`]}
+                                   </div>
+                                </div>
+                             )
+                          })}
+                       </div>
+
+                    </div>
                  </div>
 
-                 {/* BOTÓN FLOTANTE ESTILIZADO */}
-                 <div className="fixed bottom-6 md:bottom-10 left-0 w-full flex justify-center z-50 pointer-events-none px-4">
+                 {/* BOTÓN FLOTANTE ESTILIZADO (SOLO EN PANTALLA) */}
+                 <div className="screen-only fixed bottom-6 md:bottom-10 left-0 w-full flex justify-center z-50 pointer-events-none px-4">
                     <button 
                        onClick={handleSaveLogs} 
                        disabled={savingLogs} 
@@ -2047,71 +2208,167 @@ export default function DashboardAtleta() {
           </div>
         )}
 
-        {/* ─── PESTAÑA CHECKIN ─── */}
+        {/* ─── PESTAÑA CHECKIN (SÚPER CHECK-IN NIVEL DIOS) ─── */}
         {activeTab === "checkin" && (
-           <div className="max-w-6xl mx-auto space-y-10 md:space-y-12">
+           <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
               
               <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
                  <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-emerald-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
                  
                  <div className="text-center mb-10 md:mb-14 relative z-10">
-                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-white tracking-tighter uppercase mb-4 drop-shadow-md">CONTROL PRE-SESIÓN: <span className="text-emerald-500 block sm:inline">HOY</span></h2>
-                    <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) del entrenamiento de hoy. La IA analizará su estado.</p>
+                    <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
+                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-white tracking-tighter uppercase mb-4 drop-shadow-md">AUDITORÍA DE <span className="text-emerald-500 block sm:inline">RECUPERACIÓN</span></h2>
+                    <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
                  </div>
 
                  <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto">
-                    {/* USO DE GRID PARA PC, APILADO PARA CELULAR */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                       <div className="bg-black/60 border border-zinc-800 p-6 md:p-8 rounded-[2rem] hover:border-emerald-500/50 transition-colors shadow-inner group">
-                          <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 md:mb-4 block group-hover:text-emerald-500 transition-colors">Peso Corporal (KG)</label>
-                          <input 
-                             type="number" step="0.1" required
-                             value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
-                             className="w-full bg-transparent text-4xl md:text-5xl font-black text-white outline-none focus:text-emerald-400 transition-colors placeholder:text-zinc-800"
-                             placeholder="Ej: 80.5"
-                          />
-                       </div>
-                       <div className="bg-black/60 border border-zinc-800 p-6 md:p-8 rounded-[2rem] hover:border-blue-500/50 transition-colors shadow-inner group">
-                          <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 md:mb-4 block group-hover:text-blue-500 transition-colors">Tiempo de Sueño Efectivo</label>
-                          <input 
-                             type="number" step="0.5" required
-                             value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
-                             className="w-full bg-transparent text-4xl md:text-5xl font-black text-white outline-none focus:text-blue-400 transition-colors placeholder:text-zinc-800"
-                             placeholder="Ej: 7.5"
-                          />
-                       </div>
-                    </div>
-
-                    <div className="bg-black/60 border border-zinc-800 p-6 md:p-10 rounded-[2rem] hover:border-emerald-500/30 transition-colors shadow-inner">
-                       <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-6 md:mb-8 flex justify-between items-center">
-                         <span>Estrés Sistémico General</span>
-                         <span className="text-emerald-500 text-2xl md:text-3xl font-black italic bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20">{checkin.stress} <span className="text-sm md:text-base text-emerald-500/50 not-italic">/ 10</span></span>
-                       </div>
-                       <input 
-                          type="range" min="1" max="10" required
-                          value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})}
-                          className="w-full accent-emerald-500 h-3 md:h-4 bg-zinc-900 rounded-full appearance-none cursor-pointer border border-zinc-800 shadow-inner"
-                       />
-                       <div className="flex justify-between text-[9px] md:text-[10px] text-zinc-500 mt-4 font-black uppercase tracking-widest">
-                         <span>1 (Óptimo)</span>
-                         <span>10 (Exhausto)</span>
+                    
+                    {/* PILAR 1: BIO-MARCADORES */}
+                    <div className="bg-black/40 border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg">
+                       <h3 className="text-emerald-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-emerald-500/50 transition-colors group">
+                              <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block group-hover:text-emerald-500 transition-colors">Peso Corporal (KG)</label>
+                              <input 
+                                 type="number" step="0.1" required
+                                 value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
+                                 className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-emerald-400 transition-colors placeholder:text-zinc-800"
+                                 placeholder="Ej: 80.5"
+                              />
+                           </div>
+                           <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-blue-500/50 transition-colors group">
+                              <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block group-hover:text-blue-500 transition-colors">Sueño Efectivo (Horas)</label>
+                              <input 
+                                 type="number" step="0.5" required
+                                 value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
+                                 className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-blue-400 transition-colors placeholder:text-zinc-800"
+                                 placeholder="Ej: 7.5"
+                              />
+                           </div>
                        </div>
                     </div>
 
-                    <div className="bg-black/60 border border-zinc-800 p-6 md:p-8 rounded-[2rem] shadow-inner focus-within:border-emerald-500/50 transition-colors">
-                       <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 block">Registro Clínico Libre (Opcional)</label>
-                       <textarea 
-                          value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
-                          placeholder="Reporte anomalías, dolores articulares o niveles anormales de fatiga general para que el Coach y la IA lo tengan en cuenta..."
-                          className="w-full bg-transparent text-sm md:text-base font-medium text-zinc-300 outline-none resize-none h-24 md:h-32 placeholder:text-zinc-700 custom-scrollbar"
-                       />
+                    {/* PILAR 2: METABOLISMO Y NUTRICIÓN */}
+                    <div className="bg-black/40 border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg">
+                       <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
+                       
+                       <div className="space-y-8">
+                           {/* Adherencia (1-100) */}
+                           <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
+                               <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                 <span>Adherencia Nutricional (Semana)</span>
+                                 <span className="text-orange-500 text-xl md:text-2xl font-black italic bg-orange-500/10 px-3 py-1 rounded-xl border border-orange-500/20">{checkin.adherence}%</span>
+                               </div>
+                               <input 
+                                  type="range" min="0" max="100" step="5" required
+                                  value={checkin.adherence} onChange={e => setCheckin({...checkin, adherence: e.target.value})}
+                                  className="w-full accent-orange-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800"
+                               />
+                               <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest">
+                                 <span>0% (Desastre)</span>
+                                 <span>100% (Perfecto)</span>
+                               </div>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               {/* Hambre */}
+                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                     <span>Nivel de Hambre</span>
+                                     <span className="text-white font-black">{checkin.hunger}/10</span>
+                                   </div>
+                                   <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-white h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
+                               </div>
+                               
+                               {/* Energía */}
+                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                     <span>Energía General</span>
+                                     <span className="text-yellow-400 font-black">{checkin.energy}/10</span>
+                                   </div>
+                                   <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-yellow-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
+                               </div>
+                           </div>
+                       </div>
+                    </div>
+
+                    {/* PILAR 3: RENDIMIENTO Y FATIGA */}
+                    <div className="bg-black/40 border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg">
+                       <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
+                       
+                       <div className="space-y-8">
+                           {/* Estrés */}
+                           <div className="bg-zinc-900/50 border border-red-900/30 p-6 rounded-2xl hover:border-red-500/50 transition-all">
+                               <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                 <span>Estrés Sistémico General</span>
+                                 <span className="text-red-500 text-xl md:text-2xl font-black italic bg-red-500/10 px-3 py-1 rounded-xl border border-red-500/20">{checkin.stress}/10</span>
+                               </div>
+                               <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800" />
+                               <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               {/* Recuperación Muscular */}
+                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                     <span>Recuperación Muscular</span>
+                                     <span className="text-blue-400 font-black">{checkin.recovery}/10</span>
+                                   </div>
+                                   <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
+                               </div>
+
+                               {/* Dolor Articular */}
+                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                   <label className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
+                                   <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-xs text-white outline-none focus:border-red-500 transition-colors">
+                                       <option value="ninguno">Ninguno (Todo OK)</option>
+                                       <option value="rodillas">Rodilla / Tendón Rotuliano</option>
+                                       <option value="lumbares">Espalda Baja / Lumbares</option>
+                                       <option value="hombros">Hombro / Manguito Rotador</option>
+                                       <option value="codos">Codos / Tendinitis</option>
+                                       <option value="muñecas">Muñecas</option>
+                                   </select>
+                               </div>
+                           </div>
+                       </div>
+                    </div>
+
+                    {/* PILAR 4: EJECUCIÓN (RIR 0) */}
+                    <div className="bg-black/40 border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg">
+                       <h3 className="text-white font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
+                       
+                       <div className="bg-zinc-900/80 border border-zinc-700 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                           <div>
+                               <p className="text-sm md:text-base font-black text-white uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
+                               <p className="text-[10px] md:text-xs text-zinc-400 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
+                           </div>
+                           
+                           {/* iOS Toggle Switch */}
+                           <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                               <input type="checkbox" checked={checkin.hit_failure} onChange={(e) => setCheckin({...checkin, hit_failure: e.target.checked})} className="sr-only peer" />
+                               <div className="w-16 h-8 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                               <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-emerald-500' : 'text-zinc-500'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
+                           </label>
+                       </div>
+
+                       <div className="mt-6 bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl focus-within:border-emerald-500/50 transition-colors">
+                          <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
+                          <textarea 
+                             value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
+                             placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana', 'Tuve mucho trabajo y comí mal un día'..."
+                             className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm md:text-base font-medium text-zinc-300 outline-none resize-none h-24 md:h-32 placeholder:text-zinc-700 custom-scrollbar shadow-inner focus:border-emerald-500"
+                          />
+                       </div>
                     </div>
 
                     <div className="pt-4 md:pt-6">
                         <button 
                            type="submit"
                            disabled={savingCheckin}
-                           className="w-full bg-emerald-500 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:bg-emerald-400 hover:scale-[1.02] transition-all disabled:opacity-50 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-95"
+                           className="w-full bg-emerald-500 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:bg-emerald-400 hover:scale-[1.02] transition-all disabled:opacity-50 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-95 flex items-center justify-center gap-3"
                         >
                            {savingCheckin ? 'COMUNICANDO DATOS AL SISTEMA...' : 'ENVIAR REPORTE AL HEAD COACH 🚀'}
                         </button>
@@ -2169,8 +2426,21 @@ export default function DashboardAtleta() {
             cursor: pointer;
             box-shadow: 0 0 15px rgba(16,185,129,0.8);
             border: 2px solid #000;
+            transition: all 0.2s;
         }
         
+        input[type="range"]:active::-webkit-slider-thumb {
+            transform: scale(1.2);
+            background: #fff;
+        }
+
+        /* Colores específicos para cada slider */
+        input[type="range"].accent-orange-500::-webkit-slider-thumb { background: #f97316; box-shadow: 0 0 15px rgba(249,115,22,0.8); }
+        input[type="range"].accent-white::-webkit-slider-thumb { background: #ffffff; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
+        input[type="range"].accent-yellow-400::-webkit-slider-thumb { background: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.8); }
+        input[type="range"].accent-red-500::-webkit-slider-thumb { background: #ef4444; box-shadow: 0 0 15px rgba(239,68,68,0.8); }
+        input[type="range"].accent-blue-400::-webkit-slider-thumb { background: #60a5fa; box-shadow: 0 0 15px rgba(96,165,250,0.8); }
+
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(1);
             cursor: pointer;
@@ -2183,24 +2453,26 @@ export default function DashboardAtleta() {
         }
 
         /* 🔥 CSS EXCLUSIVO PARA QUE EL PDF SALGA BLANCO, PERFECTO E IMPRIMIBLE 🔥 */
+        .print-only { display: none; }
+        
+        .exporting-pdf-mode .screen-only { 
+            display: none !important; 
+        }
+        
+        .exporting-pdf-mode .print-only { 
+            display: block !important; 
+        }
+
         .exporting-pdf-mode {
             background-color: #ffffff !important;
             color: #000000 !important;
-            padding: 20px !important;
         }
+        
         .exporting-pdf-mode * {
             color: #000000 !important; 
-            border-color: #cccccc !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
         }
-        .exporting-pdf-mode [class*="bg-"] {
-            background-color: #ffffff !important;
-            border: 1px solid #e5e7eb !important;
-        }
-        .exporting-pdf-mode .pdf-exclude, 
-        .exporting-pdf-mode textarea, 
-        .exporting-pdf-mode button {
+        
+        .exporting-pdf-mode .pdf-exclude {
             display: none !important;
         }
       `}} />

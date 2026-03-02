@@ -36,7 +36,7 @@ function RevealOnScroll({ children, delay = 0, className = "" }: { children: Rea
   );
 }
 
-// ─── CONFIGURACIÓN DE DATOS ───
+// ─── CONFIGURACIÓN DE DATOS (CON MARKETING AUTÉNTICO) ───
 const PRICING_MATRIX = {
   weekly: [
     {
@@ -48,6 +48,7 @@ const PRICING_MATRIX = {
       features: ["Rutina enfocada en básicos", "Foco: Técnica en SBD", "Sin ajustes de largo plazo"],
       highlight: false,
       idealFor: "Gente ocupada / Principiantes",
+      actionLabel: "⚡ Ingreso Inmediato al Sistema"
     },
     {
       id: "semanal-5-6",
@@ -58,6 +59,7 @@ const PRICING_MATRIX = {
       features: ["Alta densidad de entrenamiento", "Técnicas RIR/RPE", "Ideal para atletas con experiencia"],
       highlight: true,
       idealFor: "Atletas intermedios serios",
+      actionLabel: "🔥 Plan de Alta Demanda Actual"
     },
     {
       id: "semanal-7",
@@ -68,6 +70,7 @@ const PRICING_MATRIX = {
       features: ["Programación diaria", "Control de volumen total", "Máximo rendimiento semanal"],
       highlight: false,
       idealFor: "Alto volumen / Avanzados",
+      actionLabel: "⚙️ Requiere Auditoría Previa"
     }
   ],
   monthly: [
@@ -80,6 +83,7 @@ const PRICING_MATRIX = {
       features: ["Ajustes semanales de carga", "Periodización Lineal", "🤖 Tujague AI (Soporte 24/7)"],
       highlight: false,
       idealFor: "Gente ocupada / 3-4 días",
+      actionLabel: "🤖 Sistema Tujague AI Habilitado"
     },
     {
       id: "mensual-5-6",
@@ -90,6 +94,7 @@ const PRICING_MATRIX = {
       features: ["Ajustes en 24hs", "Tabla de RPE personalizada", "🤖 Tujague AI (Análisis Biomecánico)"],
       highlight: true,
       idealFor: "Intermedio serio / 5-6 días",
+      actionLabel: "⭐ El Plan Más Elegido Del Mes"
     },
     {
       id: "mensual-7",
@@ -100,6 +105,32 @@ const PRICING_MATRIX = {
       features: ["Gestión total de variables", "Análisis de recuperación", "🤖 Tujague AI (Soporte Ilimitado)"],
       highlight: false,
       idealFor: "Alto volumen / NO Principiantes",
+      actionLabel: "👑 Soporte Prioritario VIP"
+    }
+  ],
+  // 🔥 NUEVA SECCIÓN: PROTOCOLOS ESTÁTICOS DE DOWNSELL 🔥
+  static: [
+    {
+      id: "static-fuerza",
+      title: "PROTOCOLO FUERZA BASE",
+      subtitle: "4 Semanas (PDF / Panel)",
+      price: 30000,
+      description: "Enfoque 100% Neural. Diseñado matemáticamente para maximizar tu 1RM en los básicos (Sentadilla, Banca, Peso Muerto). Bajo volumen, altísima intensidad y descansos largos. Ideal para destruir estancamientos de fuerza.",
+      features: ["Estructura exacta de progresión", "✗ Sin revisión de videos", "✗ Sin Tujague AI (Asistente Bloqueado)", "✗ Sin contacto con el Coach"],
+      highlight: false,
+      idealFor: "Estancados en Fuerza / Powerlifters",
+      actionLabel: "🔒 MODO ESTUDIO INDEPENDIENTE"
+    },
+    {
+      id: "static-hipertrofia",
+      title: "MUTACIÓN HIPERTRÓFICA",
+      subtitle: "4 Semanas (PDF / Panel)",
+      price: 30000,
+      description: "Enfoque en tensión mecánica y daño muscular. Alto volumen de trabajo, técnicas de intensidad (Drop sets, Rest-Pause) y rangos de hipertrofia (8-15 reps). Construcción de masa magra pura con estructura BII.",
+      features: ["Selección óptima de accesorios", "✗ Sin revisión de videos", "✗ Sin Tujague AI (Asistente Bloqueado)", "✗ Sin contacto con el Coach"],
+      highlight: false,
+      idealFor: "Foco en estética / Bodybuilding",
+      actionLabel: "🔒 MODO ESTUDIO INDEPENDIENTE"
     }
   ]
 };
@@ -112,7 +143,8 @@ const FAQS = [
   { q: "¿Cuánto tardás en armar mi programación?", a: "Una vez que completás tu Auditoría Inicial en el Dashboard, el plan estará listo en tu perfil entre 24 y 48 horas hábiles." },
   { q: "¿Necesito ser un atleta avanzado o tener experiencia?", a: "No. Si sos principiante el plan se enfocará 100% en construir tu técnica en los básicos (Sentadilla, Banca, Peso Muerto) antes de meter carga pesada." },
   { q: "¿Qué pasa si tengo una lesión previa?", a: "Adaptamos los ejercicios y la selección de variantes para no agravar ninguna molestia y fortalecer tu estructura en base a tu ficha clínica." },
-  { q: "¿El sistema Tujague AI viene en todos los planes?", a: "No. El Asistente Inteligente (Tujague AI) es exclusivo para los atletas en planes MENSUALES. Es tu soporte biomecánico 24/7."}
+  { q: "¿El sistema Tujague AI viene en todos los planes?", a: "No. El Asistente Inteligente (Tujague AI) es exclusivo para los atletas en planes MENSUALES VIP. Es tu soporte biomecánico 24/7."},
+  { q: "¿Tienen programa de referidos o descuentos?", a: "Mantenemos un estándar clínico y no hacemos 'promociones' masivas para preservar la calidad del servicio. Sin embargo, nuestros atletas activos acceden a la Bóveda de Afiliados. Si un atleta del equipo te invita con su Código Privado, el sistema te aplicará un 15% de bonificación automática en tu ingreso."}
 ];
 
 export default function Home() {
@@ -120,7 +152,7 @@ export default function Home() {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [addVideoReview, setAddVideoReview] = useState(false);
   const [topAthletes, setTopAthletes] = useState<any[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true); // 🔥 NUEVO ESTADO DE CARGA
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true); 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // 🤖 ESTADOS PARA EL BOT VENDEDOR
@@ -133,7 +165,7 @@ export default function Home() {
   const [pulseLive, setPulseLive] = useState(false);
   const botEndRef = useRef<HTMLDivElement>(null);
 
-  // 🔥 ESTADOS PARA EL QUIZ DE RECOMENDACIÓN DE PLAN (ACTUALIZADO PARA EL TRIAGE CLÍNICO) 🔥
+  // 🔥 ESTADOS PARA EL QUIZ DE RECOMENDACIÓN DE PLAN
   const [quizStep, setQuizStep] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState({ limitante: "", dias: "", nivel: "" });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -178,7 +210,7 @@ export default function Home() {
     } catch (err) {
         console.error("Error al cargar atletas:", err);
     } finally {
-        setLoadingLeaderboard(false); // 🔥 ESTO FRENA EL "CARGANDO" SÍ O SÍ
+        setLoadingLeaderboard(false); 
     }
   };
 
@@ -230,7 +262,7 @@ export default function Home() {
     
     setTimeout(() => {
       setIsAnalyzing(false);
-      setQuizStep(4); // Pantalla de resultados
+      setQuizStep(4); 
     }, 3200);
   };
 
@@ -239,7 +271,6 @@ export default function Home() {
       setQuizAnswers(newAnswers);
       
       if (quizStep === 3) {
-          // Determina el plan basado en las respuestas (Siempre empujando a los MENSUALES)
           let planToRecommend = PRICING_MATRIX.monthly[0]; 
           if (newAnswers.dias === "alto" || newAnswers.dias === "medio") {
               if (newAnswers.nivel === "elite") {
@@ -249,7 +280,7 @@ export default function Home() {
               }
           }
           setRecommendedPlan(planToRecommend);
-          startAnalysis(); // Inicia el falso cargador profesional
+          startAnalysis(); 
       } else {
           setQuizStep(quizStep + 1);
       }
@@ -258,12 +289,10 @@ export default function Home() {
   const getDiagnosticText = () => {
     let diag = "";
     
-    // Análisis Psicológico/Clínico de Días
     if (quizAnswers.dias === "bajo") diag += "Al entrenar solo 2-3 días, tu perfil exige un protocolo BII (Breve, Intenso, Infrecuente) de altísima tensión mecánica. Una rutina genérica te dejará en subentrenamiento total. ";
     if (quizAnswers.dias === "medio") diag += "Tu disponibilidad de 4 días es óptima, pero requiere una periodización exacta (Top Sets + Backoffs) para no quemar tu SNC a mitad de semana. ";
     if (quizAnswers.dias === "alto") diag += "¡ALERTA ROJA! Entrenar 5-6 días te pone en riesgo crítico de sobreentrenamiento y fatiga del SNC. Necesitas una gestión del volumen quirúrgica. ";
 
-    // Análisis de Limitante
     if (quizAnswers.limitante === "lesiones") diag += "Además, al presentar molestias articulares, debemos eliminar los 'ejercicios basura' y transicionar inmediatamente a variantes de alta estabilidad externa y control excéntrico. ";
     if (quizAnswers.limitante === "estancamiento") diag += "Tu estancamiento actual es prueba de que has agotado tus adaptaciones de novato; necesitas programar fases de sobrecarga y descargas (Deloads) programadas de forma inteligente. ";
     
@@ -443,7 +472,6 @@ export default function Home() {
              EL MÉTODO BII-VINTAGE
            </span>
            
-           {/* TIPOGRAFÍA FLUIDA AJUSTADA: En móvil es 5xl, en notebook es 6xl, en monitores grandes es 7xl */}
            <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-[7rem] font-black italic tracking-tighter leading-[1.05] sm:leading-[1.1] mb-6 sm:mb-8 text-white drop-shadow-2xl">
              FUERZA BRUTA, <br className="hidden sm:block md:hidden"/> SIN VIVIR EN EL <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-700 inline-block pb-2">GIMNASIO.</span>
            </h1>
@@ -471,14 +499,13 @@ export default function Home() {
                    >
                      VER PLANES
                    </button>
-                   <p className="text-zinc-500 font-bold text-[9px] sm:text-[10px] uppercase tracking-[0.2em] mt-3 sm:mt-4">Cupos Mensuales Limitados</p>
+                   <p className="text-zinc-500 font-bold text-[9px] sm:text-[10px] uppercase tracking-[0.2em] mt-3 sm:mt-4">Inicio Inmediato tras la Auditoría</p>
                </div>
            </div>
 
-           {/* 🔥 ETIQUETAS CSS CORREGIDAS PARA QUE NO DEN ERROR DE COMPILACIÓN 🔥 */}
            <div className="flex flex-wrap justify-center gap-4 lg:gap-8 mt-12 lg:mt-16 opacity-70">
               <div className="flex items-center gap-2 text-[10px] lg:text-xs font-bold text-zinc-300 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                 <span className="text-emerald-500 text-sm">✔</span> Cupos Mensuales Limitados
+                 <span className="text-emerald-500 text-sm">✔</span> Soporte Directo y Personalizado
               </div>
               <div className="flex items-center gap-2 text-[10px] lg:text-xs font-bold text-zinc-300 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">
                  <span className="text-emerald-500 text-sm">✔</span> Corrección Biomecánica
@@ -496,7 +523,6 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
                <h2 className="text-center text-[10px] sm:text-xs font-black text-zinc-500 uppercase tracking-[0.3em] mb-12 sm:mb-20">El Proceso de Ingreso</h2>
                
-               {/* USO DEL ESPACIO HORIZONTAL EN NOTEBOOKS (md:grid-cols-3) */}
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                   {[
                     { step: "1", title: "Elegí tu Plan", desc: "Seleccioná la frecuencia semanal y realizá el pago seguro. Recibís acceso al instante." },
@@ -529,7 +555,6 @@ export default function Home() {
                   <p className="text-zinc-400 text-sm sm:text-base font-medium px-4">Clasificación en tiempo real de la Fuerza Absoluta de la Tropa (Los 5 Básicos)</p>
                </div>
 
-               {/* 🔥 FRENO DE CARGA INFINITA: Si está cargando muestra Spinner, si no hay nadie, muestra mensaje */}
                {loadingLeaderboard ? (
                   <div className="bg-zinc-900/30 border border-zinc-800 rounded-[3rem] p-20 text-center flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
                      <span className="w-12 h-12 border-4 border-zinc-800 border-t-emerald-500 rounded-full animate-spin"></span>
@@ -615,7 +640,7 @@ export default function Home() {
                {/* TEXTO Y BENEFICIOS */}
                <div className="flex-1 text-center lg:text-left w-full">
                   <span className="bg-blue-500/10 border border-blue-500/30 text-blue-400 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[9px] sm:text-[10px] font-black tracking-widest uppercase mb-6 inline-block shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-                      Exclusivo Planes Mensuales
+                      Exclusivo Planes Mensuales VIP
                   </span>
                   <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic tracking-tighter text-white mb-6 sm:mb-8 leading-none drop-shadow-md">
                       SOPORTE INTELIGENTE <span className="text-blue-500 block sm:inline">24/7</span>
@@ -965,8 +990,8 @@ export default function Home() {
         </RevealOnScroll>
       </section>
 
-      {/* ─── PRICING SECTION ─── */}
-      <section id="pricing-section" className="relative z-20 pt-24 sm:pt-40 pb-20 sm:pb-32 px-4 sm:px-6 bg-zinc-950/80 border-t border-white/5">
+      {/* ─── PRICING SECTION (CORE VIP) ─── */}
+      <section id="pricing-section" className="relative z-20 pt-24 sm:pt-40 pb-20 px-4 sm:px-6 bg-zinc-950/80 border-t border-white/5">
         <RevealOnScroll>
            <div className="max-w-7xl mx-auto text-center">
              <h2 className="text-5xl sm:text-6xl md:text-8xl font-black italic text-center mb-10 sm:mb-16 tracking-tighter drop-shadow-xl text-white">
@@ -998,10 +1023,15 @@ export default function Home() {
                    <h3 className="text-3xl sm:text-4xl font-black italic mb-2 tracking-tighter text-white uppercase">{plan.title}</h3>
                    <p className="text-emerald-400 font-bold tracking-[0.2em] text-[9px] sm:text-[11px] mb-8 border-b border-zinc-800/80 pb-6 uppercase">{plan.subtitle}</p>
                    
-                   <div className="text-5xl sm:text-6xl font-black mb-8 text-white tracking-tighter flex items-center justify-center">
+                   <div className="text-5xl sm:text-6xl font-black mb-4 text-white tracking-tighter flex items-center justify-center">
                        <span className="text-2xl sm:text-3xl text-zinc-500 mr-2">$</span>
                        {plan.price.toLocaleString('es-AR')} 
                        <span className="text-sm sm:text-base text-zinc-500 font-bold ml-2 tracking-widest uppercase">/{isWeekly ? 'SEM' : 'MES'}</span>
+                   </div>
+
+                   {/* 🔥 MARKETING DE AUTORIDAD Y GRATIFICACIÓN 🔥 */}
+                   <div className={`text-[10px] font-black uppercase tracking-widest mb-8 animate-pulse flex items-center justify-center gap-2 ${plan.highlight ? 'text-emerald-400' : 'text-blue-500'}`}>
+                       <span className={`w-2 h-2 rounded-full ${plan.highlight ? 'bg-emerald-400' : 'bg-blue-500'}`}></span> {plan.actionLabel}
                    </div>
                    
                    <div className="bg-black/50 border border-zinc-800/80 p-5 rounded-3xl mb-8 sm:mb-10">
@@ -1083,8 +1113,9 @@ export default function Home() {
                 </div>
              </div>
 
-             {selectedPlan && (
-               <div className="max-w-4xl mx-auto mb-10 animate-in fade-in slide-in-from-bottom-10 duration-500 px-4 sm:px-0">
+             {/* 🔥 CHECKOUT PARA PLANES VIP (CONDICIONAL) 🔥 */}
+             {selectedPlan && !selectedPlan.id.startsWith('static') && (
+               <div id="checkout-section" className="max-w-4xl mx-auto mb-10 animate-in fade-in slide-in-from-bottom-10 duration-500 px-4 sm:px-0">
                  <label className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 sm:p-10 border cursor-pointer transition-all duration-300 rounded-[2rem] sm:rounded-[3rem] backdrop-blur-xl gap-6 sm:gap-0 ${addVideoReview ? 'bg-emerald-950/20 border-emerald-500 shadow-[0_0_60px_rgba(16,185,129,0.15)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/50 shadow-xl'}`}>
                    <div className="flex items-start sm:items-center gap-5 sm:gap-8 text-left w-full sm:w-auto">
                      <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl flex items-center justify-center transition-all duration-300 border shadow-inner shrink-0 ${addVideoReview ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'border-zinc-700 bg-black text-zinc-600'}`}>
@@ -1106,7 +1137,73 @@ export default function Home() {
         </RevealOnScroll>
       </section>
 
-      {/* ─── CHECKOUT SECTION ─── */}
+      {/* 🔥 NUEVO: SECCIÓN DE DOWNSELL (PROTOCOLOS ESTÁTICOS) 🔥 */}
+      <section className="relative z-10 py-24 sm:py-32 px-4 sm:px-6 bg-[#020202] border-t border-zinc-800/50 overflow-hidden">
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-zinc-900/20 blur-[100px] pointer-events-none"></div>
+         <RevealOnScroll>
+            <div className="max-w-6xl mx-auto relative z-10">
+               <div className="text-center mb-16 sm:mb-20">
+                  <span className="bg-zinc-900 border border-zinc-700 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">
+                     ¿No cuentas con presupuesto para el Coaching VIP?
+                  </span>
+                  <h2 className="text-4xl sm:text-5xl md:text-7xl font-black italic tracking-tighter text-zinc-300 mb-6 drop-shadow-md">
+                     LA BÓVEDA ESTÁTICA: <span className="text-white block sm:inline">PLANOS CRUDOS</span>
+                  </h2>
+                  <p className="text-zinc-500 font-medium max-w-2xl mx-auto text-sm sm:text-lg">
+                     Adquirí las estructuras de 4 semanas exactas que uso con mis atletas. <br className="hidden sm:block"/> <strong className="text-red-500">ADVERTENCIA:</strong> Estos pases NO incluyen corrección de video, NO incluyen ajuste de fatiga, ni soporte de WhatsApp. Es modo 100% autodidacta.
+                  </p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 max-w-4xl mx-auto">
+                  {PRICING_MATRIX.static.map((plan) => (
+                     <div 
+                        key={plan.id} 
+                        onClick={() => handleSelectPlan(plan)}
+                        className={`p-8 sm:p-10 rounded-[2rem] sm:rounded-[3rem] cursor-pointer group transition-all duration-300 border bg-black/60 backdrop-blur-md flex flex-col ${
+                           selectedPlan?.id === plan.id 
+                           ? 'border-white scale-[1.02] shadow-[0_0_50px_rgba(255,255,255,0.1)] z-10' 
+                           : 'border-zinc-800 hover:border-zinc-500 shadow-xl'
+                        }`}
+                     >
+                        <h3 className="text-2xl sm:text-3xl font-black italic mb-2 tracking-tighter text-zinc-300 uppercase">{plan.title}</h3>
+                        <p className="text-zinc-500 font-bold tracking-[0.2em] text-[9px] sm:text-[11px] mb-6 border-b border-zinc-800/80 pb-6 uppercase">{plan.subtitle}</p>
+                        
+                        <div className="text-4xl sm:text-5xl font-black mb-4 text-white tracking-tighter flex items-center">
+                           <span className="text-xl sm:text-2xl text-zinc-600 mr-2">$</span>
+                           {plan.price.toLocaleString('es-AR')} 
+                        </div>
+
+                        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl mb-6">
+                           <p className="text-[8px] sm:text-[9px] font-black text-red-500 uppercase tracking-[0.2em] mb-1">⚠️ Restricción Clínica:</p>
+                           <p className="text-xs sm:text-sm text-zinc-400 font-bold">Solo para atletas experimentados que dominan el RPE.</p>
+                        </div>
+
+                        <p className="text-zinc-500 mb-8 text-sm leading-relaxed flex-grow">{plan.description}</p>
+                        
+                        <ul className="space-y-3 mb-8">
+                           {plan.features.map((f, idx) => (
+                           <li key={idx} className={`flex items-start gap-3 text-sm font-medium ${f.includes('✗') ? 'text-zinc-600' : 'text-zinc-300'}`}>
+                              <span className="font-black mt-0.5">{f.includes('✗') ? '' : '✓'}</span>
+                              <span>{f}</span>
+                           </li>
+                           ))}
+                        </ul>
+
+                        <button className={`w-full py-4 sm:py-5 rounded-2xl font-black tracking-[0.2em] text-[10px] transition-all duration-300 uppercase border ${
+                           selectedPlan?.id === plan.id 
+                           ? 'bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.3)]' 
+                           : 'bg-transparent text-zinc-400 group-hover:bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'
+                        }`}>
+                           {selectedPlan?.id === plan.id ? 'PLANO SELECCIONADO' : 'ADQUIRIR ESTRUCTURA'}
+                        </button>
+                     </div>
+                  ))}
+               </div>
+            </div>
+         </RevealOnScroll>
+      </section>
+
+      {/* ─── CHECKOUT SECTION GLOBAL ─── */}
       <section id="checkout-section" className="relative z-10 pt-20 sm:pt-32 pb-32 sm:pb-48 px-4 sm:px-6 bg-[#050505] border-t border-white/5 overflow-hidden">
         <RevealOnScroll>
            <div className="max-w-6xl mx-auto relative z-10">
@@ -1118,9 +1215,8 @@ export default function Home() {
              
              {selectedPlan ? (
                <div className="bg-[#0a0a0c] border border-zinc-800/80 rounded-[2.5rem] sm:rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden pb-12 lg:pb-0 backdrop-blur-2xl">
-                 <div className="absolute top-0 right-0 w-80 h-80 sm:w-96 sm:h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
+                 <div className={`absolute top-0 right-0 w-80 h-80 sm:w-96 sm:h-96 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20 ${selectedPlan.id.startsWith('static') ? 'bg-white/5' : 'bg-emerald-500/10'}`}></div>
                  
-                 {/* 🔥 NUEVO: BOTONES DE RETORNO Y NAVEGACIÓN DENTRO DEL CHECKOUT 🔥 */}
                  <div className="p-4 sm:p-6 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center relative z-20">
                     <button 
                         onClick={() => { setSelectedPlan(null); scrollToPricing(); }} 
@@ -1136,7 +1232,12 @@ export default function Home() {
                     </button>
                  </div>
 
-                 <CheckoutClient selectedPlan={selectedPlan} extraVideo={addVideoReview} extraPrice={EXTRA_VIDEO_PRICE} />
+                 {/* Pasamos addVideoReview como false forzosamente si es un plan estático */}
+                 <CheckoutClient 
+                    selectedPlan={selectedPlan} 
+                    extraVideo={selectedPlan.id.startsWith('static') ? false : addVideoReview} 
+                    extraPrice={EXTRA_VIDEO_PRICE} 
+                 />
                </div>
              ) : (
                <div className="text-center p-12 sm:p-24 md:p-32 border-2 border-dashed border-zinc-800/80 rounded-[2.5rem] sm:rounded-[4rem] bg-white/[0.01] backdrop-blur-sm shadow-xl">
