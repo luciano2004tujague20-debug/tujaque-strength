@@ -290,7 +290,7 @@ export default function AdminOrdersPage() {
       }
   };
 
-  // 🔥 NUEVA FUNCION MAESTRA DE APROBACIÓN CON INYECCIÓN DE RUTINA 🔥
+  // 🔥 NUEVA FUNCION MAESTRA DE APROBACIÓN CON BYPASS DE FICHA TÉCNICA 🔥
   const handleApproveOrder = async (order: any) => {
       if (!confirm(`¿Confirmas que recibiste el pago de $${Number(order.amount_ars).toLocaleString()} y deseas activar al atleta?`)) return;
       
@@ -298,27 +298,37 @@ export default function AdminOrdersPage() {
       try {
           let updatePayload: any = {
               status: 'paid',
-              updated_at: new Date().toISOString()
+              sub_status: 'active' // Hace que salte directamente a Plan Listo
           };
 
-          // INYECTAMOS LA RUTINA SI ES UN PLAN ESTÁTICO
+          // INYECTAMOS LA RUTINA SI ES UN PLAN ESTÁTICO (Uniendo las 4 semanas)
           if (order.plan_id === 'static-fuerza') {
               updatePayload = {
                   ...updatePayload,
+                  is_onboarded: true, // BYPASS DE FICHA TÉCNICA
                   macrocycle: templateFuerza.macrocycle, mesocycle: templateFuerza.mesocycle, microcycle: templateFuerza.microcycle,
                   annual_plan: templateFuerza.annual_plan,
-                  routine_d1: templateFuerza.annual_plan[1].d1, routine_d2: templateFuerza.annual_plan[1].d2,
-                  routine_d3: templateFuerza.annual_plan[1].d3, routine_d4: templateFuerza.annual_plan[1].d4,
-                  routine_d5: templateFuerza.annual_plan[1].d5, routine_d6: templateFuerza.annual_plan[1].d6, routine_d7: templateFuerza.annual_plan[1].d7,
+                  routine_d1: `SEMANA 1\n${templateFuerza.annual_plan[1].d1}\n\nSEMANA 2\n${templateFuerza.annual_plan[2].d1}\n\nSEMANA 3\n${templateFuerza.annual_plan[3].d1}\n\nSEMANA 4\n${templateFuerza.annual_plan[4].d1}`,
+                  routine_d2: `SEMANA 1\n${templateFuerza.annual_plan[1].d2}\n\nSEMANA 2\n${templateFuerza.annual_plan[2].d2}\n\nSEMANA 3\n${templateFuerza.annual_plan[3].d2}\n\nSEMANA 4\n${templateFuerza.annual_plan[4].d2}`,
+                  routine_d3: `SEMANA 1\n${templateFuerza.annual_plan[1].d3}\n\nSEMANA 2\n${templateFuerza.annual_plan[2].d3}\n\nSEMANA 3\n${templateFuerza.annual_plan[3].d3}\n\nSEMANA 4\n${templateFuerza.annual_plan[4].d3}`,
+                  routine_d4: `SEMANA 1\n${templateFuerza.annual_plan[1].d4}\n\nSEMANA 2\n${templateFuerza.annual_plan[2].d4}\n\nSEMANA 3\n${templateFuerza.annual_plan[3].d4}\n\nSEMANA 4\n${templateFuerza.annual_plan[4].d4}`,
+                  routine_d5: templateFuerza.annual_plan[1].d5,
+                  routine_d6: templateFuerza.annual_plan[1].d6,
+                  routine_d7: templateFuerza.annual_plan[1].d7,
               };
           } else if (order.plan_id === 'static-hipertrofia') {
               updatePayload = {
                   ...updatePayload,
+                  is_onboarded: true, // BYPASS DE FICHA TÉCNICA
                   macrocycle: templateHipertrofia.macrocycle, mesocycle: templateHipertrofia.mesocycle, microcycle: templateHipertrofia.microcycle,
                   annual_plan: templateHipertrofia.annual_plan,
-                  routine_d1: templateHipertrofia.annual_plan[1].d1, routine_d2: templateHipertrofia.annual_plan[1].d2,
-                  routine_d3: templateHipertrofia.annual_plan[1].d3, routine_d4: templateHipertrofia.annual_plan[1].d4,
-                  routine_d5: templateHipertrofia.annual_plan[1].d5, routine_d6: templateHipertrofia.annual_plan[1].d6, routine_d7: templateHipertrofia.annual_plan[1].d7,
+                  routine_d1: `SEMANA 1\n${templateHipertrofia.annual_plan[1].d1}\n\nSEMANA 2\n${templateHipertrofia.annual_plan[2].d1}\n\nSEMANA 3\n${templateHipertrofia.annual_plan[3].d1}\n\nSEMANA 4\n${templateHipertrofia.annual_plan[4].d1}`,
+                  routine_d2: `SEMANA 1\n${templateHipertrofia.annual_plan[1].d2}\n\nSEMANA 2\n${templateHipertrofia.annual_plan[2].d2}\n\nSEMANA 3\n${templateHipertrofia.annual_plan[3].d2}\n\nSEMANA 4\n${templateHipertrofia.annual_plan[4].d2}`,
+                  routine_d3: `SEMANA 1\n${templateHipertrofia.annual_plan[1].d3}\n\nSEMANA 2\n${templateHipertrofia.annual_plan[2].d3}\n\nSEMANA 3\n${templateHipertrofia.annual_plan[3].d3}\n\nSEMANA 4\n${templateHipertrofia.annual_plan[4].d3}`,
+                  routine_d4: `SEMANA 1\n${templateHipertrofia.annual_plan[1].d4}\n\nSEMANA 2\n${templateHipertrofia.annual_plan[2].d4}\n\nSEMANA 3\n${templateHipertrofia.annual_plan[3].d4}\n\nSEMANA 4\n${templateHipertrofia.annual_plan[4].d4}`,
+                  routine_d5: templateHipertrofia.annual_plan[1].d5,
+                  routine_d6: templateHipertrofia.annual_plan[1].d6,
+                  routine_d7: templateHipertrofia.annual_plan[1].d7,
               };
           }
 
@@ -335,7 +345,7 @@ export default function AdminOrdersPage() {
               }
           }
 
-          alert("✅ Pago aprobado. Atleta activado y rutina inyectada (si corresponde).");
+          alert("✅ Pago aprobado. Rutina inyectada y acceso inmediato liberado.");
           fetchData(); // Recargamos para reflejar el cambio visualmente
       } catch (err: any) {
           alert("Error al aprobar: " + err.message);

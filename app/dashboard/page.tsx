@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Link from "next/link";
+import { PDFDocument, rgb } from 'pdf-lib';
 
 export default function DashboardAtleta() {
   const router = useRouter();
@@ -21,7 +22,6 @@ export default function DashboardAtleta() {
 
   const [savingCheckin, setSavingCheckin] = useState(false);
   
-  // 🔥 ESTADO DEL SUPER CHECK-IN (NIVEL ÉLITE) 🔥
   const [checkin, setCheckin] = useState({ 
     weight: "", 
     sleep: "", 
@@ -101,11 +101,29 @@ export default function DashboardAtleta() {
   const [activityLevel, setActivityLevel] = useState("moderado");
   const [calculatedMacros, setCalculatedMacros] = useState<{cals: number, prot: number, fats: number, carbs: number, water: string} | null>(null);
 
-  const pdfRef = useRef<HTMLDivElement>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const [rmAiLoading, setRmAiLoading] = useState(false);
   const [rmAiFeedback, setRmAiFeedback] = useState("");
+
+  // 🔥 DETECCIÓN ESTRICTA DE PLANES ESTÁTICOS (MESOCICLOS DE 4 SEMANAS) 🔥
+  const isStaticPlan = useMemo(() => {
+    if (!order) return false;
+    const pId = order?.plan_id?.toLowerCase() || "";
+    const pTitle = order?.plan_title?.toLowerCase() || "";
+    return (
+        pId.includes("mesociclo") || 
+        pTitle.includes("mesociclo") ||
+        pTitle.includes("protocolo fuerza base") ||
+        pTitle.includes("fuerza base") ||
+        pTitle.includes("mutación hipertrófica") ||
+        pTitle.includes("mutacion") ||
+        pId.includes("fuerza") ||
+        pId.includes("hipertrofia") ||
+        pTitle.includes("fuerza") ||
+        pTitle.includes("hipertrofia")
+    );
+  }, [order]);
 
   useEffect(() => {
     let interval: any = null;
@@ -186,7 +204,6 @@ export default function DashboardAtleta() {
         
         setCheckinHistory(currentOrder.checkin_history || []);
         
-        // 🔥 CARGAR DATOS PREVIOS DEL SUPER CHECK-IN 🔥
         setCheckin({
             weight: currentOrder.checkin_weight || "",
             sleep: currentOrder.checkin_sleep || "",
@@ -397,7 +414,6 @@ export default function DashboardAtleta() {
     }
   };
 
-  // 🔥 NUEVA LÓGICA DE GUARDADO DEL SÚPER CHECK-IN 🔥
   const handleSaveCheckin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCheckin(true);
@@ -516,33 +532,52 @@ export default function DashboardAtleta() {
     }
   };
 
-  // 🔥 NUEVO GENERADOR DE PDF A4 PREMIUM 🔥
+  // 🔥 GENERADOR PDF CORREGIDO (Exclusivo para mensuales/semanales. Limpia Emojis para evitar error WinAnsi) 🔥
   const downloadPDF = async () => {
-      if (!pdfRef.current) return;
       setGeneratingPDF(true);
 
       try {
-          const html2pdf = (await import('html2pdf.js')).default;
-          
-          pdfRef.current.classList.add('exporting-pdf-mode');
+          const response = await fetch('/plantilla-blanco.pdf');
+          if (!response.ok) throw new Error("No se encontró plantilla-blanco.pdf");
+          const existingPdfBytes = await response.arrayBuffer();
 
-          const opt = {
-              margin:       0.4,
-              filename:     `Tujague_Strength_${order?.customer_name?.replace(/\s+/g, '_') || 'Plan'}.pdf`,
-              image:        { type: 'jpeg' as const, quality: 1 }, 
-              html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-              jsPDF:        { unit: 'in' as const, format: 'a4' as const, orientation: 'portrait' as const }
+          const pdfDoc = await PDFDocument.load(existingPdfBytes);
+          const pages = pdfDoc.getPages();
+          const firstPage = pages[0]; 
+
+          // Función para borrar emojis y caracteres raros que crashean el PDF
+          const cleanText = (str: string | undefined | null) => {
+              if (!str) return "";
+              // Reemplaza comillas y guiones raros por los normales
+              let s = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, "-").replace(/[\u2026]/g, "...");
+              // Elimina todo lo que no sea código ASCII estándar para evitar el WinAnsi error
+              return s.replace(/[^\x00-\xFF]/g, ""); 
           };
+
+          firstPage.drawText(cleanText(order?.customer_name) || 'Atleta', { x: 150, y: 550, size: 12, color: rgb(0, 0, 0) });
+          firstPage.drawText(cleanText(checkin.weight || order?.body_weight) || '-', { x: 150, y: 520, size: 12, color: rgb(0, 0, 0) });
+          firstPage.drawText(cleanText(order?.goal) || 'Fuerza / Hipertrofia', { x: 400, y: 550, size: 12, color: rgb(0, 0, 0) });
+
+          // Inyectar rutinas en las páginas con maxWidth y lineHeight para evitar líneas cortadas
+          const textOptions = { x: 50, y: 650, size: 10, maxWidth: 500, lineHeight: 14, color: rgb(0, 0, 0) };
           
-          await html2pdf().set(opt).from(pdfRef.current).save();
-          
-          if (pdfRef.current) {
-              pdfRef.current.classList.remove('exporting-pdf-mode');
-          }
+          if (pages[2] && order?.routine_d1) pages[2].drawText(cleanText(order.routine_d1), textOptions);
+          if (pages[3] && order?.routine_d2) pages[3].drawText(cleanText(order.routine_d2), textOptions);
+          if (pages[4] && order?.routine_d3) pages[4].drawText(cleanText(order.routine_d3), textOptions);
+          if (pages[5] && order?.routine_d4) pages[5].drawText(cleanText(order.routine_d4), textOptions);
+          if (pages[6] && order?.routine_d5) pages[6].drawText(cleanText(order.routine_d5), textOptions);
+          if (pages[7] && order?.routine_d6) pages[7].drawText(cleanText(order.routine_d6), textOptions);
+          if (pages[8] && order?.routine_d7) pages[8].drawText(cleanText(order.routine_d7), textOptions);
+
+          const pdfBytes = await pdfDoc.save();
+          const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+          const link = document.createElement('a');
+          link.href = window.URL.createObjectURL(blob);
+          link.download = `Tujague_Strength_${cleanText(order?.customer_name)?.replace(/\s+/g, '_') || 'Plan'}.pdf`;
+          link.click();
       } catch (error) {
           console.error("Error generando PDF:", error);
-          alert("Ocurrió un error al generar el documento.");
-          if (pdfRef.current) pdfRef.current.classList.remove('exporting-pdf-mode');
+          alert("Ocurrió un error al generar el documento. Verifica que plantilla-blanco.pdf esté en tu carpeta public.");
       } finally {
           setGeneratingPDF(false);
       }
@@ -857,7 +892,6 @@ export default function DashboardAtleta() {
     { name: 'Actual', Sentadilla: Number(rms.squat) || 0, Banca: Number(rms.bench) || 0, PesoMuerto: Number(rms.deadlift) || 0, Fondos: Number(rms.dips) || 0 },
   ];
 
-  // 🔥 LÓGICA DEL SCORE DE ADHERENCIA 🔥
   const adherenceScore = useMemo(() => {
       if (!checkinHistory || checkinHistory.length === 0) return 0;
       return Math.min(100, Math.round(checkinHistory.length * 15 + 25)); 
@@ -893,7 +927,8 @@ export default function DashboardAtleta() {
     </div>
   );
 
-  if (!isOnboarded) {
+  // 🔥 EXCLUIR A LOS PLANES ESTÁTICOS DE LA FICHA MÉDICA 🔥
+  if (!isOnboarded && !isStaticPlan) {
     return (
       <main className="min-h-screen bg-[#050505] text-white flex flex-col items-center p-4 md:p-12 font-sans selection:bg-emerald-500 selection:text-black overflow-y-auto">
         <div className="w-full max-w-7xl mb-6 flex justify-between items-center">
@@ -1060,7 +1095,6 @@ export default function DashboardAtleta() {
   return (
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans selection:bg-emerald-500 selection:text-black">
       
-      {/* ─── HEADER BÁSICO CON NAVEGACIÓN Y SCORE DE ADHERENCIA ─── */}
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 md:mb-12 gap-6 bg-[#0a0a0c] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
         <div className="w-full lg:w-auto">
           <div className="flex justify-between items-center w-full mb-4">
@@ -1103,7 +1137,6 @@ export default function DashboardAtleta() {
         </div>
       </header>
 
-      {/* DASHBOARD GAMIFICADO BII-AFFILIATES */}
       {order.referral_code && (
           <div className="mb-10 bg-gradient-to-br from-zinc-900/80 to-black border border-emerald-900/30 rounded-[2.5rem] p-6 md:p-10 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none"></div>
@@ -1221,24 +1254,28 @@ export default function DashboardAtleta() {
          </div>
       )}
 
-      {/* 🔥 NAVEGACIÓN DE TABS (SCROLL HORIZONTAL EN MÓVIL) 🔥 */}
+      {/* 🔥 NAVEGACIÓN DE TABS 🔥 */}
       <div className="flex overflow-x-auto gap-3 md:gap-4 mb-10 border-b border-zinc-800 pb-4 custom-scrollbar whitespace-nowrap">
         <button onClick={() => setActiveTab("rutina")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rutina" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Protocolo</button>
-        <button onClick={() => setActiveTab("videos")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "videos" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Auditoría 📹</button>
-        <button onClick={() => setActiveTab("boveda")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "boveda" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Bóveda Clínica 🏛️</button>
-        <button onClick={() => setActiveTab("rm")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rm" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Métricas 📈</button>
-        <button onClick={() => setActiveTab("checkin")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "checkin" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Control SNC ⚡</button>
         
-        {/* Espaciador para separar la IA en PC */}
-        <div className="hidden lg:block flex-1"></div>
-        
-        <button onClick={() => setActiveTab("asistente")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 flex items-center gap-2 ${activeTab === "asistente" ? "bg-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-blue-500" : "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border border-blue-900/50 animate-pulse"}`}><span className="text-base md:text-lg">🤖</span> Tujague AI {isMonthlyPlan ? "" : "🔒"}</button>
+        {!isStaticPlan && (
+          <>
+            <button onClick={() => setActiveTab("videos")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "videos" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Auditoría 📹</button>
+            <button onClick={() => setActiveTab("boveda")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "boveda" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Bóveda Clínica 🏛️</button>
+            <button onClick={() => setActiveTab("rm")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rm" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Métricas 📈</button>
+            <button onClick={() => setActiveTab("checkin")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "checkin" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Control SNC ⚡</button>
+            
+            <div className="hidden lg:block flex-1"></div>
+            
+            <button onClick={() => setActiveTab("asistente")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 flex items-center gap-2 ${activeTab === "asistente" ? "bg-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-blue-500" : "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border border-blue-900/50 animate-pulse"}`}><span className="text-base md:text-lg">🤖</span> Tujague AI {isMonthlyPlan ? "" : "🔒"}</button>
+          </>
+        )}
       </div>
 
       <div className="animate-in fade-in duration-500">
         
-        {/* ─── PANTALLA ASISTENTE IA (BIOMECÁNICO Y NUTRICIONAL) ─── */}
-        {activeTab === "asistente" && (
+        {/* ─── PANTALLA ASISTENTE IA ─── */}
+        {activeTab === "asistente" && !isStaticPlan && (
            <>
              {!isMonthlyPlan ? (
                  <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-blue-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
@@ -1342,7 +1379,6 @@ export default function DashboardAtleta() {
                                  </div>
                              )}
 
-                             {/* ✅ BOTÓN GIGANTE GENERADOR DE MENÚ */}
                              <form onSubmit={handleQuickChefRequest} className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800">
                                  <input type="text" value={chefIngredients} onChange={e=>setChefIngredients(e.target.value)} placeholder="Ej: Tengo Arroz, pollo, huevos y avena..." className="flex-1 bg-black border border-zinc-700 p-4 md:p-5 rounded-xl text-sm text-white outline-none focus:border-orange-500 transition-colors shadow-inner" />
                                  <button type="submit" disabled={isTyping || !chefIngredients.trim()} className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 md:py-5 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(234,88,12,0.4)] disabled:opacity-50 shrink-0 flex items-center justify-center gap-2">
@@ -1414,443 +1450,335 @@ export default function DashboardAtleta() {
         {activeTab === "rutina" && (
           <div className="relative pb-24 max-w-[100vw] overflow-x-hidden md:max-w-6xl mx-auto"> 
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6 bg-[#0a0a0c] p-6 rounded-[2rem] border border-white/5 shadow-lg">
-                <h2 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">Documento de Trabajo</h2>
-                <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-                   <button 
-                       onClick={downloadPDF}
-                       disabled={generatingPDF || !hasRoutines}
-                       className="flex-1 sm:flex-none justify-center bg-zinc-900 hover:bg-zinc-800 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 border border-zinc-700 transition-all disabled:opacity-50 shadow-md"
-                   >
-                       {generatingPDF ? 'Generando...' : '📄 Exportar a PDF Premium'}
-                   </button>
-
-                   {isMonthlyPlan && (
-                       <button 
-                          onClick={() => setShowPanicModal(true)}
-                          className="flex-1 sm:flex-none justify-center bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 shadow-[0_0_25px_rgba(239,68,68,0.4)] animate-pulse"
-                       >
-                          🚨 Soporte Inmediato
-                       </button>
-                   )}
-                </div>
-            </div>
-
-            {/* MODAL BOTON DE PANICO */}
-            {showPanicModal && (
-               <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-                   <div className="bg-[#0a0a0c] border border-red-900/50 p-8 md:p-10 rounded-[2.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(239,68,68,0.25)] relative overflow-hidden animate-in zoom-in duration-300">
-                       <div className="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
-                       <button onClick={() => setShowPanicModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white font-bold text-xl">✕</button>
-                       
-                       <h3 className="text-2xl md:text-3xl font-black italic text-red-500 uppercase tracking-tighter mb-2 flex items-center gap-3">🚨 Botón de Pánico</h3>
-                       <p className="text-zinc-400 text-xs md:text-sm mb-8 font-medium leading-relaxed">Informe de inmediato la alteración logística o fisiológica para que la IA recalibre la sesión respetando el patrón motor.</p>
-                       
-                       {!panicResponse ? (
-                           <form onSubmit={handlePanicRequest} className="space-y-5 relative z-10">
-                               <div>
-                                   <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Ejercicio a sustituir</label>
-                                   <input type="text" required value={panicExercise} onChange={e=>setPanicExercise(e.target.value)} placeholder="Ej: Prensa a 45 grados" className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
-                               </div>
-                               <div>
-                                   <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Motivo clínico o logístico</label>
-                                   <input type="text" required value={panicProblem} onChange={e=>setPanicProblem(e.target.value)} placeholder="Ej: Presento molestia aguda en el tendón rotuliano..." className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
-                               </div>
-                               <button type="submit" disabled={panicLoading} className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] mt-4 disabled:opacity-50 active:scale-95">
-                                   {panicLoading ? 'PROCESANDO ESTRUCTURA...' : 'SOLICITAR REEMPLAZO 🔄'}
-                               </button>
-                           </form>
-                       ) : (
-                           <div className="space-y-6 animate-in zoom-in duration-300">
-                               <div className="bg-red-950/20 border border-red-500/30 p-6 rounded-2xl shadow-inner">
-                                   <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Determinación del Sistema</p>
-                                   <p className="text-red-50 text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap">{panicResponse}</p>
-                               </div>
-                               <button onClick={() => {setShowPanicModal(false); setPanicResponse(""); setPanicExercise(""); setPanicProblem("");}} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Comprendido. Retomando entrenamiento.</button>
-                           </div>
-                       )}
-                   </div>
-               </div>
-            )}
-
-            <div className="grid lg:grid-cols-2 gap-6 md:gap-8 mb-8">
-               <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] flex flex-col items-center shadow-xl relative overflow-hidden text-center">
-                  <div className={`w-16 h-16 md:w-20 md:h-20 rounded-3xl flex items-center justify-center text-3xl border mb-6 transition-all shadow-inner ${isTimerActive ? 'bg-red-500/10 border-red-500/30 text-red-500 animate-pulse' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'}`}>⏱️</div>
-                  <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl mb-2">Recuperación Neural</h3>
-                  <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-6">Descanso entre series efectivas</p>
-                  
-                  <div className="flex gap-3 w-full bg-black p-2 rounded-2xl border border-zinc-800 mb-8">
-                     <button onClick={() => resetTimer(180)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 180 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>3 MIN</button>
-                     <button onClick={() => resetTimer(240)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 240 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>4 MIN</button>
-                     <button onClick={() => resetTimer(300)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 300 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>5 MIN</button>
-                  </div>
-                  
-                  <div className="bg-black border border-zinc-800 py-6 rounded-2xl w-full text-center shadow-inner mb-8">
-                     <span className={`font-mono text-6xl md:text-7xl font-black tracking-tighter ${isTimerActive ? 'text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.6)]' : 'text-white'}`}>{formatTime(time)}</span>
-                  </div>
-                  
-                  <button onClick={toggleTimer} className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all shadow-lg border border-transparent active:scale-95 ${isTimerActive ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'}`}>
-                     {isTimerActive ? 'Suspender Reloj' : time === 0 ? 'Restablecer' : 'Iniciar Temporizador'}
-                  </button>
-               </div>
-
-               <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex items-center justify-center text-3xl shadow-inner">🧮</div>
-                        <div>
-                           <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl">Parámetros de Carga</h3>
-                           <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Calculadora de Intensidad</p>
-                        </div>
-                     </div>
-                     {isMonthlyPlan && (
-                         <button onClick={handleGenerateWarmup} disabled={generatingWarmup} className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.15)] w-full sm:w-auto justify-center mt-4 sm:mt-0">
-                            {generatingWarmup ? 'Analizando...' : '🤖 Generar Warm-Up'}
-                         </button>
-                     )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                     <select value={calcLift} onChange={(e) => setCalcLift(e.target.value)} className="bg-black border border-zinc-800 text-zinc-300 text-sm md:text-base font-bold uppercase rounded-2xl px-5 py-5 outline-none focus:border-emerald-500 flex-1 shadow-inner">
-                        <option value="squat">Sentadilla</option>
-                        <option value="bench">Press Banca</option>
-                        <option value="deadlift">Peso Muerto</option>
-                        <option value="dips">Fondos</option>
-                        <option value="military">Militar</option>
-                     </select>
-                     <div className="relative w-full sm:w-32">
-                        <input type="number" value={calcPercent} onChange={(e) => setCalcPercent(Number(e.target.value))} className="w-full h-full bg-black border border-zinc-800 text-white text-center text-2xl font-black rounded-2xl outline-none focus:border-emerald-500 shadow-inner py-4" />
-                        <span className="absolute top-1/2 -translate-y-1/2 right-4 text-zinc-500 font-bold text-sm">%</span>
-                     </div>
-                  </div>
-                  
-                  <div className="bg-emerald-500 text-black px-8 py-6 rounded-2xl flex justify-between items-center shadow-[0_0_30px_rgba(16,185,129,0.3)] mt-auto border border-emerald-400">
-                     <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">Carga a utilizar:</span>
-                     <span className="text-4xl md:text-5xl font-black italic tracking-tighter">{calculatedWeight} <span className="text-lg md:text-xl text-black/70 not-italic">KG</span></span>
-                  </div>
-                  
-                  {warmupPlan && (
-                      <div className="mt-8 p-6 bg-blue-950/40 border border-blue-500/30 rounded-2xl animate-in fade-in slide-in-from-top-4 shadow-xl">
-                          <span className="text-blue-400 font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-blue-500/20 pb-3">
-                             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                             Protocolo de Aproximación
-                          </span>
-                          <p className="text-sm text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{warmupPlan}</p>
-                      </div>
-                  )}
-               </div>
-            </div>
-
-            {(order.macrocycle || order.mesocycle || order.microcycle) && (
-              <div className="mb-8 bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] flex flex-col lg:flex-row gap-6 justify-between items-stretch shadow-xl relative overflow-hidden">
-                <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 relative z-10">
-                   {order.macrocycle && (
-                     <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                        <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Macrociclo</p>
-                        <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.macrocycle}</p>
-                     </div>
-                   )}
-                   {order.mesocycle && (
-                     <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                        <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Mesociclo</p>
-                        <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.mesocycle}</p>
-                     </div>
-                   )}
-                   {order.microcycle && (
-                     <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-[20px]"></div>
-                        <p className="text-[9px] md:text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-2 relative z-10">
-                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Microciclo Activo
-                        </p>
-                        <p className="text-lg md:text-xl font-black text-emerald-400 tracking-tight relative z-10">{order.microcycle}</p>
-                     </div>
-                   )}
-                </div>
-              </div>
-            )}
-
-            {/* ✅ DIRECTRICES NUTRICIONALES COMPLETAS */}
-            {(order.macro_calories || order.macro_protein || order.macro_carbs || order.macro_fats || order.macro_water || calculatedMacros) && (
-                <div className="mb-10 bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-                    <h3 className="text-[10px] md:text-xs font-black italic text-orange-500 uppercase tracking-widest mb-6 flex items-center gap-3 relative z-10">
-                        <span className="text-2xl bg-orange-500/10 p-2 rounded-xl border border-orange-500/20">🥩</span> 
-                        Directrices Nutricionales del Coach
-                    </h3>
+            {/* 🔥 VISTA EXCLUSIVA PARA MESOCICLOS 🔥 */}
+            {isStaticPlan ? (
+                <div className="bg-[#0a0a0c] border border-emerald-500/30 p-10 md:p-20 rounded-[3rem] text-center shadow-[0_0_80px_rgba(16,185,129,0.1)] relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500">
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+                    <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">TU MESOCICLO ESTÁ <span className="text-emerald-500">LISTO</span></h2>
+                    <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa pre-armado de 4 semanas. El documento PDF oficial contiene toda la planificación, metodologías y hojas de registro.</p>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-5 relative z-10">
-                        <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                            <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Calorías</p>
-                            <p className="text-xl md:text-2xl font-black text-white">{order.macro_calories || (calculatedMacros?.cals ? calculatedMacros.cals + ' kcal' : '-')}</p>
+                    {order?.status === 'paid' ? (
+                        <a 
+                            href={(order?.plan_id?.toLowerCase().includes('fuerza') || order?.plan_title?.toLowerCase().includes('fuerza')) ? '/mesociclo-fuerza.pdf' : '/mesociclo-hipertrofia.pdf'} 
+                            download 
+                            target="_blank" 
+                            className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95"
+                        >
+                            📥 DESCARGAR PDF DE ENTRENAMIENTO
+                        </a>
+                    ) : (
+                        <div className="relative z-10 bg-amber-500/10 border border-amber-500/30 p-8 rounded-3xl mt-6">
+                            <span className="text-4xl block mb-4 animate-bounce">⏳</span>
+                            <h4 className="text-amber-500 font-black uppercase tracking-widest mb-2 animate-pulse">Validando Transferencia</h4>
+                            <p className="text-amber-400/80 text-sm font-medium">El Coach está verificando tu pago. Una vez que lo apruebe desde la base de datos, el botón de descarga se habilitará automáticamente aquí mismo.</p>
                         </div>
-                        <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                            <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Proteína</p>
-                            <p className="text-xl md:text-2xl font-black text-white">{order.macro_protein || (calculatedMacros?.prot ? calculatedMacros.prot + 'g' : '-')}</p>
-                        </div>
-                        <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                            <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Carbohidratos</p>
-                            <p className="text-xl md:text-2xl font-black text-white">{order.macro_carbs || (calculatedMacros?.carbs ? calculatedMacros.carbs + 'g' : '-')}</p>
-                        </div>
-                        <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
-                            <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Grasas</p>
-                            <p className="text-xl md:text-2xl font-black text-white">{order.macro_fats || (calculatedMacros?.fats ? calculatedMacros.fats + 'g' : '-')}</p>
-                        </div>
-                        <div className="bg-black/60 border border-white/5 p-5 rounded-2xl md:col-span-1 shadow-inner">
-                            <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Agua</p>
-                            <p className="text-xl md:text-2xl font-black text-blue-400 drop-shadow-md">{order.macro_water || (calculatedMacros?.water ? calculatedMacros.water + ' L' : '-')}</p>
-                        </div>
-                    </div>
+                    )}
                 </div>
-            )}
-
-            {!hasRoutines ? (
-              <div className="bg-[#0a0a0c] border border-zinc-800/80 p-10 md:p-16 rounded-[3rem] text-center shadow-2xl relative overflow-hidden mb-8 animate-in fade-in duration-500">
-                  <h3 className="text-3xl md:text-5xl font-black italic text-white mb-12 tracking-tighter uppercase relative z-10">
-                      Estado del <span className="text-emerald-500">Sistema</span>
-                  </h3>
-                  
-                  <div className="relative max-w-4xl mx-auto mb-16">
-                      <div className="hidden md:block absolute top-8 left-12 right-12 h-2 bg-zinc-900 z-0 rounded-full shadow-inner"></div>
-                      <div className={`hidden md:block absolute top-8 left-12 h-2 z-0 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.6)] transition-all duration-1000 ${order.status === 'paid' ? 'w-[60%] bg-emerald-500' : 'w-[20%] bg-amber-500'}`}></div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8 relative z-10">
-                          
-                          <div className="flex flex-col items-center gap-4">
-                              {order.status === 'paid' ? (
-                                  <>
-                                     <div className="w-16 h-16 rounded-3xl bg-emerald-500 text-black flex items-center justify-center font-black text-3xl shadow-[0_0_30px_rgba(16,185,129,0.5)]">✓</div>
-                                     <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 mt-2">1. Pago Verificado</p>
-                                  </>
-                              ) : (
-                                  <>
-                                     <div className="w-16 h-16 rounded-3xl bg-zinc-950 border-2 border-amber-500 text-amber-500 flex items-center justify-center font-black text-3xl animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.2)]">⏳</div>
-                                     <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 mt-2">1. Validando Pago</p>
-                                  </>
-                              )}
-                          </div>
-
-                          <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 border border-zinc-700 text-zinc-600'}`}>✓</div>
-                              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 mt-2">2. Clínica Aprobada</p>
-                          </div>
-
-                          <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                              <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-black border-2 border-emerald-500 text-emerald-500 animate-pulse shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'bg-zinc-900 border border-zinc-700 text-zinc-600'}`}>⚙️</div>
-                              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white mt-2">3. Diseño en Proceso</p>
-                          </div>
-
-                          <div className="flex flex-col items-center gap-4 opacity-30">
-                              <div className="w-16 h-16 rounded-3xl bg-zinc-900 border-2 border-zinc-800 text-zinc-600 flex items-center justify-center font-black text-3xl">🚀</div>
-                              <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500 mt-2">4. Plan Listo</p>
-                          </div>
-                      </div>
-                  </div>
-
-                  {order.status !== 'paid' && (
-                      <p className="text-amber-500 text-xs md:text-sm font-bold mt-8 animate-pulse bg-amber-500/10 p-4 rounded-xl inline-block border border-amber-500/20">
-                          El Coach está revisando tu transferencia. La rutina comenzará a diseñarse en breve.
-                      </p>
-                  )}
-              </div>
             ) : (
-              <>
-                 {logFeedback && (
-                    <div className="mb-10 p-6 md:p-8 bg-gradient-to-r from-blue-950/60 to-[#0a0a0c] border-l-4 border-l-blue-500 border-y border-r border-zinc-800 rounded-r-3xl shadow-xl animate-in slide-in-from-left-4 relative overflow-hidden screen-only">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] pointer-events-none"></div>
-                        <span className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest flex items-center gap-3 mb-3 relative z-10">
-                           <span className="text-2xl">🤖</span> Auditoría de Bitácora (Tujague AI)
-                        </span>
-                        <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed italic relative z-10">"{logFeedback}"</p>
-                    </div>
-                 )}
+                /* 🔥 VISTA DE RUTINA NORMAL PARA PLANES MENSUALES/SEMANALES 🔥 */
+                <>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6 bg-[#0a0a0c] p-6 rounded-[2rem] border border-white/5 shadow-lg">
+                      <h2 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">Documento de Trabajo</h2>
+                      <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+                         <button 
+                             onClick={downloadPDF}
+                             disabled={generatingPDF || !hasRoutines}
+                             className="flex-1 sm:flex-none justify-center bg-zinc-900 hover:bg-zinc-800 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 border border-zinc-700 transition-all disabled:opacity-50 shadow-md"
+                         >
+                             {generatingPDF ? 'Generando...' : '📄 Exportar a PDF Premium'}
+                         </button>
 
-                 {/* 🔥 SISTEMA DE RENDERIZADO DUAL (PANTALLA VS PDF) 🔥 */}
-                 <div ref={pdfRef} className="w-full relative">
-                    
-                    {/* 👉 1. VISTA DE PANTALLA NORMAL (DASHBOARD) */}
-                    <div className="screen-only grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                      {days.map(day => {
-                        if (!order[`routine_${day.id}`]) return null;
-                        return (
-                          <div key={day.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex flex-col hover:border-emerald-500/30 transition-colors">
-                             <h3 className="text-2xl font-black italic text-emerald-400 mb-6 uppercase tracking-tight drop-shadow-md">{day.label}</h3>
+                         {isMonthlyPlan && (
+                             <button 
+                                onClick={() => setShowPanicModal(true)}
+                                className="flex-1 sm:flex-none justify-center bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 shadow-[0_0_25px_rgba(239,68,68,0.4)] animate-pulse"
+                             >
+                                🚨 Soporte Inmediato
+                             </button>
+                         )}
+                      </div>
+                  </div>
+
+                  {/* MODAL BOTON DE PANICO */}
+                  {showPanicModal && (
+                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                         <div className="bg-[#0a0a0c] border border-red-900/50 p-8 md:p-10 rounded-[2.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(239,68,68,0.25)] relative overflow-hidden animate-in zoom-in duration-300">
+                             <div className="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
+                             <button onClick={() => setShowPanicModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white font-bold text-xl">✕</button>
                              
-                             <div className="bg-black border border-zinc-800/80 rounded-2xl p-5 md:p-6 mb-8 shadow-inner flex-1">
-                                 <div 
-                                     className="text-zinc-200 font-medium text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words"
-                                     style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-                                 >
-                                     {order[`routine_${day.id}`]}
+                             <h3 className="text-2xl md:text-3xl font-black italic text-red-500 uppercase tracking-tighter mb-2 flex items-center gap-3">🚨 Botón de Pánico</h3>
+                             <p className="text-zinc-400 text-xs md:text-sm mb-8 font-medium leading-relaxed">Informe de inmediato la alteración logística o fisiológica para que la IA recalibre la sesión respetando el patrón motor.</p>
+                             
+                             {!panicResponse ? (
+                                 <form onSubmit={handlePanicRequest} className="space-y-5 relative z-10">
+                                     <div>
+                                         <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Ejercicio a sustituir</label>
+                                         <input type="text" required value={panicExercise} onChange={e=>setPanicExercise(e.target.value)} placeholder="Ej: Prensa a 45 grados" className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
+                                     </div>
+                                     <div>
+                                         <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Motivo clínico o logístico</label>
+                                         <input type="text" required value={panicProblem} onChange={e=>setPanicProblem(e.target.value)} placeholder="Ej: Presento molestia aguda en el tendón rotuliano..." className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
+                                     </div>
+                                     <button type="submit" disabled={panicLoading} className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] mt-4 disabled:opacity-50 active:scale-95">
+                                         {panicLoading ? 'PROCESANDO ESTRUCTURA...' : 'SOLICITAR REEMPLAZO 🔄'}
+                                     </button>
+                                 </form>
+                             ) : (
+                                 <div className="space-y-6 animate-in zoom-in duration-300">
+                                     <div className="bg-red-950/20 border border-red-500/30 p-6 rounded-2xl shadow-inner">
+                                         <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Determinación del Sistema</p>
+                                         <p className="text-red-50 text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap">{panicResponse}</p>
+                                     </div>
+                                     <button onClick={() => {setShowPanicModal(false); setPanicResponse(""); setPanicExercise(""); setPanicProblem("");}} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Comprendido. Retomando entrenamiento.</button>
                                  </div>
-                             </div>
+                             )}
+                         </div>
+                     </div>
+                  )}
 
-                             <div className="mt-auto border-t border-zinc-800 pt-6 pdf-exclude">
-                                <p className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2"><span>📓</span> Registro Fisiológico de Sesión</p>
-                                <textarea 
-                                   className="w-full bg-black border border-zinc-700/80 rounded-xl p-4 text-zinc-300 text-xs md:text-sm font-medium outline-none focus:border-emerald-500/50 resize-none h-28 md:h-32 placeholder:text-zinc-700 custom-scrollbar whitespace-pre-wrap shadow-inner" 
-                                   placeholder="Ej: Sentadilla completada. RPE 8. Presencia de ligera fatiga sistémica..." 
-                                   value={logs[day.id as keyof typeof logs]} 
-                                   onChange={(e) => setLogs({...logs, [day.id]: e.target.value})} 
-                                 />
-                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                  {/* 🔥 CRONÓMETRO Y CALCULADORA (SOLO VISIBLES SI NO ES MESOCICLO) */}
+                  <div className="grid lg:grid-cols-2 gap-6 md:gap-8 mb-8">
+                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] flex flex-col items-center shadow-xl relative overflow-hidden text-center">
+                        <div className={`w-16 h-16 md:w-20 md:h-20 rounded-3xl flex items-center justify-center text-3xl border mb-6 transition-all shadow-inner ${isTimerActive ? 'bg-red-500/10 border-red-500/30 text-red-500 animate-pulse' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'}`}>⏱️</div>
+                        <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl mb-2">Recuperación Neural</h3>
+                        <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-6">Descanso entre series efectivas</p>
+                        
+                        <div className="flex gap-3 w-full bg-black p-2 rounded-2xl border border-zinc-800 mb-8">
+                           <button onClick={() => resetTimer(180)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 180 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>3 MIN</button>
+                           <button onClick={() => resetTimer(240)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 240 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>4 MIN</button>
+                           <button onClick={() => resetTimer(300)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 300 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>5 MIN</button>
+                        </div>
+                        
+                        <div className="bg-black border border-zinc-800 py-6 rounded-2xl w-full text-center shadow-inner mb-8">
+                           <span className={`font-mono text-6xl md:text-7xl font-black tracking-tighter ${isTimerActive ? 'text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.6)]' : 'text-white'}`}>{formatTime(time)}</span>
+                        </div>
+                        
+                        <button onClick={toggleTimer} className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all shadow-lg border border-transparent active:scale-95 ${isTimerActive ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'}`}>
+                           {isTimerActive ? 'Suspender Reloj' : time === 0 ? 'Restablecer' : 'Iniciar Temporizador'}
+                        </button>
+                     </div>
 
-                    {/* 👉 2. VISTA DE IMPRESIÓN PDF A4 PREMIUM (OCULTA EN PANTALLA) */}
-                    <div className="print-only text-black bg-white w-full mx-auto" style={{ display: 'none', fontFamily: 'Helvetica, Arial, sans-serif' }}>
-                       
-                       {/* PÁGINA 1: PORTADA */}
-                       <div style={{ pageBreakAfter: 'always', padding: '40px' }} className="min-h-[297mm] flex flex-col relative box-border">
-                          <div className="flex justify-between border-b-2 border-black pb-4 mb-16">
-                              <span className="font-black text-lg tracking-widest">TUJAGUE STRENGTH</span>
-                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Protocolo Oficial BII-Vintage</span>
-                          </div>
-                          
-                          <div className="flex-1 flex flex-col items-center justify-center text-center -mt-20">
-                              <h1 className="text-6xl font-black italic mb-6 tracking-tighter uppercase text-black">TUJAGUE STRENGTH</h1>
-                              <h2 className="text-xl text-gray-800 font-bold mb-16 max-w-lg leading-relaxed uppercase tracking-widest">Documento de Trabajo Clínico y Registro de Sobrecarga</h2>
-                              
-                              <table className="w-full max-w-2xl border-2 border-black text-left text-sm uppercase">
-                                 <tbody>
-                                    <tr className="border-b-2 border-black">
-                                       <td className="border-r-2 border-black p-5 font-bold w-1/2 bg-gray-100">
-                                          ATLETA: <span className="font-black block mt-2 text-lg">{order.customer_name}</span>
-                                       </td>
-                                       <td className="p-5 font-bold w-1/2 bg-gray-100">
-                                          INICIO (fecha): <span className="font-black block mt-2 text-lg text-gray-400">__ / __ / 202_</span>
-                                       </td>
-                                    </tr>
-                                    <tr className="border-b-2 border-black">
-                                       <td className="border-r-2 border-black p-5 font-bold">
-                                          PESO (kg): <span className="font-black block mt-2 text-lg">{checkin.weight || order.body_weight || '____'}</span>
-                                       </td>
-                                       <td className="p-5 font-bold">
-                                          OBJETIVO: <span className="font-black block mt-2 text-lg">{order.goal?.toUpperCase() || 'FUERZA / HIPERTROFIA'}</span>
-                                       </td>
-                                    </tr>
-                                    <tr>
-                                       <td className="border-r-2 border-black p-5 font-bold h-24 align-top">
-                                          SUEÑO PROMEDIO (h): <span className="font-black block mt-2 text-lg text-gray-400">______</span>
-                                       </td>
-                                       <td className="p-5 font-bold h-24 align-top">
-                                          NOTAS Y LESIONES: 
-                                          <span className="font-medium normal-case block mt-2 text-xs text-gray-600 line-clamp-3">
-                                             {order.medical_history || 'Sin observaciones.'}
-                                          </span>
-                                       </td>
-                                    </tr>
-                                 </tbody>
-                              </table>
-                          </div>
+                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+                           <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex items-center justify-center text-3xl shadow-inner">🧮</div>
+                              <div>
+                                 <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl">Parámetros de Carga</h3>
+                                 <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Calculadora de Intensidad</p>
+                              </div>
+                           </div>
+                           {isMonthlyPlan && (
+                               <button onClick={handleGenerateWarmup} disabled={generatingWarmup} className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.15)] w-full sm:w-auto justify-center mt-4 sm:mt-0">
+                                  {generatingWarmup ? 'Analizando...' : '🤖 Generar Warm-Up'}
+                               </button>
+                           )}
+                        </div>
 
-                          <div className="absolute bottom-10 left-10 right-10 flex justify-between border-t-2 border-black pt-4 text-xs font-bold text-gray-600 uppercase tracking-widest">
-                              <span>Metodología: Intensidad Máxima + Control Motor</span>
-                              <span>Página 1</span>
-                          </div>
-                       </div>
+                        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                           <select value={calcLift} onChange={(e) => setCalcLift(e.target.value)} className="bg-black border border-zinc-800 text-zinc-300 text-sm md:text-base font-bold uppercase rounded-2xl px-5 py-5 outline-none focus:border-emerald-500 flex-1 shadow-inner">
+                              <option value="squat">Sentadilla</option>
+                              <option value="bench">Press Banca</option>
+                              <option value="deadlift">Peso Muerto</option>
+                              <option value="dips">Fondos</option>
+                              <option value="military">Militar</option>
+                           </select>
+                           <div className="relative w-full sm:w-32">
+                              <input type="number" value={calcPercent} onChange={(e) => setCalcPercent(Number(e.target.value))} className="w-full h-full bg-black border border-zinc-800 text-white text-center text-2xl font-black rounded-2xl outline-none focus:border-emerald-500 shadow-inner py-4" />
+                              <span className="absolute top-1/2 -translate-y-1/2 right-4 text-zinc-500 font-bold text-sm">%</span>
+                           </div>
+                        </div>
+                        
+                        <div className="bg-emerald-500 text-black px-8 py-6 rounded-2xl flex justify-between items-center shadow-[0_0_30px_rgba(16,185,129,0.3)] mt-auto border border-emerald-400">
+                           <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">Carga a utilizar:</span>
+                           <span className="text-4xl md:text-5xl font-black italic tracking-tighter">{calculatedWeight} <span className="text-lg md:text-xl text-black/70 not-italic">KG</span></span>
+                        </div>
+                        
+                        {warmupPlan && (
+                            <div className="mt-8 p-6 bg-blue-950/40 border border-blue-500/30 rounded-2xl animate-in fade-in slide-in-from-top-4 shadow-xl">
+                                <span className="text-blue-400 font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-blue-500/20 pb-3">
+                                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                   Protocolo de Aproximación
+                                </span>
+                                <p className="text-sm text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{warmupPlan}</p>
+                            </div>
+                        )}
+                     </div>
+                  </div>
 
-                       {/* PÁGINA 2: CÓMO USAR ESTA PLANTILLA */}
-                       <div style={{ pageBreakAfter: 'always', padding: '40px' }} className="min-h-[297mm] flex flex-col relative box-border">
-                          <div className="flex justify-between border-b-2 border-black pb-4 mb-10">
-                              <span className="font-black text-lg tracking-widest">TUJAGUE STRENGTH</span>
-                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Manual de Ejecución</span>
-                          </div>
-                          
-                          <div className="flex-1">
-                              <h3 className="text-2xl font-black uppercase mb-4 bg-black text-white inline-block px-4 py-2">Reglas del Sistema BII-Vintage</h3>
-                              <p className="text-sm font-medium leading-relaxed mb-8 text-gray-800">
-                                 Este documento contiene la estructura exacta de tu mesociclo. El objetivo es aplicar la <strong>sobrecarga progresiva</strong> a lo largo de 4 semanas. Completa los casilleros de "Real ___kg" con lapicera en cada sesión. Si el RPE o el tempo se rompen, ajusta la carga.
+                  {/* 🔥 CICLOS (SOLO VISIBLES SI NO ES MESOCICLO) */}
+                  {(order.macrocycle || order.mesocycle || order.microcycle) && (
+                    <div className="mb-8 bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] flex flex-col lg:flex-row gap-6 justify-between items-stretch shadow-xl relative overflow-hidden">
+                      <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 relative z-10">
+                         {order.macrocycle && (
+                           <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                              <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Macrociclo</p>
+                              <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.macrocycle}</p>
+                           </div>
+                         )}
+                         {order.mesocycle && (
+                           <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                              <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Mesociclo</p>
+                              <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.mesocycle}</p>
+                           </div>
+                         )}
+                         {order.microcycle && (
+                           <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden">
+                              <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-[20px]"></div>
+                              <p className="text-[9px] md:text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-2 relative z-10">
+                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Microciclo Activo
                               </p>
+                              <p className="text-lg md:text-xl font-black text-emerald-400 tracking-tight relative z-10">{order.microcycle}</p>
+                           </div>
+                         )}
+                      </div>
+                    </div>
+                  )}
 
-                              <h4 className="font-black uppercase border-b-2 border-gray-300 pb-2 mb-4">Glosario Técnico y Escalas</h4>
-                              <table className="w-full border border-gray-300 mb-8 text-sm text-left">
-                                 <tbody>
-                                    <tr className="border-b border-gray-300">
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Escala RPE / RIR</td>
-                                       <td className="p-3"><strong>RPE 7:</strong> 3 reps en reserva. <strong>RPE 8:</strong> 2 reps en reserva. <strong>RPE 9:</strong> 1 rep en reserva. <strong>RPE 10:</strong> Fallo absoluto (0 reps).</td>
-                                    </tr>
-                                    <tr className="border-b border-gray-300">
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Lectura de Tempo (Ej: 4-1-X-1)</td>
-                                       <td className="p-3">4s de Bajada (Excéntrica) | 1s Pausa Abajo | X (Subida Explosiva) | 1s Pausa Arriba apretando.</td>
-                                    </tr>
-                                    <tr className="border-b border-gray-300">
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Rest-Pause (Pausa Descanso)</td>
-                                       <td className="p-3">Haces una serie fuerte sin fallar, descansas 20-25 segundos exactos, y sacas reps extra hasta el RPE indicado.</td>
-                                    </tr>
-                                    <tr className="border-b border-gray-300">
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Drop Set (Serie Descendente)</td>
-                                       <td className="p-3">Haces una serie fuerte, bajas el peso un 10-20% rápido, y haces otra serie sin llegar al fallo.</td>
-                                    </tr>
-                                    <tr className="border-b border-gray-300">
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Myo-reps</td>
-                                       <td className="p-3">1 serie de "activación" (cerca del límite) → descansos cortos de 15s → mini-series de 4-5 reps hasta el tope.</td>
-                                    </tr>
-                                    <tr>
-                                       <td className="p-3 font-bold w-1/3 bg-gray-100 border-r border-gray-300">Cluster Sets</td>
-                                       <td className="p-3">Divides la serie en pequeños bloques (ej. 3 reps + 3 reps) con micropausas de 20s en el medio.</td>
-                                    </tr>
-                                 </tbody>
-                              </table>
-
-                              <h4 className="font-black uppercase border-b-2 border-gray-300 pb-2 mb-4">Protocolo "Día Malo" (Manejo de Fatiga)</h4>
-                              <ul className="list-disc pl-5 mb-8 text-sm font-medium space-y-2">
-                                 <li><strong>Nivel 1 (Leve):</strong> Bajá un 5% la carga programada y cumplí los reps/tempo a la perfección.</li>
-                                 <li><strong>Nivel 2 (Moderado):</strong> Bajá un 10%. Hacé solo el Top Set + 1 Back-off. Eliminá técnicas de intensidad.</li>
-                                 <li><strong>Nivel 3 (Alto / Dolor):</strong> Todo a RPE 6-7 (muy suave) o cortá el ejercicio que genera molestias articulares agudas.</li>
-                              </ul>
+                  {/* ✅ DIRECTRICES NUTRICIONALES (SOLO VISIBLES SI NO ES MESOCICLO) */}
+                  {(order.macro_calories || order.macro_protein || order.macro_carbs || order.macro_fats || order.macro_water || calculatedMacros) && (
+                      <div className="mb-10 bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-[60px] pointer-events-none"></div>
+                          <h3 className="text-[10px] md:text-xs font-black italic text-orange-500 uppercase tracking-widest mb-6 flex items-center gap-3 relative z-10">
+                              <span className="text-2xl bg-orange-500/10 p-2 rounded-xl border border-orange-500/20">🥩</span> 
+                              Directrices Nutricionales del Coach
+                          </h3>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-5 relative z-10">
+                              <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Calorías</p>
+                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_calories || (calculatedMacros?.cals ? calculatedMacros.cals + ' kcal' : '-')}</p>
+                              </div>
+                              <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Proteína</p>
+                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_protein || (calculatedMacros?.prot ? calculatedMacros.prot + 'g' : '-')}</p>
+                              </div>
+                              <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Carbohidratos</p>
+                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_carbs || (calculatedMacros?.carbs ? calculatedMacros.carbs + 'g' : '-')}</p>
+                              </div>
+                              <div className="bg-black/60 border border-white/5 p-5 rounded-2xl shadow-inner">
+                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Grasas</p>
+                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_fats || (calculatedMacros?.fats ? calculatedMacros.fats + 'g' : '-')}</p>
+                              </div>
+                              <div className="bg-black/60 border border-white/5 p-5 rounded-2xl md:col-span-1 shadow-inner">
+                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Agua</p>
+                                  <p className="text-xl md:text-2xl font-black text-blue-400 drop-shadow-md">{order.macro_water || (calculatedMacros?.water ? calculatedMacros.water + ' L' : '-')}</p>
+                              </div>
                           </div>
+                      </div>
+                  )}
 
-                          <div className="absolute bottom-10 left-10 right-10 flex justify-between border-t-2 border-black pt-4 text-xs font-bold text-gray-600 uppercase tracking-widest">
-                              <span>Lee detenidamente antes de iniciar la semana 1</span>
-                              <span>Página 2</span>
+                  {!hasRoutines ? (
+                    <div className="bg-[#0a0a0c] border border-zinc-800/80 p-10 md:p-16 rounded-[3rem] text-center shadow-2xl relative overflow-hidden mb-8 animate-in fade-in duration-500">
+                        <h3 className="text-3xl md:text-5xl font-black italic text-white mb-12 tracking-tighter uppercase relative z-10">
+                            Estado del <span className="text-emerald-500">Sistema</span>
+                        </h3>
+                        
+                        <div className="relative max-w-4xl mx-auto mb-16">
+                            <div className="hidden md:block absolute top-8 left-12 right-12 h-2 bg-zinc-900 z-0 rounded-full shadow-inner"></div>
+                            <div className={`hidden md:block absolute top-8 left-12 h-2 z-0 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.6)] transition-all duration-1000 ${order.status === 'paid' ? 'w-[60%] bg-emerald-500' : 'w-[20%] bg-amber-500'}`}></div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8 relative z-10">
+                                
+                                <div className="flex flex-col items-center gap-4">
+                                    {order.status === 'paid' ? (
+                                        <>
+                                           <div className="w-16 h-16 rounded-3xl bg-emerald-500 text-black flex items-center justify-center font-black text-3xl shadow-[0_0_30px_rgba(16,185,129,0.5)]">✓</div>
+                                           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 mt-2">1. Pago Verificado</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                           <div className="w-16 h-16 rounded-3xl bg-zinc-950 border-2 border-amber-500 text-amber-500 flex items-center justify-center font-black text-3xl animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.2)]">⏳</div>
+                                           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 mt-2">1. Validando Pago</p>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                                    <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 border border-zinc-700 text-zinc-600'}`}>✓</div>
+                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-400 mt-2">2. Clínica Aprobada</p>
+                                </div>
+
+                                <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                                    <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-black border-2 border-emerald-500 text-emerald-500 animate-pulse shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'bg-zinc-900 border border-zinc-700 text-zinc-600'}`}>⚙️</div>
+                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white mt-2">3. Diseño en Proceso</p>
+                                </div>
+
+                                <div className="flex flex-col items-center gap-4 opacity-30">
+                                    <div className="w-16 h-16 rounded-3xl bg-zinc-900 border-2 border-zinc-800 text-zinc-600 flex items-center justify-center font-black text-3xl">🚀</div>
+                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500 mt-2">4. Plan Listo</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {order.status !== 'paid' && (
+                            <p className="text-amber-500 text-xs md:text-sm font-bold mt-8 animate-pulse bg-amber-500/10 p-4 rounded-xl inline-block border border-amber-500/20">
+                                El Coach está revisando tu transferencia. La rutina comenzará a diseñarse en breve.
+                            </p>
+                        )}
+                    </div>
+                  ) : (
+                    <>
+                       {logFeedback && (
+                          <div className="mb-10 p-6 md:p-8 bg-gradient-to-r from-blue-950/60 to-[#0a0a0c] border-l-4 border-l-blue-500 border-y border-r border-zinc-800 rounded-r-3xl shadow-xl animate-in slide-in-from-left-4 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] pointer-events-none"></div>
+                              <span className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest flex items-center gap-3 mb-3 relative z-10">
+                                 <span className="text-2xl">🤖</span> Auditoría de Bitácora (Tujague AI)
+                              </span>
+                              <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed italic relative z-10">"{logFeedback}"</p>
                           </div>
-                       </div>
+                       )}
 
-                       {/* PÁGINAS DE RUTINAS (FLUJO CONTINUO) */}
-                       <div style={{ padding: '40px' }}>
-                          <div className="flex justify-between border-b-4 border-black pb-4 mb-10">
-                              <span className="font-black text-xl tracking-widest">HOJAS DE REGISTRO DIARIO</span>
-                              <span className="text-gray-600 text-sm font-bold uppercase tracking-widest">Complete con lapicera en el gimnasio</span>
-                          </div>
-
-                          {days.map(day => {
-                             if (!order[`routine_${day.id}`]) return null;
-                             return (
-                                <div key={day.id} style={{ pageBreakInside: 'avoid', marginBottom: '60px' }} className="border-4 border-black rounded-xl overflow-hidden shadow-sm">
-                                   <div className="bg-black text-white p-4 flex justify-between items-center">
-                                      <span className="text-2xl font-black uppercase tracking-widest">{day.label}</span>
-                                      <span className="text-xs font-bold bg-white text-black px-3 py-1 rounded-full uppercase tracking-widest">Bloque Activo</span>
+                       <div className="w-full relative">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {days.map(day => {
+                              if (!order[`routine_${day.id}`]) return null;
+                              return (
+                                <div key={day.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex flex-col hover:border-emerald-500/30 transition-colors">
+                                   <h3 className="text-2xl font-black italic text-emerald-400 mb-6 uppercase tracking-tight drop-shadow-md">{day.label}</h3>
+                                   
+                                   <div className="bg-black border border-zinc-800/80 rounded-2xl p-5 md:p-6 mb-8 shadow-inner flex-1">
+                                       <div 
+                                           className="text-zinc-200 font-medium text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words"
+                                           style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                                       >
+                                           {order[`routine_${day.id}`]}
+                                       </div>
                                    </div>
-                                   <div className="p-6 whitespace-pre-wrap text-sm md:text-base font-bold leading-loose text-gray-900" style={{ fontFamily: 'monospace' }}>
-                                      {order[`routine_${day.id}`]}
+
+                                   <div className="mt-auto border-t border-zinc-800 pt-6">
+                                      <p className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2"><span>📓</span> Registro Fisiológico de Sesión</p>
+                                      <textarea 
+                                         className="w-full bg-black border border-zinc-700/80 rounded-xl p-4 text-zinc-300 text-xs md:text-sm font-medium outline-none focus:border-emerald-500/50 resize-none h-28 md:h-32 placeholder:text-zinc-700 custom-scrollbar whitespace-pre-wrap shadow-inner" 
+                                         placeholder="Ej: Sentadilla completada. RPE 8. Presencia de ligera fatiga sistémica..." 
+                                         value={logs[day.id as keyof typeof logs]} 
+                                         onChange={(e) => setLogs({...logs, [day.id]: e.target.value})} 
+                                       />
                                    </div>
                                 </div>
-                             )
-                          })}
+                              )
+                            })}
+                          </div>
                        </div>
 
-                    </div>
-                 </div>
-
-                 {/* BOTÓN FLOTANTE ESTILIZADO (SOLO EN PANTALLA) */}
-                 <div className="screen-only fixed bottom-6 md:bottom-10 left-0 w-full flex justify-center z-50 pointer-events-none px-4">
-                    <button 
-                       onClick={handleSaveLogs} 
-                       disabled={savingLogs} 
-                       className="bg-emerald-500 hover:bg-emerald-400 text-black px-10 md:px-14 py-5 md:py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-[0_10px_50px_rgba(16,185,129,0.5)] transition-all transform hover:-translate-y-1 active:scale-95 pointer-events-auto text-xs md:text-sm border border-emerald-400"
-                    >
-                       {savingLogs ? "Sincronizando Base de Datos..." : "💾 ALMACENAR DATOS DE SESIÓN"}
-                    </button>
-                 </div>
-              </>
+                       <div className="fixed bottom-6 md:bottom-10 left-0 w-full flex justify-center z-50 pointer-events-none px-4">
+                          <button 
+                             onClick={handleSaveLogs} 
+                             disabled={savingLogs} 
+                             className="bg-emerald-500 hover:bg-emerald-400 text-black px-10 md:px-14 py-5 md:py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-[0_10px_50px_rgba(16,185,129,0.5)] transition-all transform hover:-translate-y-1 active:scale-95 pointer-events-auto text-xs md:text-sm border border-emerald-400"
+                          >
+                             {savingLogs ? "Sincronizando Base de Datos..." : "💾 ALMACENAR DATOS DE SESIÓN"}
+                          </button>
+                       </div>
+                    </>
+                  )}
+                </>
             )}
           </div>
         )}
 
         {/* ─── PESTAÑA BOVEDA TÉCNICA ─── */}
-        {activeTab === "boveda" && (
+        {activeTab === "boveda" && !isStaticPlan && (
           <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
              <div className="text-center mb-16">
                 <h2 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Bóveda Técnica <span className="text-emerald-500">BII-Vintage</span></h2>
@@ -1890,7 +1818,7 @@ export default function DashboardAtleta() {
         )}
 
         {/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS ─── */}
-        {activeTab === "videos" && (
+        {activeTab === "videos" && !isStaticPlan && (
           <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
             {!order.has_video_review ? (
                 <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden text-center max-w-4xl mx-auto">
@@ -2026,8 +1954,8 @@ export default function DashboardAtleta() {
           </div>
         )}
 
-        {/* ─── PESTAÑA RM Y TROFEOS ÉPICOS (52 MEDALLAS) ─── */}
-        {activeTab === "rm" && (
+        {/* ─── PESTAÑA RM Y TROFEOS ÉPICOS ─── */}
+        {activeTab === "rm" && !isStaticPlan && (
           <div className="max-w-7xl mx-auto space-y-12 md:space-y-16 animate-in fade-in duration-500">
             
             {/* PANEL DE REGISTRO DE RM */}
@@ -2134,7 +2062,7 @@ export default function DashboardAtleta() {
 
             </div>
 
-            {/* MURO DE TROFEOS HARDCORE (52 MEDALLAS) */}
+            {/* MURO DE TROFEOS HARDCORE */}
             <div className="bg-[#0a0a0c] border border-emerald-900/40 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
                <div className="absolute top-0 left-0 w-full h-[500px] md:h-[800px] bg-emerald-500/5 blur-[120px] md:blur-[180px] pointer-events-none -translate-y-1/2"></div>
                
@@ -2208,8 +2136,8 @@ export default function DashboardAtleta() {
           </div>
         )}
 
-        {/* ─── PESTAÑA CHECKIN (SÚPER CHECK-IN NIVEL DIOS) ─── */}
-        {activeTab === "checkin" && (
+        {/* ─── PESTAÑA CHECKIN ─── */}
+        {activeTab === "checkin" && !isStaticPlan && (
            <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
               
               <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
@@ -2450,30 +2378,6 @@ export default function DashboardAtleta() {
         @keyframes shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
-        }
-
-        /* 🔥 CSS EXCLUSIVO PARA QUE EL PDF SALGA BLANCO, PERFECTO E IMPRIMIBLE 🔥 */
-        .print-only { display: none; }
-        
-        .exporting-pdf-mode .screen-only { 
-            display: none !important; 
-        }
-        
-        .exporting-pdf-mode .print-only { 
-            display: block !important; 
-        }
-
-        .exporting-pdf-mode {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-        }
-        
-        .exporting-pdf-mode * {
-            color: #000000 !important; 
-        }
-        
-        .exporting-pdf-mode .pdf-exclude {
-            display: none !important;
         }
       `}} />
     </div>

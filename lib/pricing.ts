@@ -72,6 +72,29 @@ export const PLANS = {
     description: "Una semana de entrenamiento intensivo de 7 días.",
     duration: "week",
     cadence: "weekly"
+  },
+  // NUEVOS MESOCICLOS ESTÁTICOS
+  "mesociclo-fuerza": {
+    id: "mesociclo-fuerza",
+    code: "mesociclo-fuerza",
+    name: "Mesociclo de Fuerza (4 Semanas)",
+    price: 30000,
+    price_ars: 30000,
+    days: 4,
+    description: "Plan pre-armado de 4 semanas enfocado en Fuerza Absoluta.",
+    duration: "month",
+    cadence: "monthly"
+  },
+  "mesociclo-hipertrofia": {
+    id: "mesociclo-hipertrofia",
+    code: "mesociclo-hipertrofia",
+    name: "Mesociclo de Hipertrofia (4 Semanas)",
+    price: 30000,
+    price_ars: 30000,
+    days: 4,
+    description: "Plan pre-armado de 4 semanas enfocado en Hipertrofia Estética.",
+    duration: "month",
+    cadence: "monthly"
   }
 };
 
