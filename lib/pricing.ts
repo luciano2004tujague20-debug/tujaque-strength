@@ -1,12 +1,9 @@
 // lib/pricing.ts
 // ✅ Fuente de verdad de precios: Supabase (tabla plans) + /api/plans/public
-// Este archivo SOLO define catálogo/metadata (sin números).
-
-// lib/pricing.ts  (o src/lib/pricing.ts)
+// Este archivo define catálogo/metadata + helpers de compat.
 
 export const EXTRA_VIDEO_PRICE_ARS = 0;
-// Si querés un fallback real, podés poner un número fijo.
-// Pero si ya lo traés desde Supabase, dejalo en 0 y listo
+
 export type PlanCode =
   | "static-fuerza"
   | "static-hipertrofia"
@@ -69,6 +66,35 @@ export const PLAN_COPY: Record<
     subtitle: "El Ecosistema Élite",
   },
 };
-// ✅ Compat: CheckoutClient todavía importa getConversions.
-// No tocamos CheckoutClient: simplemente volvemos a exportarlo.
-export const getConversions = () => PLAN_COPY;
+
+// ======================================================================
+// ✅ COMPAT: getConversions se usa en algunos componentes legacy.
+// - getConversions() -> devuelve PLAN_COPY (compat)
+// - getConversions(ars:number) -> devuelve { usd, usdt } (CheckoutClient)
+// ======================================================================
+
+type PlanCopyRecord = typeof PLAN_COPY;
+type ConversionResult = { usd: number; usdt: number };
+
+// Overloads:
+export function getConversions(): PlanCopyRecord;
+export function getConversions(arsAmount: number): ConversionResult;
+
+// Impl:
+export function getConversions(arsAmount?: number): PlanCopyRecord | ConversionResult {
+  // Si lo llaman con ARS, devolvemos conversiones
+  if (typeof arsAmount === "number" && Number.isFinite(arsAmount)) {
+    // ⚠️ Ajustá esto como quieras. Ideal: setear en Vercel env vars.
+    // NEXT_PUBLIC_USD_ARS y NEXT_PUBLIC_USDT_ARS para que también funcione en cliente.
+    const USD_ARS = Number(process.env.NEXT_PUBLIC_USD_ARS ?? 1000);
+    const USDT_ARS = Number(process.env.NEXT_PUBLIC_USDT_ARS ?? USD_ARS);
+
+    const safeUsd = USD_ARS > 0 ? arsAmount / USD_ARS : 0;
+    const safeUsdt = USDT_ARS > 0 ? arsAmount / USDT_ARS : 0;
+
+    return { usd: safeUsd, usdt: safeUsdt };
+  }
+
+  // Si lo llaman sin args, devolvemos el copy
+  return PLAN_COPY;
+}

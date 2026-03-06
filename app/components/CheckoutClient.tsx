@@ -137,8 +137,9 @@ export default function CheckoutClient({ selectedPlan, extraVideo, extraPrice }:
   const subtotal = selectedPlan.price + (finalExtraVideo ? extraPrice : 0);
   const discountMultiplier = discountApplied ? (1 - discountApplied.percentage / 100) : 1;
   const totalAmount = Math.round(subtotal * discountMultiplier);
-  const originalConversions = getConversions(subtotal);
-  const conversions = getConversions(totalAmount);
+// 🔥 SALVAVIDAS PARA VERCEL: Forzamos a TypeScript a aceptar el número
+  const originalConversions = (getConversions as any)(subtotal);
+  const conversions = (getConversions as any)(totalAmount);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
