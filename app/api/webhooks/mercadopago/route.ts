@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       const { status, external_reference } = payment;
 
       // 3. Si el pago está aprobado, actualizamos la orden
-      if (status === 'approved' && external_reference) {
+     if (status === 'approved' && external_reference) {
         console.log(`Pago aprobado para referencia: ${external_reference}`);
 
         // 🌟 BIFURCACIÓN INTELIGENTE: ¿Qué estamos cobrando?
@@ -139,11 +139,137 @@ export async function POST(req: Request) {
             }
             console.log(`¡Módulo de video desbloqueado para la orden ID: ${realOrderId}!`);
 
-        } else if (external_reference.startsWith('renew_') || external_reference.startsWith('upgrade_')) {
-            // 🔄 ES UNA RENOVACIÓN O UN UPGRADE MENSUAL
-            console.log("Renovación/Upgrade validada en background. Referencia:", external_reference);
+} else if (
+  external_reference.startsWith('renew_') ||
+  external_reference.startsWith('renewal_') ||
+  external_reference.startsWith('upgrade_')
+) {
+  // 🔄 RENOVACIÓN / UPGRADE (AUTOMÁTICO + IDEMPOTENTE)
+const isRenew =
+  external_reference.startsWith('renew_') ||
+  external_reference.startsWith('renewal_');
 
-        } else {
+const isUpgrade = external_reference.startsWith('upgrade_');
+
+const rawRef = external_reference
+  .replace('renew_', '')
+  .replace('renewal_', '')
+  .replace('upgrade_', '')
+  .trim();
+
+  console.log('🔁 Renew/Upgrade detectado:', { external_reference, rawRef, paymentId });
+
+  // 1) Buscar la orden objetivo (soporta que rawRef sea id O order_id)
+  const { data: targetOrder, error: findErr } = await supabaseAdmin
+    .from('orders')
+    .select('id, order_id, plan_id, plan_title, expires_at, payment_id, status, sub_status')
+    .or(`id.eq.${rawRef},order_id.eq.${rawRef}`)
+    .maybeSingle();
+
+  if (findErr) {
+    console.error('❌ Error buscando orden para renew/upgrade:', findErr);
+    return NextResponse.json({ error: 'Error DB Renew/Upgrade' }, { status: 500 });
+  }
+
+  if (!targetOrder) {
+    console.warn('⚠️ No se encontró orden para renew/upgrade con ref:', rawRef);
+    // Le devolvemos OK igual para que MP no reintente infinito
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  // 2) Idempotencia: si ya procesamos ESTE MISMO paymentId, no repetimos
+  if (targetOrder.payment_id && String(targetOrder.payment_id) === String(paymentId)) {
+    console.log('🛡️ Webhook duplicado: payment_id ya aplicado. No se extiende nada.');
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  const normalize = (v?: string | null) => (v || '').toLowerCase().trim();
+  const currentPlanId = normalize(targetOrder.plan_id);
+
+  // 3) Determinar días a agregar según plan actual (si es upgrade, será mensual)
+  const sprintIds = ['semanal-3-4', 'semanal-5-6', 'semanal-7'];
+  const monthlyIds = [
+    'mensual-3-4', 'mensual-5-6', 'mensual-7',
+    'mesociclo_base', 'pro_performance', 'elite_total', 'mesociclo_mensual'
+  ];
+
+  // helper: convertir semanal -> mensual manteniendo la frecuencia
+  const toMonthlyEquivalent = (pid: string) => {
+    if (pid.startsWith('semanal-3-4')) return 'mensual-3-4';
+    if (pid.startsWith('semanal-5-6')) return 'mensual-5-6';
+    if (pid.startsWith('semanal-7')) return 'mensual-7';
+    // si ya es mensual o legacy mensual, lo dejamos igual
+    if (monthlyIds.includes(pid)) return pid;
+    return pid; // fallback: no inventamos
+  };
+
+  // Si es upgrade, forzamos plan mensual equivalente
+  const newPlanId = isUpgrade ? toMonthlyEquivalent(currentPlanId) : currentPlanId;
+
+  // Elegimos días: Sprint=7, Mensual=30 (incluye legacy mensual)
+  let daysToAdd = 0;
+  if (sprintIds.includes(newPlanId) && isRenew) {
+    // Renovación de sprint: +7
+    daysToAdd = 7;
+  } else if (monthlyIds.includes(newPlanId) || newPlanId.startsWith('mensual')) {
+    // Renovación mensual o upgrade a mensual: +30
+    daysToAdd = 30;
+  } else if (sprintIds.includes(newPlanId) && isUpgrade) {
+    // Si por algún motivo no pudo mapear, igual tratamos upgrade como mensual
+    daysToAdd = 30;
+  }
+
+  if (daysToAdd <= 0) {
+    console.warn('⚠️ Renew/Upgrade: plan no elegible para extender. plan_id:', currentPlanId);
+    // Igual marcamos payment_id para que no reintente extender “raramente”
+    await supabaseAdmin.from('orders')
+      .update({ payment_id: paymentId, updated_at: new Date().toISOString() })
+      .eq('id', targetOrder.id);
+
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  // 4) Calcular nueva expiración: extendemos desde MAX(hoy, expires_at actual)
+  const now = new Date();
+  const base = targetOrder.expires_at ? new Date(targetOrder.expires_at) : now;
+  const start = base > now ? base : now;
+
+  const newExpiry = new Date(start.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+  // 5) Update final (upgrade: cambia plan_id si aplica)
+  const updatePayload: any = {
+    status: 'paid',
+    payment_id: paymentId,
+    expires_at: newExpiry.toISOString(),
+    sub_status: 'activo',
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isUpgrade && newPlanId !== currentPlanId) {
+    updatePayload.plan_id = newPlanId;
+    // opcional: si querés que quede “coaching con video” abierto por default
+    updatePayload.has_video_review = true;
+  }
+
+  const { error: updErr } = await supabaseAdmin
+    .from('orders')
+    .update(updatePayload)
+    .eq('id', targetOrder.id);
+
+  if (updErr) {
+    console.error('❌ Error aplicando renew/upgrade:', updErr);
+    return NextResponse.json({ error: 'Error DB Renew/Upgrade Update' }, { status: 500 });
+  }
+
+  console.log('✅ Renew/Upgrade aplicado:', {
+    orderId: targetOrder.id,
+    fromPlan: currentPlanId,
+    toPlan: isUpgrade ? newPlanId : currentPlanId,
+    daysToAdd,
+    newExpires_at: newExpiry.toISOString(),
+  });
+
+} else {
             // 🛒 ES LA COMPRA NORMAL DE UN PLAN NUEVO
             
             // a) Cambiamos el estado a PAGADO
@@ -162,6 +288,44 @@ export async function POST(req: Request) {
               console.error('Error actualizando orden de plan nuevo:', error);
               return NextResponse.json({ error: 'Error DB' }, { status: 500 });
             }
+
+// 🔥 CÁLCULO DE CADUCIDAD AUTOMÁTICA (IDEMPOTENTE Y SEGURO) 🔥
+if (orderData && orderData.plan_id && !orderData.expires_at) {
+  const planId = orderData.plan_id.toLowerCase().trim();
+  console.log('🧾 plan_id real:', JSON.stringify(orderData.plan_id), '=> normalized:', planId);
+
+  let daysToAdd = 0;
+
+  const sprintIds = ['semanal-3-4', 'semanal-5-6', 'semanal-7'];
+  const monthlyIds = [
+    'mensual-3-4', 'mensual-5-6', 'mensual-7',
+    'mesociclo_base', 'pro_performance', 'elite_total', 'mesociclo_mensual'
+  ];
+
+  if (sprintIds.includes(planId)) daysToAdd = 7;
+  else if (monthlyIds.includes(planId)) daysToAdd = 30;
+
+  console.log('⏱️ daysToAdd:', daysToAdd, 'for planId:', planId);
+
+  if (daysToAdd > 0) {
+    const expiryDate = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000);
+
+    const { error: expiryError } = await supabaseAdmin
+      .from('orders')
+      .update({
+        expires_at: expiryDate.toISOString(),
+        sub_status: 'activo'
+      })
+      .eq('id', orderData.id);
+
+    if (expiryError) {
+      console.error('❌ Error seteando expires_at:', expiryError);
+    } else {
+      console.log('✅ expires_at seteado OK:', expiryDate.toISOString());
+    }
+  }
+}
+// 🔥 FIN CÁLCULO CADUCIDAD 🔥
 
             // 🔥 INYECCIÓN DE RUTINA ESTÁTICA AQUÍ 🔥
             // Si el plan que acaba de pagar es estático, le inyectamos la rutina

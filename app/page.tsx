@@ -1,5 +1,6 @@
 "use client";
 
+import PricingV2 from '@/components/PricingV2';
 import { useState, useEffect, useRef } from "react";
 import CheckoutClient from "./components/CheckoutClient";
 import Link from "next/link";
@@ -240,15 +241,17 @@ export default function Home() {
       }
   }, [botMessages, isBotTyping, isBotOpen]);
 
-  const handleSelectPlan = (plan: any) => {
+const handleSelectPlan = (plan: any) => {
     setSelectedPlan(plan);
     setTimeout(() => {
-      document.getElementById("checkout-section")?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
+      const checkout = document.getElementById("checkout-final");
+      if (checkout) checkout.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
   };
 
   const scrollToPricing = () => {
-    document.getElementById("pricing-section")?.scrollIntoView({ behavior: "smooth" });
+    const pricing = document.getElementById("cajas-nuevas");
+    if (pricing) pricing.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // 🔥 LÓGICA DEL TRIAGE CLÍNICO Y CARGA FALSA DE ALTO VALOR 🔥
@@ -376,7 +379,7 @@ export default function Home() {
       <a 
         href={whatsappUrl} 
         target="_blank" 
-        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-emerald-500 p-4 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:scale-110 transition-transform active:scale-95 group border border-emerald-400"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-[100] bg-emerald-500 p-4 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:scale-110 transition-transform active:scale-95 group border border-emerald-400"
       >
         <span className="absolute -top-12 right-0 bg-zinc-900 border border-zinc-700 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
           Hablá con Luciano
@@ -384,7 +387,7 @@ export default function Home() {
         <svg className="w-6 h-6 sm:w-7 sm:h-7 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.588-5.946 0-6.556 5.332-11.888 11.888-11.888 3.176 0 6.161 1.237 8.404 3.48s3.48 5.228 3.48 8.404c0 6.556-5.332 11.888-11.888 11.888-2.097 0-4.142-.547-5.946-1.588L0 .057zm12.026-2.137c1.892 0 3.738-.503 5.339-1.455l.382-.227 3.97 1.041-1.059-3.869.25-.397c1.046-1.666 1.599-3.593 1.599-5.606 0-5.833-4.744-10.577-10.577-10.577-2.827 0-5.483 1.1-7.481 3.098s-3.098 4.654-3.098 7.481c0 2.013.553 3.94 1.599 5.606l.25.397-1.059 3.869 4.074-1.069.382.227c1.6.952 3.447 1.455 5.339 1.455z"/></svg>
       </a>
 
-      <div className="fixed bottom-24 md:bottom-6 left-4 md:left-6 z-50">
+      <div className="fixed bottom-24 md:bottom-6 left-4 md:left-6 z-[100]">
          {!isBotOpen ? (
             <button 
                onClick={() => setIsBotOpen(true)}
@@ -453,7 +456,7 @@ export default function Home() {
          )}
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-xl border-t border-white/10 p-4 z-[40] shadow-[0_-10px_30px_rgba(0,0,0,0.8)] pb-8">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#050505]/95 backdrop-blur-xl border-t border-white/10 p-4 z-[100] shadow-[0_-10px_30px_rgba(0,0,0,0.8)] pb-8">
          <button 
             onClick={scrollToPricing}
             className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-[0_0_25px_rgba(16,185,129,0.4)] active:scale-95 transition-transform flex items-center justify-center gap-2"
@@ -663,45 +666,44 @@ export default function Home() {
                   </div>
                </div>
 
-               {/* MOCKUP DEL CHAT */}
-               <div className="flex-1 w-full max-w-md sm:max-w-xl mx-auto lg:mx-0">
-                  <div className="bg-[#09090b] border border-blue-900/30 rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_80px_rgba(37,99,235,0.15)] relative overflow-hidden flex flex-col h-[500px] sm:h-[600px]">
+{/* MOCKUP DEL CHAT (Optimizado para Celulares) */}
+               <div className="flex-1 w-full max-w-md mx-auto lg:mx-0">
+                  <div className="bg-[#09090b] border border-blue-900/30 rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_80px_rgba(37,99,235,0.15)] relative overflow-hidden flex flex-col h-[450px] sm:h-[600px] w-full">
                      
-                     <div className="px-6 py-5 sm:py-6 border-b border-zinc-800/80 bg-zinc-900/80 flex justify-between items-center z-10 backdrop-blur-md">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-lg sm:text-2xl shadow-inner">🤖</div>
-                           <div>
-                              <p className="font-black text-white italic text-sm sm:text-lg tracking-tight">Tujague AI System</p>
-                              <p className="text-[9px] sm:text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1.5 mt-1">
-                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Sistema en línea
+                     <div className="px-4 sm:px-6 py-4 sm:py-6 border-b border-zinc-800/80 bg-zinc-900/80 flex justify-between items-center z-10 backdrop-blur-md">
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                           <div className="w-10 h-10 sm:w-14 sm:h-14 shrink-0 rounded-xl sm:rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-lg sm:text-2xl shadow-inner">🤖</div>
+                           <div className="min-w-0">
+                              <p className="font-black text-white italic text-sm sm:text-lg tracking-tight truncate">Tujague AI System</p>
+                              <p className="text-[8px] sm:text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-1.5 mt-1 truncate">
+                                 <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-blue-500 animate-pulse"></span> Sistema en línea
                               </p>
                            </div>
                         </div>
                      </div>
                      
-                     <div className="flex-1 p-4 sm:p-6 space-y-6 bg-gradient-to-b from-[#09090b] to-blue-950/10 flex flex-col justify-end">
-                        <div className="ml-auto w-fit max-w-[90%] sm:max-w-[85%] animate-in slide-in-from-right-4 duration-500">
+                     <div className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gradient-to-b from-[#09090b] to-blue-950/10 flex flex-col justify-end overflow-hidden">
+                        <div className="ml-auto w-[90%] sm:w-[85%] animate-in slide-in-from-right-4 duration-500">
                            <span className="block text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 text-right">Atleta</span>
-                           <div className="bg-zinc-800 text-white p-4 sm:p-6 rounded-3xl rounded-tr-sm text-xs sm:text-sm font-medium border border-zinc-700 shadow-sm leading-relaxed">
-                              Coach, al hacer Press de Banca siento que trabajo más el hombro que el pectoral. ¿Qué ajusto en el set-up?
+                           <div className="bg-zinc-800 text-white p-4 rounded-2xl rounded-tr-sm text-xs font-medium border border-zinc-700 shadow-sm leading-relaxed break-words">
+                              Coach, al hacer Press de Banca siento que trabajo más el hombro que el pectoral. ¿Qué ajusto?
                            </div>
                         </div>
 
-                        <div className="mr-auto w-fit max-w-[95%] sm:max-w-[90%] animate-in slide-in-from-left-4 duration-500 delay-300">
+                        <div className="mr-auto w-[90%] sm:w-[90%] animate-in slide-in-from-left-4 duration-500 delay-300">
                            <span className="block text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-1.5">Tujague AI</span>
-                           <div className="bg-gradient-to-br from-blue-950/60 to-emerald-950/20 p-5 sm:p-6 rounded-3xl rounded-tl-sm text-xs sm:text-sm text-blue-50 border border-blue-500/30 shadow-md leading-relaxed">
-                              <p className="mb-3">Analicemos la biomecánica de ese error clásico:</p>
-                              <p className="mb-3"><strong>1. Retracción y Depresión:</strong> Debes juntar las escápulas y empujarlas hacia tus glúteos. Esto saca al deltoides anterior de la línea de fuego.</p>
-                              <p><strong>2. Ángulo del Húmero:</strong> Cierra tus codos a un ángulo de 45°-60° respecto a tu torso para maximizar el torque en las fibras del pectoral.</p>
+                           <div className="bg-gradient-to-br from-blue-950/60 to-emerald-950/20 p-4 rounded-2xl rounded-tl-sm text-xs text-blue-50 border border-blue-500/30 shadow-md leading-relaxed break-words">
+                              <p className="mb-2"><strong>1. Retracción:</strong> Junta las escápulas y empújalas hacia tus glúteos.</p>
+                              <p><strong>2. Ángulo:</strong> Cierra tus codos a 45° para maximizar el torque en el pectoral.</p>
                            </div>
                         </div>
                      </div>
 
-                     <div className="p-4 sm:p-5 border-t border-zinc-800 bg-zinc-900/50 flex gap-3 items-center backdrop-blur-md">
-                        <div className="flex-1 h-12 sm:h-14 rounded-xl sm:rounded-2xl bg-black border border-zinc-800 flex items-center px-4 sm:px-5">
-                           <span className="text-xs sm:text-sm text-zinc-600 font-medium">Escribe tu consulta técnica...</span>
+                     <div className="p-3 sm:p-5 border-t border-zinc-800 bg-zinc-900/50 flex gap-2 sm:gap-3 items-center backdrop-blur-md">
+                        <div className="flex-1 h-10 sm:h-14 rounded-xl sm:rounded-2xl bg-black border border-zinc-800 flex items-center px-3 sm:px-5 min-w-0">
+                           <span className="text-[10px] sm:text-sm text-zinc-600 font-medium truncate">Escribe tu consulta...</span>
                         </div>
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold opacity-50 text-xl">↑</div>
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 shrink-0 rounded-xl sm:rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold opacity-50 text-lg sm:text-xl">↑</div>
                      </div>
 
                   </div>
@@ -991,7 +993,7 @@ export default function Home() {
       </section>
 
       {/* ─── PRICING SECTION (CORE VIP) ─── */}
-      <section id="pricing-section" className="relative z-20 pt-24 sm:pt-40 pb-20 px-4 sm:px-6 bg-zinc-950/80 border-t border-white/5">
+      <section className="hidden relative z-20 pt-24 sm:pt-40 pb-20 px-4 sm:px-6 bg-zinc-950/80 border-t border-white/5">
         <RevealOnScroll>
            <div className="max-w-7xl mx-auto text-center">
              <h2 className="text-5xl sm:text-6xl md:text-8xl font-black italic text-center mb-10 sm:mb-16 tracking-tighter drop-shadow-xl text-white">
@@ -1138,7 +1140,7 @@ export default function Home() {
       </section>
 
       {/* 🔥 NUEVO: SECCIÓN DE DOWNSELL (PROTOCOLOS ESTÁTICOS) 🔥 */}
-      <section className="relative z-10 py-24 sm:py-32 px-4 sm:px-6 bg-[#020202] border-t border-zinc-800/50 overflow-hidden">
+      <section className="hidden relative z-10 py-24 sm:py-32 px-4 sm:px-6 bg-[#020202] border-t border-zinc-800/50 overflow-hidden">
          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-zinc-900/20 blur-[100px] pointer-events-none"></div>
          <RevealOnScroll>
             <div className="max-w-6xl mx-auto relative z-10">
@@ -1203,8 +1205,12 @@ export default function Home() {
          </RevealOnScroll>
       </section>
 
+<div id="cajas-nuevas">
+         <PricingV2 onSelectPlan={handleSelectPlan} />
+      </div>
+
       {/* ─── CHECKOUT SECTION GLOBAL ─── */}
-      <section id="checkout-section" className="relative z-10 pt-20 sm:pt-32 pb-32 sm:pb-48 px-4 sm:px-6 bg-[#050505] border-t border-white/5 overflow-hidden">
+      <section id="checkout-final" className="relative z-10 pt-20 sm:pt-32 pb-32 sm:pb-48 px-4 sm:px-6 bg-[#050505] border-t border-white/5 overflow-hidden">
         <RevealOnScroll>
            <div className="max-w-6xl mx-auto relative z-10">
              <div className="text-center mb-12 sm:mb-20">

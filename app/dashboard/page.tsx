@@ -1,6 +1,7 @@
 // Actualizacion de PDFs
 "use client";
 
+import { resolvePlan } from '@/lib/permissions';
 import { useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -50,7 +51,6 @@ export default function DashboardAtleta() {
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
   const [loadingRenewal, setLoadingRenewal] = useState(false); 
 
-  const [isMonthlyPlan, setIsMonthlyPlan] = useState(false);
   const [useWalletBalance, setUseWalletBalance] = useState(false);
 
   const [onboardingData, setOnboardingData] = useState({
@@ -104,28 +104,17 @@ export default function DashboardAtleta() {
 
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
+const [isDownloadingMeso, setIsDownloadingMeso] = useState(false);
+
   const [rmAiLoading, setRmAiLoading] = useState(false);
   const [rmAiFeedback, setRmAiFeedback] = useState("");
 
-  // 🔥 DETECCIÓN ESTRICTA DE PLANES ESTÁTICOS (MESOCICLOS DE 4 SEMANAS) 🔥
-  const isStaticPlan = useMemo(() => {
-    if (!order) return false;
-    const pId = order?.plan_id?.toLowerCase() || "";
-    const pTitle = order?.plan_title?.toLowerCase() || "";
-    return (
-        pId.includes("mesociclo") || 
-        pTitle.includes("mesociclo") ||
-        pTitle.includes("protocolo fuerza base") ||
-        pTitle.includes("fuerza base") ||
-        pTitle.includes("mutación hipertrófica") ||
-        pTitle.includes("mutacion") ||
-        pId.includes("fuerza") ||
-        pId.includes("hipertrofia") ||
-        pTitle.includes("fuerza") ||
-        pTitle.includes("hipertrofia")
-    );
-  }, [order]);
-
+// 🔥 NUEVO CEREBRO DE PERMISOS 🔥
+  const { productType, trainingFrequency, accessLevel } = resolvePlan(order?.plan_id, order?.plan_title);
+  const isStatic = productType === 'STATIC';
+  const isStaticPlan = isStatic; // Alias de seguridad para no romper pantallas viejas
+  const isMonthlyPlan = productType === 'MONTHLY';
+  
   useEffect(() => {
     let interval: any = null;
     if (isTimerActive && time > 0) {
@@ -224,7 +213,6 @@ export default function DashboardAtleta() {
         const planTitle = (currentOrder.plan_title || "").toLowerCase();
         
         const isMonthly = planId.includes('mensual') || planTitle.includes('mesociclo') || planTitle.includes('performance') || planTitle.includes('élite') || planTitle.includes('elite');
-        setIsMonthlyPlan(isMonthly);
 
         if (isMonthly && currentOrder.checkin_history && currentOrder.checkin_history.length > 0) {
             const recentCheckins = currentOrder.checkin_history.slice(-3);
@@ -583,6 +571,53 @@ export default function DashboardAtleta() {
           setGeneratingPDF(false);
       }
   };
+const handleDownloadSecureMeso = async () => {
+    if (!order || !order.id) return;
+    setIsDownloadingMeso(true);
+    
+    try {
+        // 1. NUEVO: Obtenemos tu "llave" de sesión actual usando tu cliente viejo
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        if (!token) {
+            throw new Error("No se encontró la credencial de sesión. Vuelve a iniciar sesión.");
+        }
+
+        // 2. Adjuntamos la llave en los "headers" del mensaje
+        const response = await fetch('/api/download-pdf', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // ACÁ VA LA LLAVE
+            },
+            body: JSON.stringify({ orderId: order.id }) 
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || "Operación denegada");
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const isFuerza = (order.plan_id || "").includes("fuerza") || (order.plan_title || "").toLowerCase().includes("fuerza");
+        link.download = `Tujague_${isFuerza ? 'Fuerza_Base' : 'Hipertrofia'}_Oficial.pdf`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+    } catch (error: any) {
+        alert("❌ Error: " + error.message);
+    } finally {
+        setIsDownloadingMeso(false);
+    }
+};
 
   const handleBioMessage = async (e: React.FormEvent) => {
      e.preventDefault();
@@ -1084,7 +1119,34 @@ export default function DashboardAtleta() {
               </div>
            </form>
         </div>
-      </main>
+</main>
+    );
+  }
+
+  // 🔥 BLOQUEO ESTRICTO POR CADUCIDAD (SPRINTS VENCIDOS) 🔥
+  if (isLocked) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center selection:bg-red-500 selection:text-white">
+        <div className="w-24 h-24 bg-red-900/20 border border-red-500/50 rounded-full flex items-center justify-center text-4xl mb-8 animate-pulse shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+            ⏳
+        </div>
+        <h2 className="text-3xl md:text-5xl font-black italic mb-4 uppercase tracking-tighter drop-shadow-md">
+            PERÍODO <span className="text-red-500">FINALIZADO</span>
+        </h2>
+        <p className="text-zinc-400 mb-10 max-w-md mx-auto text-sm md:text-base font-medium leading-relaxed">
+            Tu tiempo de acceso ha concluido. El diagnóstico y la estructura generada quedan blindados en la base de datos del Coach. 
+            <br /><br />
+            Para no perder el progreso y continuar tu evolución, ingresá al Ecosistema Élite.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto">
+            <button onClick={handleUpgradeToMonthly} disabled={loadingUpgrade} className="flex-1 bg-emerald-500 text-black px-8 py-5 rounded-2xl font-black text-xs tracking-widest uppercase hover:bg-emerald-400 transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:scale-105 active:scale-95 disabled:opacity-50">
+                {loadingUpgrade ? 'CONECTANDO...' : 'PASAR A MENSUAL'}
+            </button>
+            <button onClick={handleLogout} className="border border-zinc-700 text-zinc-300 px-8 py-5 rounded-2xl font-black text-xs tracking-widest uppercase hover:bg-zinc-800 transition-colors">
+                Cerrar Sesión
+            </button>
+        </div>
+      </div>
     );
   }
 
@@ -1255,20 +1317,31 @@ export default function DashboardAtleta() {
          </div>
       )}
 
-      {/* 🔥 NAVEGACIÓN DE TABS 🔥 */}
+{/* 🔥 NAVEGACIÓN DE TABS 🔥 */}
       <div className="flex overflow-x-auto gap-3 md:gap-4 mb-10 border-b border-zinc-800 pb-4 custom-scrollbar whitespace-nowrap">
         <button onClick={() => setActiveTab("rutina")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rutina" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Protocolo</button>
         
-        {!isStaticPlan && (
+        {!isStatic && (
           <>
-            <button onClick={() => setActiveTab("videos")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "videos" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Auditoría 📹</button>
+            {accessLevel.videoUploadLimit > 0 && (
+              <button onClick={() => setActiveTab("videos")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "videos" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Auditoría 📹</button>
+            )}
+            
             <button onClick={() => setActiveTab("boveda")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "boveda" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Bóveda Clínica 🏛️</button>
-            <button onClick={() => setActiveTab("rm")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rm" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Métricas 📈</button>
-            <button onClick={() => setActiveTab("checkin")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "checkin" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Control SNC ⚡</button>
+            
+            {accessLevel.canViewMetrics && (
+              <button onClick={() => setActiveTab("rm")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "rm" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Métricas 📈</button>
+            )}
+            
+            {accessLevel.hasSNCAnalysis && (
+              <button onClick={() => setActiveTab("checkin")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 ${activeTab === "checkin" ? "bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.3)]" : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 border border-zinc-800"}`}>Control SNC ⚡</button>
+            )}
             
             <div className="hidden lg:block flex-1"></div>
             
-            <button onClick={() => setActiveTab("asistente")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 flex items-center gap-2 ${activeTab === "asistente" ? "bg-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-blue-500" : "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border border-blue-900/50 animate-pulse"}`}><span className="text-base md:text-lg">🤖</span> Tujague AI {isMonthlyPlan ? "" : "🔒"}</button>
+            <button onClick={() => setActiveTab("asistente")} className={`px-6 md:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-black tracking-widest transition-all uppercase shrink-0 flex items-center gap-2 ${activeTab === "asistente" ? "bg-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-blue-500" : "bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 border border-blue-900/50 animate-pulse"}`}>
+              <span className="text-base md:text-lg">🤖</span> Tujague AI {!accessLevel.canUseTujagueAI && "🔒"}
+            </button>
           </>
         )}
       </div>
@@ -1459,14 +1532,13 @@ export default function DashboardAtleta() {
                     <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa pre-armado de 4 semanas. El documento PDF oficial contiene toda la planificación, metodologías y hojas de registro.</p>
                     
                     {order?.status === 'paid' ? (
-                        <a 
-                            href={(order?.plan_id?.toLowerCase().includes('fuerza') || order?.plan_title?.toLowerCase().includes('fuerza')) ? '/mesociclo-fuerza.pdf' : '/mesociclo-hipertrofia.pdf'} 
-                            download 
-                            target="_blank" 
-                            className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95"
-                        >
-                            📥 DESCARGAR PDF DE ENTRENAMIENTO
-                        </a>
+<button 
+    onClick={handleDownloadSecureMeso}
+    disabled={isDownloadingMeso}
+    className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50"
+>
+    {isDownloadingMeso ? '🔐 ENCRIPTANDO DOCUMENTO...' : '📥 DESCARGAR PDF OFICIAL'}
+</button>
                     ) : (
                         <div className="relative z-10 bg-amber-500/10 border border-amber-500/30 p-8 rounded-3xl mt-6">
                             <span className="text-4xl block mb-4 animate-bounce">⏳</span>
@@ -1821,21 +1893,67 @@ export default function DashboardAtleta() {
         {/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS ─── */}
         {activeTab === "videos" && !isStaticPlan && (
           <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
-            {!order.has_video_review ? (
+{productType === 'SPRINT' ? (
+                <div className="bg-[#0a0a0c] border border-emerald-500/30 p-6 md:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(16,185,129,0.1)] relative overflow-hidden max-w-4xl mx-auto">
+                     <div className="text-center md:text-left mb-8 border-b border-zinc-800/50 pb-6">
+                        <h3 className="text-2xl md:text-3xl font-black italic text-emerald-400 uppercase tracking-tight drop-shadow-md">Auditoría Técnica <span className="text-white">(1 de 1)</span></h3>
+                        <p className="text-zinc-400 mt-2 text-sm">Tu Sprint de Calibración incluye una revisión de técnica. Seleccioná el ejercicio y subí el video para el análisis del Coach.</p>
+                     </div>
+                     
+                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
+                        <select 
+                           value={order.name_extra1 || ''}
+                           onChange={(e) => handleUpdateExtraName('extra1', e.target.value)}
+                           disabled={!!order.video_extra1}
+                           className="bg-black border border-zinc-800 text-lg md:text-xl font-black italic text-white uppercase outline-none w-full sm:w-2/3 focus:border-emerald-500 transition-colors disabled:opacity-50 p-4 md:p-5 rounded-xl cursor-pointer shadow-inner appearance-none"
+                        >
+                           <option value="" disabled>Selecciona el levantamiento a auditar...</option>
+                           <option value="Sentadilla">Sentadilla</option>
+                           <option value="Press Banca">Press Banca</option>
+                           <option value="Peso Muerto">Peso Muerto</option>
+                           <option value="Press Militar">Press Militar</option>
+                           <option value="Fondos">Fondos</option>
+                        </select>
+                        {order.video_extra1 
+                           ? <span className="bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase border border-emerald-500/30 shadow-inner w-full sm:w-auto text-center">En Revisión ⏳</span> 
+                           : <span className="bg-zinc-900 border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">Slot Disponible</span>
+                        }
+                     </div>
+
+                     <div className="mb-8 bg-black/40 border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
+                        <div>
+                           <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
+                           <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                        </div>
+                        <label className={`cursor-pointer px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === 'extra1' || order.video_extra1 || !order.name_extra1 ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95'}`}>
+                           {uploading === 'extra1' ? 'TRANSMITIENDO...' : order.video_extra1 ? 'VIDEO RECIBIDO ✓' : !order.name_extra1 ? 'SELECCIONÁ EJERCICIO PRIMERO' : 'CARGAR VIDEO 📹'}
+                           <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'extra1')} disabled={uploading === 'extra1' || !!order.video_extra1 || !order.name_extra1} />
+                        </label>
+                     </div>
+
+                     <div className="bg-emerald-950/20 border border-emerald-500/30 p-6 md:p-8 rounded-[1.5rem] shadow-inner">
+                        <h4 className="flex items-center gap-3 text-emerald-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
+                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Determinación del Coach
+                        </h4>
+                        {order.feedback_extra1 ? (
+                           <p className="text-emerald-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order.feedback_extra1}</p>
+                        ) : (
+                           <p className="text-emerald-500/40 text-xs md:text-sm italic font-medium">Una vez subido el video, el Coach publicará su diagnóstico estructural aquí.</p>
+                        )}
+                     </div>
+                </div>
+            ) : !order.has_video_review && !isMonthlyPlan ? (
                 <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden text-center max-w-4xl mx-auto">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-red-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
-                    
                     <div className="w-20 h-20 md:w-28 md:h-28 bg-black rounded-full flex items-center justify-center border border-zinc-800 mx-auto mb-8 relative z-10 shadow-inner">
                         <span className="text-4xl md:text-5xl opacity-50">🔒</span>
                     </div>
-                    
                     <h2 className="text-4xl md:text-6xl font-black italic mb-6 tracking-tighter text-white relative z-10 uppercase drop-shadow-md">
                         MÓDULO <span className="text-red-500">RESTRINGIDO</span>
                     </h2>
                     <p className="text-zinc-400 font-medium max-w-2xl mx-auto mb-12 text-sm md:text-lg relative z-10 leading-relaxed px-4">
                         Su suscripción actual omite la Auditoría Técnica Biomecánica. Esta es la herramienta indispensable para eludir estancamientos mecánicos estructurales bajo cargas máximas.
                     </p>
-                    
                     <div className="bg-black/60 border border-zinc-800 p-6 md:p-10 rounded-3xl max-w-lg mx-auto mb-12 text-left relative z-10 shadow-lg">
                         <p className="text-[10px] md:text-xs text-zinc-500 font-black tracking-widest uppercase mb-6 border-b border-zinc-800/50 pb-3">Beneficios del Sistema:</p>
                         <ul className="space-y-4 md:space-y-5">
@@ -1844,12 +1962,7 @@ export default function DashboardAtleta() {
                             <li className="flex items-start gap-4 text-sm md:text-base text-zinc-300 font-medium"><span className="text-emerald-500 font-black">✓</span> Intervención directa del Head Coach en la base de datos.</li>
                         </ul>
                     </div>
-
-                    <button 
-                       onClick={handleBuyUpsell}
-                       disabled={loadingUpsell}
-                       className="relative z-10 inline-flex items-center justify-center bg-emerald-500 text-black px-10 md:px-14 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-emerald-400 transition-all shadow-[0_0_40px_rgba(16,185,129,0.3)] disabled:opacity-50 hover:scale-105 active:scale-95 w-full sm:w-auto"
-                    >
+                    <button onClick={handleBuyUpsell} disabled={loadingUpsell} className="relative z-10 inline-flex items-center justify-center bg-emerald-500 text-black px-10 md:px-14 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-emerald-400 transition-all shadow-[0_0_40px_rgba(16,185,129,0.3)] disabled:opacity-50 hover:scale-105 active:scale-95 w-full sm:w-auto">
                         {loadingUpsell ? 'ESTABLECIENDO CONEXIÓN FINANCIERA...' : 'DESBLOQUEAR MÓDULO POR ARS $15.000'}
                     </button>
                 </div>
