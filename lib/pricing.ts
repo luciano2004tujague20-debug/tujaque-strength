@@ -1,8 +1,6 @@
 // lib/pricing.ts
 // ✅ Fuente de verdad de precios: Supabase (tabla plans) + /api/plans/public
-// Este archivo define catálogo/metadata + helpers de compat.
-
-export const EXTRA_VIDEO_PRICE_ARS = 0;
+// Este archivo define catálogo/metadata + helpers (conversions y compat legacy)
 
 export type PlanCode =
   | "static-fuerza"
@@ -67,34 +65,67 @@ export const PLAN_COPY: Record<
   },
 };
 
-// ======================================================================
-// ✅ COMPAT: getConversions se usa en algunos componentes legacy.
-// - getConversions() -> devuelve PLAN_COPY (compat)
-// - getConversions(ars:number) -> devuelve { usd, usdt } (CheckoutClient)
-// ======================================================================
+/**
+ * ✅ Tipos de conversión que usan CheckoutClient / PaymentConversionTable
+ * (agregamos btc para que no rompa)
+ */
+export type ConversionResult = {
+  ars: number;
+  usd: number;
+  usdt: number;
+  btc: number; // ✅ nuevo
+};
 
-type PlanCopyRecord = typeof PLAN_COPY;
-type ConversionResult = { usd: number; usdt: number };
+/**
+ * ✅ Lee cotizaciones desde ENV (Vercel):
+ * NEXT_PUBLIC_USD_ARS
+ * NEXT_PUBLIC_USDT_ARS (opcional, fallback a USD)
+ *
+ * BTC (opcional, NO rompe si no está):
+ * - NEXT_PUBLIC_BTC_ARS  (1 BTC en ARS)
+ * o
+ * - NEXT_PUBLIC_BTC_USD  (1 BTC en USD) + usa USD_ARS
+ */
+export function getRates() {
+  const usdArs = Number(process.env.NEXT_PUBLIC_USD_ARS ?? 0);
+  const usdtArs = Number(process.env.NEXT_PUBLIC_USDT_ARS ?? 0);
 
-// Overloads:
-export function getConversions(): PlanCopyRecord;
-export function getConversions(arsAmount: number): ConversionResult;
+  const btcArs = Number(process.env.NEXT_PUBLIC_BTC_ARS ?? 0);
+  const btcUsd = Number(process.env.NEXT_PUBLIC_BTC_USD ?? 0);
 
-// Impl:
-export function getConversions(arsAmount?: number): PlanCopyRecord | ConversionResult {
-  // Si lo llaman con ARS, devolvemos conversiones
-  if (typeof arsAmount === "number" && Number.isFinite(arsAmount)) {
-    // ⚠️ Ajustá esto como quieras. Ideal: setear en Vercel env vars.
-    // NEXT_PUBLIC_USD_ARS y NEXT_PUBLIC_USDT_ARS para que también funcione en cliente.
-    const USD_ARS = Number(process.env.NEXT_PUBLIC_USD_ARS ?? 1000);
-    const USDT_ARS = Number(process.env.NEXT_PUBLIC_USDT_ARS ?? USD_ARS);
+  return {
+    usdArs: usdArs > 0 ? usdArs : 0,
+    usdtArs: usdtArs > 0 ? usdtArs : (usdArs > 0 ? usdArs : 0),
+    btcArs: btcArs > 0 ? btcArs : 0,
+    btcUsd: btcUsd > 0 ? btcUsd : 0,
+  };
+}
 
-    const safeUsd = USD_ARS > 0 ? arsAmount / USD_ARS : 0;
-    const safeUsdt = USDT_ARS > 0 ? arsAmount / USDT_ARS : 0;
+/**
+ * ✅ getConversions(precioARS) -> { ars, usd, usdt, btc }
+ */
+export function getConversions(priceArs: number): ConversionResult {
+  const { usdArs, usdtArs, btcArs, btcUsd } = getRates();
 
-    return { usd: safeUsd, usdt: safeUsdt };
+  const safePrice = Number(priceArs || 0);
+
+  const usd = usdArs > 0 ? safePrice / usdArs : 0;
+  const usdt = usdtArs > 0 ? safePrice / usdtArs : 0;
+
+  // BTC: preferimos BTC_ARS. Si no existe, usamos BTC_USD * USD_ARS.
+  let btc = 0;
+  if (btcArs > 0) {
+    btc = safePrice / btcArs;
+  } else if (btcUsd > 0 && usdArs > 0) {
+    btc = safePrice / (btcUsd * usdArs);
   }
 
-  // Si lo llaman sin args, devolvemos el copy
-  return PLAN_COPY;
+  return { ars: safePrice, usd, usdt, btc };
 }
+
+/**
+ * ✅ Compat legacy: si algo viejo importaba este nombre, no rompemos build.
+ */
+export const EXTRA_VIDEO_PRICE_ARS = Number(
+  process.env.NEXT_PUBLIC_EXTRA_VIDEO_PRICE_ARS ?? 0
+);
