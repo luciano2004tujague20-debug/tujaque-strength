@@ -1,111 +1,69 @@
 // lib/pricing.ts
+// ✅ Fuente de verdad de precios: Supabase (tabla plans) + /api/plans/public
+// Este archivo SOLO define catálogo/metadata (sin números).
 
-export const USD_RATE = 1200; // Unificado con tu Checkout
-export const BTC_PRICE_ARS = 85000000; // 1 BTC en Pesos
-export const EXTRA_VIDEO_PRICE_ARS = 15000; // Valor de la revisión técnica
+export type PlanCode =
+  | "static-fuerza"
+  | "static-hipertrofia"
+  | "semanal-3-4"
+  | "semanal-5-6"
+  | "semanal-7"
+  | "mensual-3-4"
+  | "mensual-5-6"
+  | "mensual-7";
 
-export const PLANS = {
-  // PLANES MENSUALES
-  "mensual-3-4": {
-    id: "mensual-3-4",
-    code: "mensual-3-4", // Agregamos 'code' para compatibilidad
-    name: "Mensual - 3 a 4 días",
-    price: 50000,
-    price_ars: 50000,
-    days: 4,
-    description: "Plan mensual de entrenamiento para 3 a 4 días por semana.",
-    duration: "month",
-    cadence: "monthly"
+export type PlanGroup = "static" | "sprint" | "monthly";
+
+export const PLAN_GROUPS: Record<PlanGroup, PlanCode[]> = {
+  static: ["static-fuerza", "static-hipertrofia"],
+  sprint: ["semanal-3-4", "semanal-5-6", "semanal-7"],
+  monthly: ["mensual-3-4", "mensual-5-6", "mensual-7"],
+};
+
+export const DEFAULT_SELECTION: Record<PlanGroup, PlanCode> = {
+  static: "static-fuerza",
+  sprint: "semanal-5-6",
+  monthly: "mensual-5-6",
+};
+
+export const PLAN_COPY: Record<
+  PlanCode,
+  { title: string; subtitle: string; badge?: string }
+> = {
+  "static-fuerza": {
+    title: "Protocolo Fuerza Base",
+    subtitle: "Para el atleta independiente",
   },
-  "mensual-5-6": {
-    id: "mensual-5-6",
-    code: "mensual-5-6",
-    name: "Mensual - 5 a 6 días",
-    price: 100000,
-    price_ars: 100000,
-    days: 6,
-    description: "Plan mensual de entrenamiento para 5 a 6 días por semana.",
-    duration: "month",
-    cadence: "monthly"
+  "static-hipertrofia": {
+    title: "Mutación Hipertrófica",
+    subtitle: "Para el atleta independiente",
   },
-  "mensual-7": {
-    id: "mensual-7",
-    code: "mensual-7",
-    name: "Mensual - 7 días (Full)",
-    price: 115000,
-    price_ars: 115000,
-    days: 7,
-    description: "Máximo rendimiento. Planificación total para los 7 días.",
-    duration: "month",
-    cadence: "monthly"
-  },
-  // PLANES SEMANALES
   "semanal-3-4": {
-    id: "semanal-3-4",
-    code: "semanal-3-4",
-    name: "Semanal - 3 a 4 días",
-    price: 20000,
-    price_ars: 20000,
-    days: 4,
-    description: "Prueba una semana de entrenamiento (3 a 4 días).",
-    duration: "week",
-    cadence: "weekly"
+    title: "Sprint (3 a 4 días)",
+    subtitle: "Diagnóstico Técnico (7 Días)",
   },
   "semanal-5-6": {
-    id: "semanal-5-6",
-    code: "semanal-5-6",
-    name: "Semanal - 5 a 6 días",
-    price: 32000,
-    price_ars: 32000,
-    days: 6,
-    description: "Prueba una semana de entrenamiento (5 a 6 días).",
-    duration: "week",
-    cadence: "weekly"
+    title: "Sprint (5 a 6 días)",
+    subtitle: "Diagnóstico Técnico (7 Días)",
   },
   "semanal-7": {
-    id: "semanal-7",
-    code: "semanal-7",
-    name: "Semanal - 7 días",
-    price: 38000,
-    price_ars: 38000,
-    days: 7,
-    description: "Una semana de entrenamiento intensivo de 7 días.",
-    duration: "week",
-    cadence: "weekly"
+    title: "Sprint (7 días Full)",
+    subtitle: "Diagnóstico Técnico (7 Días)",
   },
-  // NUEVOS MESOCICLOS ESTÁTICOS
-  "mesociclo-fuerza": {
-    id: "mesociclo-fuerza",
-    code: "mesociclo-fuerza",
-    name: "Mesociclo de Fuerza (4 Semanas)",
-    price: 30000,
-    price_ars: 30000,
-    days: 4,
-    description: "Plan pre-armado de 4 semanas enfocado en Fuerza Absoluta.",
-    duration: "month",
-    cadence: "monthly"
+  "mensual-3-4": {
+    title: "Coaching (3 a 4 días)",
+    subtitle: "El Ecosistema Élite",
   },
-  "mesociclo-hipertrofia": {
-    id: "mesociclo-hipertrofia",
-    code: "mesociclo-hipertrofia",
-    name: "Mesociclo de Hipertrofia (4 Semanas)",
-    price: 30000,
-    price_ars: 30000,
-    days: 4,
-    description: "Plan pre-armado de 4 semanas enfocado en Hipertrofia Estética.",
-    duration: "month",
-    cadence: "monthly"
-  }
+  "mensual-5-6": {
+    title: "Coaching (5 a 6 días)",
+    subtitle: "El Ecosistema Élite",
+    badge: "Recomendado",
+  },
+  "mensual-7": {
+    title: "Coaching (7 días Full)",
+    subtitle: "El Ecosistema Élite",
+  },
 };
-
-export const getConversions = (priceInArs: number) => {
-  const priceInUsd = priceInArs / USD_RATE;
-  const priceInBtc = priceInArs / BTC_PRICE_ARS;
-  
-  return {
-    ars: priceInArs,
-    usd: priceInUsd.toFixed(2),
-    usdt: priceInUsd.toFixed(2),
-    btc: priceInBtc.toFixed(8)
-  };
-};
+// ✅ Compat: CheckoutClient todavía importa getConversions.
+// No tocamos CheckoutClient: simplemente volvemos a exportarlo.
+export const getConversions = () => PLAN_COPY;

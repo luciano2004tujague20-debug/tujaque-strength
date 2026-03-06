@@ -1,107 +1,133 @@
-// app/api/checkout-upgrade/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+
+function normalize(v?: string | null) {
+  return (v || "").toLowerCase().trim();
+}
+
+function daysBetweenMs(days: number) {
+  return days * 24 * 60 * 60 * 1000;
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { orderId, email } = body;
 
-    console.log("=== INICIANDO UPGRADE ===");
-    console.log("Datos recibidos del Frontend -> Email:", email, "| OrderId:", orderId);
-
     if (!email) {
-      return NextResponse.json({ error: "Falta el email del usuario en la solicitud." }, { status: 400 });
+      return NextResponse.json({ error: "Falta el email del usuario." }, { status: 400 });
     }
 
-    // 1. Buscamos la orden más reciente del atleta (SIN USAR plan_title)
-    const { data: orderData, error: orderErr } = await supabaseAdmin
-        .from("orders")
-        .select("id, order_id, plan_id, amount_ars")
-        .eq("customer_email", email)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+    // 1) Buscar la orden del usuario:
+    // - si te pasan orderId, intentamos usarla
+    // - si no, caemos a la más reciente
+    let orderQuery = supabaseAdmin
+      .from("orders")
+      .select("id, order_id, plan_id, amount_ars, customer_email, created_at")
+      .eq("customer_email", email);
 
-    // VARIABLES POR DEFECTO
-    let currentPlanId = "";
-    let priceAlreadyPaid = 0;
-    let realOrderId = orderId || `temp_${Date.now()}`;
-
-    if (orderErr || !orderData) {
-        console.error("⚠️ ALERTA: No se encontró la orden en BD para el email:", email);
-        console.log("Error detallado de Supabase:", orderErr);
+    if (orderId) {
+      // order_id suele ser tipo "ORD-xxxx"
+      orderQuery = orderQuery.eq("order_id", String(orderId));
     } else {
-        console.log("✅ Orden encontrada:", orderData);
-        currentPlanId = (orderData.plan_id || "").toLowerCase();
-        priceAlreadyPaid = Number(orderData.amount_ars) || 0;
-        realOrderId = orderData.order_id || orderId; 
+      orderQuery = orderQuery.order("created_at", { ascending: false }).limit(1);
     }
 
-    // 2. LÓGICA AUTOMÁTICA DE DERIVACIÓN (Basado SOLO en plan_id)
-    let targetPlanCode = "mesociclo_mensual"; // Plan por defecto (Fallback)
+    const { data: orderData, error: orderErr } = await orderQuery.maybeSingle();
 
-    // Analizamos el ID del plan actual para ver a cuál lo mandamos
-    if (currentPlanId.includes("3") || currentPlanId.includes("4") || currentPlanId.includes("base")) {
-        targetPlanCode = "mesociclo_base"; // MESOCICLO BASE (3-4 DÍAS)
-    } else if (currentPlanId.includes("5") || currentPlanId.includes("6") || currentPlanId.includes("pro")) {
-        targetPlanCode = "pro_performance"; // PRO PERFORMANCE (5-6 DÍAS)
-    } else if (currentPlanId.includes("7") || currentPlanId.includes("elite")) {
-        targetPlanCode = "elite_total"; // ÉLITE TOTAL (7 DÍAS)
+    if (orderErr) {
+      console.error("❌ Error buscando orden:", orderErr);
+      return NextResponse.json({ error: "Error buscando la orden." }, { status: 500 });
     }
-    
-    console.log("🔄 Derivando Upgrade hacia el plan code:", targetPlanCode);
 
-    // 3. BUSCAMOS EL PRECIO DEL NUEVO PLAN EN LA BD
-    const { data: targetPlanData, error: targetPlanErr } = await supabaseAdmin
+    if (!orderData) {
+      return NextResponse.json({ error: "No se encontró una orden para ese email." }, { status: 404 });
+    }
+
+    const currentPlanId = normalize(orderData.plan_id);
+    const priceAlreadyPaid = Number(orderData.amount_ars) || 0;
+    const realOrderId = orderData.order_id || (orderId ? String(orderId) : `temp_${Date.now()}`);
+
+    // 2) Derivar a mensual-* (tu “fuente de verdad” actual)
+    let targetPlanCode: string | null = null;
+
+    // Sprint -> mensual equivalente
+    if (currentPlanId.startsWith("semanal-3-4") || currentPlanId.includes("3-4") || currentPlanId.includes("base")) {
+      targetPlanCode = "mensual-3-4";
+    } else if (currentPlanId.startsWith("semanal-5-6") || currentPlanId.includes("5-6") || currentPlanId.includes("pro")) {
+      targetPlanCode = "mensual-5-6";
+    } else if (currentPlanId.startsWith("semanal-7") || currentPlanId.includes("elite") || /\b7\b/.test(currentPlanId)) {
+      targetPlanCode = "mensual-7";
+    }
+
+    // Si ya era mensual, lo mandamos a su mensual correspondiente
+    if (!targetPlanCode) {
+      if (currentPlanId.startsWith("mensual-3-4")) targetPlanCode = "mensual-3-4";
+      else if (currentPlanId.startsWith("mensual-5-6")) targetPlanCode = "mensual-5-6";
+      else if (currentPlanId.startsWith("mensual-7")) targetPlanCode = "mensual-7";
+    }
+
+    // Legacy mensual (por compatibilidad)
+    if (!targetPlanCode) {
+      if (currentPlanId === "mesociclo_base") targetPlanCode = "mensual-3-4";
+      else if (currentPlanId === "pro_performance") targetPlanCode = "mensual-5-6";
+      else if (currentPlanId === "elite_total") targetPlanCode = "mensual-7";
+      else if (currentPlanId === "mesociclo_mensual") targetPlanCode = "mensual-3-4";
+    }
+
+    if (!targetPlanCode) {
+      return NextResponse.json(
+        { error: `No pude derivar el plan actual (${currentPlanId}) a un mensual-* válido.` },
+        { status: 400 }
+      );
+    }
+
+    // 3) Buscar precio desde BD (price_ars primero)
+    const { data: targetPlan, error: targetErr } = await supabaseAdmin
       .from("plans")
-      .select("price, name")
+      .select("*")
       .eq("code", targetPlanCode)
       .single();
 
-    if (targetPlanErr || !targetPlanData) {
-        console.error("❌ El plan de destino no existe en la BD:", targetPlanCode);
-        return NextResponse.json({ error: `El plan derivado (${targetPlanCode}) no existe en tu tabla 'plans'. Verifica los códigos en Supabase.` }, { status: 404 });
+    if (targetErr || !targetPlan) {
+      return NextResponse.json({ error: `No existe el plan destino ${targetPlanCode} en plans.` }, { status: 404 });
     }
 
-    const fullPriceOfNewPlan = Number(targetPlanData.price) || 0;
-    const targetPlanName = targetPlanData.name;
+    const fullPrice =
+      targetPlan.price_ars != null ? Number(targetPlan.price_ars) : (Number(targetPlan.price) || 0);
 
-    // 4. LA MAGIA FINANCIERA: Calcular la diferencia a cobrar
-    let priceToCharge = fullPriceOfNewPlan - priceAlreadyPaid;
+    if (fullPrice <= 0) {
+      return NextResponse.json({ error: "Precio inválido en BD para el plan destino." }, { status: 400 });
+    }
 
-    console.log(`💰 Finanzas -> Precio Nuevo: $${fullPriceOfNewPlan} | Pagó antes: $${priceAlreadyPaid} | A cobrar: $${priceToCharge}`);
+    // 4) Diferencia a cobrar
+    const priceToCharge = fullPrice - priceAlreadyPaid;
 
-    // Si la diferencia es menor o igual a 0 cobramos un Fee estándar de contingencia
     if (priceToCharge <= 0) {
-        priceToCharge = 15000; 
-        console.log("Aplicando tarifa de contingencia: $15000");
+      return NextResponse.json(
+        { error: "Upgrade inválido: ya pagó el total o el cálculo dio cero/negativo." },
+        { status: 400 }
+      );
     }
 
-    // 5. Inicializamos Mercado Pago
-    const client = new MercadoPagoConfig({
-      accessToken: process.env.MP_ACCESS_TOKEN!,
-    });
-
+    // 5) MercadoPago preference
+    const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
     const preference = new Preference(client);
 
-    // 6. Creamos la preferencia
     const response = await preference.create({
       body: {
         items: [
           {
             id: `upgrade_${targetPlanCode}`,
-            title: `Upgrade a ${targetPlanName} (Diferencia)`,
+            title: `Upgrade a ${targetPlan.name} (Diferencia)`,
             quantity: 1,
-            unit_price: priceToCharge, 
+            unit_price: priceToCharge,
             currency_id: "ARS",
           },
         ],
         external_reference: `upgrade_${realOrderId}`,
-        payer: {
-          email: email,
-        },
+        payer: { email },
         back_urls: {
           success: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?upgrade=success`,
           failure: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?error=pago_rechazado`,
@@ -111,11 +137,9 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log("🚀 URL generada con éxito");
     return NextResponse.json({ initPoint: response.init_point });
-    
   } catch (error) {
-    console.error("❌ Error CRÍTICO creando el pago de Upgrade:", error);
-    return NextResponse.json({ error: "No se pudo conectar con la pasarela de pagos" }, { status: 500 });
+    console.error("❌ Error creando upgrade:", error);
+    return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
 export async function POST(req: Request) {
@@ -10,22 +11,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
     }
 
-    // Inicializamos Mercado Pago con tu token
+    // 1. Buscamos el precio del módulo extra en la base de datos
+    // IMPORTANTE: Debe existir un plan con el code 'upsell-video' en Supabase
+    const { data: plan, error: planErr } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("code", "upsell-video")
+      .single();
+
+    if (planErr || !plan) {
+        return NextResponse.json({ error: "No se pudo encontrar el precio del módulo extra en la base de datos." }, { status: 404 });
+    }
+
+    // 🔥 BLINDAJE DE PRECIOS: Backend como única fuente de verdad
+    const price = plan.price_ars != null ? Number(plan.price_ars) : (Number(plan.price) || 0);
+
+    // 🔥 GUARD ESTRICTO: Rechazar si el precio base está roto
+    if (price <= 0) {
+        return NextResponse.json({ error: "Precio inválido configurado en la base de datos para el Upsell." }, { status: 400 });
+    }
+
+    // 2. Inicializamos Mercado Pago con tu token
     const client = new MercadoPagoConfig({
       accessToken: process.env.MP_ACCESS_TOKEN!,
     });
 
     const preference = new Preference(client);
 
-    // Creamos la preferencia de pago para el Módulo de Video
+    // 3. Creamos la preferencia de pago para el Módulo de Video
     const response = await preference.create({
       body: {
         items: [
           {
             id: "upsell-video",
-            title: "Auditoría Técnica Biomecánica (Módulo Extra)",
+            title: plan.name || "Auditoría Técnica Biomecánica (Módulo Extra)",
             quantity: 1,
-            unit_price: 15000, // Precio del módulo extra
+            unit_price: price, // Usamos el precio validado desde la base de datos
             currency_id: "ARS",
           },
         ],

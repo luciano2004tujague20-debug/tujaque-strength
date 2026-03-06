@@ -2,120 +2,199 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
+function getSiteUrl(req: Request) {
+  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) {
+    const protocol = req.headers.get("x-forwarded-proto") || "http";
+    const host = req.headers.get("host");
+    siteUrl = `${protocol}://${host}`;
+  }
+  return siteUrl.replace(/\/$/, "");
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { planId, planName, price, extraVideo, extraPrice, name, email, referralCode } = body;
+
+    // ⚠️ IGNORAMOS price y extraPrice del body para evitar fraude
+    const { planId, planName, extraVideo, name, email, referralCode } = body;
 
     if (!planId || !name || !email) {
-      return NextResponse.json({ error: "Faltan datos obligatorios (Plan, Nombre o Email)." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Faltan datos obligatorios (Plan, Nombre o Email)." },
+        { status: 400 }
+      );
     }
 
-    let finalPrice = Number(price);
-    
-    // Si seleccionó la auditoría en video, sumamos el extra
-    if (extraVideo && extraPrice) {
-        finalPrice += Number(extraPrice);
+    // 1) Precio base: SIEMPRE desde DB
+    const { data: plan, error: planErr } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("code", planId)
+      .single();
+
+    if (planErr || !plan) {
+      return NextResponse.json(
+        { error: "No se pudo encontrar el plan en la base de datos." },
+        { status: 404 }
+      );
+    }
+
+    const basePrice =
+      plan.price_ars != null ? Number(plan.price_ars) : Number(plan.price) || 0;
+
+    if (basePrice <= 0) {
+      return NextResponse.json(
+        { error: "Precio inválido configurado en la base de datos." },
+        { status: 400 }
+      );
+    }
+
+    let finalPrice = basePrice;
+
+    // 2) Extra video: SIEMPRE desde DB (upsell-video)
+    if (extraVideo) {
+      const { data: extraPlan, error: extraErr } = await supabaseAdmin
+        .from("plans")
+        .select("*")
+        .eq("code", "upsell-video")
+        .single();
+
+      if (extraErr || !extraPlan) {
+        return NextResponse.json(
+          { error: "ExtraVideo activado pero falta el plan 'upsell-video' en la tabla plans." },
+          { status: 404 }
+        );
+      }
+
+      const extraPriceDb =
+        extraPlan.price_ars != null
+          ? Number(extraPlan.price_ars)
+          : Number(extraPlan.price) || 0;
+
+      if (extraPriceDb <= 0) {
+        return NextResponse.json(
+          { error: "Precio inválido configurado en la base de datos para 'upsell-video'." },
+          { status: 400 }
+        );
+      }
+
+      finalPrice += extraPriceDb;
     }
 
     let appliedDiscount = false;
     let validReferralCode = "";
 
-    // 1. Lógica de Descuento (Si el usuario ingresó un código)
+    // 3) Descuento por código (Master o Afiliado)
     if (referralCode) {
-        const cleanCode = referralCode.trim().toUpperCase();
-        
-        // Códigos Master (Tus códigos de promoción en Instagram)
-        const masterCodes: Record<string, number> = {
-            "TUJAGUE20": 20, // 20% OFF
-            "VERANO15": 15,  // 15% OFF
-        };
+      const cleanCode = String(referralCode).trim().toUpperCase();
 
-        if (masterCodes[cleanCode]) {
-            const discountPercentage = masterCodes[cleanCode];
-            finalPrice = finalPrice - (finalPrice * (discountPercentage / 100));
-            appliedDiscount = true;
-        } 
-        // Códigos de Atletas (BII-Affiliates)
-        else {
-            const { data: ambassador } = await supabaseAdmin
-                .from("orders")
-                .select("id")
-                .eq("referral_code", cleanCode)
-                .single();
+      const masterCodes: Record<string, number> = {
+        TUJAGUE20: 20,
+        VERANO15: 15,
+      };
 
-            if (ambassador) {
-                // 🔥 ACTUALIZADO: Si el código existe y es de un alumno, le hacemos 15% de descuento
-                finalPrice = finalPrice - (finalPrice * 0.15); 
-                appliedDiscount = true;
-                validReferralCode = cleanCode; // Guardamos quién lo refirió
-            }
+      if (masterCodes[cleanCode]) {
+        const discountPercentage = masterCodes[cleanCode];
+        finalPrice = finalPrice - finalPrice * (discountPercentage / 100);
+        appliedDiscount = true;
+      } else {
+        const { data: ambassador } = await supabaseAdmin
+          .from("orders")
+          .select("id")
+          .eq("referral_code", cleanCode)
+          .single();
+
+        if (ambassador) {
+          finalPrice = finalPrice - finalPrice * 0.15;
+          appliedDiscount = true;
+          validReferralCode = cleanCode;
         }
+      }
     }
 
-    // 2. Creamos un "order_id" único para este cliente
+    // MercadoPago en ARS: mejor cobrar entero
+    finalPrice = Math.round(finalPrice);
+
+    if (finalPrice <= 0) {
+      return NextResponse.json(
+        { error: "El precio final quedó inválido (0 o negativo). Revisá descuentos/precios." },
+        { status: 400 }
+      );
+    }
+
+    // 4) order_id único
     const orderId = `ORD-${Date.now()}`;
-    
-    // 3. Generamos el código de referido automático para ESTE nuevo cliente
-    const firstName = name.split(" ")[0].toUpperCase();
+
+    // 5) código referido del nuevo cliente
+    const firstName = String(name).split(" ")[0].toUpperCase();
     const randomNum = Math.floor(100 + Math.random() * 900);
     const newPersonalCode = `${firstName}${randomNum}`;
 
-    // 4. Guardamos la orden inicial en Supabase como "PENDIENTE"
-    const { error: insertError } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        order_id: orderId,
-        customer_name: name,
-        customer_email: email,
-        plan_id: planId,
-        plan_title: planName,
-        amount_ars: finalPrice,
-        status: "pending",
-        has_video_review: extraVideo || false,
-        referred_by: validReferralCode, // Quién lo trajo (para pagar comisión luego en el webhook)
-        referral_code: newPersonalCode, // Su código propio para el futuro
-        wallet_balance: 0
-      });
+    // 6) Insert orden PENDING
+    const planTitleToStore = plan.name || planName || planId;
 
-    if (insertError) {
-        console.error("Error guardando orden en BD:", insertError);
-        return NextResponse.json({ error: "Error al registrar la orden en la base de datos." }, { status: 500 });
-    }
+    const { error: insertError } = await supabaseAdmin.from("orders").insert({
+      order_id: orderId,
+      customer_name: name,
+      customer_email: email,
+      plan_id: planId,
+      plan_title: planTitleToStore,
+      amount_ars: finalPrice,
+      status: "pending",
+      payment_method: "mercadopago",
+      has_video_review: !!extraVideo,
+      referred_by: validReferralCode,
+      referral_code: newPersonalCode,
+      wallet_balance: 0,
+    });
 
-    // 5. Inicializamos Mercado Pago
+if (insertError) {
+  console.error("Error guardando orden en BD:", insertError);
+
+  return NextResponse.json(
+    {
+      error: "Error al registrar la orden en la base de datos.",
+      supabase: {
+        message: insertError.message,
+        details: (insertError as any).details,
+        hint: (insertError as any).hint,
+        code: (insertError as any).code,
+      },
+    },
+    { status: 500 }
+  );
+}
+
+    // 7) Preferencia MP
+    const siteUrl = getSiteUrl(req);
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
     const preference = new Preference(client);
 
-    // 6. Creamos la preferencia de pago
     const response = await preference.create({
       body: {
         items: [
           {
             id: planId,
-            title: appliedDiscount ? `${planName} (Con Descuento)` : planName,
+            title: appliedDiscount ? `${planTitleToStore} (Con Descuento)` : planTitleToStore,
             quantity: 1,
             unit_price: finalPrice,
             currency_id: "ARS",
           },
         ],
         external_reference: orderId,
-        
-        // ✅ LA PIEZA CLAVE: Le decimos a MP dónde mandar el Webhook
-        notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
-        
-        payer: { email: email, name: name },
+        notification_url: `${siteUrl}/api/webhooks/mercadopago`,
+        payer: { email, name },
         back_urls: {
-          success: `${process.env.NEXT_PUBLIC_SITE_URL}/login?checkout=success`,
-          failure: `${process.env.NEXT_PUBLIC_SITE_URL}/?error=pago_rechazado`,
-          pending: `${process.env.NEXT_PUBLIC_SITE_URL}/login?status=pendiente`,
+          success: `${siteUrl}/login?checkout=success`,
+          failure: `${siteUrl}/?error=pago_rechazado`,
+          pending: `${siteUrl}/login?status=pendiente`,
         },
         auto_return: "approved",
       },
     });
 
     return NextResponse.json({ initPoint: response.init_point });
-
   } catch (error) {
     console.error("Error en checkout:", error);
     return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });

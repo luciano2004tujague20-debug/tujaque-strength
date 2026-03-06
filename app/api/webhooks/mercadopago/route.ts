@@ -121,23 +121,49 @@ export async function POST(req: Request) {
 
         // 🌟 BIFURCACIÓN INTELIGENTE: ¿Qué estamos cobrando?
         
-        if (external_reference.startsWith('upsell_')) {
-            // 🎬 ES UNA COMPRA DEL MÓDULO DE VIDEOS
-            const realOrderId = external_reference.replace('upsell_', '');
-            
-            const { error } = await supabaseAdmin
-              .from('orders')
-              .update({ 
-                has_video_review: true, // ✅ ABRIMOS EL CANDADO EN EL DASHBOARD
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', realOrderId); 
+if (external_reference.startsWith('upsell_')) {
+  // 🎬 ES UNA COMPRA DEL MÓDULO DE VIDEOS
+  const rawRef = external_reference.replace('upsell_', '').trim();
 
-            if (error) {
-              console.error('Error abriendo candado de video:', error);
-              return NextResponse.json({ error: 'Error DB Upsell' }, { status: 500 });
-            }
-            console.log(`¡Módulo de video desbloqueado para la orden ID: ${realOrderId}!`);
+  const isNumericIdRU = /^[0-9]+$/.test(rawRef);
+
+  let ruQuery = supabaseAdmin
+    .from('orders')
+    .select('id, order_id, plan_id, plan_title, expires_at, payment_id, status, sub_status')
+    .limit(1);
+
+  if (isNumericIdRU) {
+    ruQuery = ruQuery.or(`id.eq.${rawRef},order_id.eq.${rawRef}`);
+  } else {
+    ruQuery = ruQuery.eq('order_id', rawRef);
+  }
+
+  const { data: targetOrder, error: findErr } = await ruQuery.maybeSingle();
+
+  if (findErr) {
+    console.error('❌ Error buscando orden para upsell:', findErr);
+    return NextResponse.json({ error: 'Error DB Upsell' }, { status: 500 });
+  }
+
+  if (!targetOrder) {
+    console.warn('⚠️ Upsell: no se encontró orden con ref:', rawRef);
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  const { error } = await supabaseAdmin
+    .from('orders')
+    .update({
+      has_video_review: true,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', targetOrder.id);
+
+  if (error) {
+    console.error('❌ Error abriendo candado de video:', error);
+    return NextResponse.json({ error: 'Error DB Upsell' }, { status: 500 });
+  }
+
+  console.log(`✅ Upsell aplicado. Orden ID: ${targetOrder.id}`);
 
 } else if (
   external_reference.startsWith('renew_') ||

@@ -37,106 +37,124 @@ function RevealOnScroll({ children, delay = 0, className = "" }: { children: Rea
   );
 }
 
-// ─── CONFIGURACIÓN DE DATOS (CON MARKETING AUTÉNTICO) ───
-const PRICING_MATRIX = {
+// ─── TIPOS + PRICING MATRIX (FUENTE LOCAL TEMPORAL) ───
+type PricingPlan = {
+  id: string;
+  title: string;
+  subtitle: string;
+  price: number;
+  description: string;
+  features: string[];
+  highlight?: boolean;
+  idealFor?: string;
+  actionLabel?: string;
+};
+
+type PricingMatrix = {
+  weekly: PricingPlan[];
+  monthly: PricingPlan[];
+  static: PricingPlan[];
+};
+
+const PRICING_MATRIX: PricingMatrix = {
   weekly: [
     {
       id: "semanal-3-4",
       title: "INICIO RÁPIDO (3-4 DÍAS)",
       subtitle: "Prueba Semanal / Adaptación",
-      price: 20000,
-      description: "Ideal para quienes quieren probar la metodología por primera vez o disponen de poco tiempo en la semana.",
-      features: ["Rutina enfocada en básicos", "Foco: Técnica en SBD", "Sin ajustes de largo plazo"],
+      price: 25000,
+      description: "Entrada al sistema para calibrar técnica y carga sin humo.",
+      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
       highlight: false,
-      idealFor: "Gente ocupada / Principiantes",
-      actionLabel: "⚡ Ingreso Inmediato al Sistema"
+      idealFor: "Ocupados / primer sprint",
+      actionLabel: "⚡ Ingreso inmediato"
     },
     {
       id: "semanal-5-6",
       title: "INTENSIVO (5-6 DÍAS)",
       subtitle: "Semana de Choque",
-      price: 32000,
-      description: "Una semana de alta frecuencia para evaluar tu capacidad de recuperación y técnica bajo fatiga.",
-      features: ["Alta densidad de entrenamiento", "Técnicas RIR/RPE", "Ideal para atletas con experiencia"],
+      price: 37000,
+      description: "Alta frecuencia para medir recuperación y técnica bajo fatiga.",
+      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
       highlight: true,
-      idealFor: "Atletas intermedios serios",
-      actionLabel: "🔥 Plan de Alta Demanda Actual"
+      idealFor: "Intermedios serios",
+      actionLabel: "🔥 Más elegido"
     },
     {
       id: "semanal-7",
       title: "FULL SEMANA (7 DÍAS)",
       subtitle: "Máxima Exigencia",
-      price: 38000,
-      description: "Siete días de programación estricta. Para quienes no quieren dejar ni un solo día al azar.",
-      features: ["Programación diaria", "Control de volumen total", "Máximo rendimiento semanal"],
+      price: 45000,
+      description: "Para los que entrenan todos los días y quieren estructura estricta.",
+      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
       highlight: false,
-      idealFor: "Alto volumen / Avanzados",
-      actionLabel: "⚙️ Requiere Auditoría Previa"
+      idealFor: "Avanzados / alto volumen",
+      actionLabel: "⚙️ Requiere disciplina"
     }
   ],
+
   monthly: [
     {
       id: "mensual-3-4",
       title: "MESOCICLO BASE (3-4 DÍAS)",
       subtitle: "Progreso Constante",
-      price: 50000,
-      description: "Planificación mensual estructurada. Ideal para combinar con otras actividades manteniendo el progreso en fuerza.",
-      features: ["Ajustes semanales de carga", "Periodización Lineal", "🤖 Tujague AI (Soporte 24/7)"],
+      price: 60000,
+      description: "Programación mensual con ajustes semanales para progresar sin quemarte.",
+      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
       highlight: false,
-      idealFor: "Gente ocupada / 3-4 días",
-      actionLabel: "🤖 Sistema Tujague AI Habilitado"
+      idealFor: "3-4 días / progreso estable",
+      actionLabel: "🤖 AI habilitada"
     },
     {
       id: "mensual-5-6",
       title: "PRO PERFORMANCE (5-6 DÍAS)",
       subtitle: "Evolución Real",
-      price: 100000,
-      description: "El estándar para el atleta serio. 4 semanas de progresión técnica y de cargas diseñada para resultados máximos.",
-      features: ["Ajustes en 24hs", "Tabla de RPE personalizada", "🤖 Tujague AI (Análisis Biomecánico)"],
+      price: 115000,
+      description: "El estándar del atleta serio: volumen + técnica + ajustes continuos.",
+      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
       highlight: true,
-      idealFor: "Intermedio serio / 5-6 días",
-      actionLabel: "⭐ El Plan Más Elegido Del Mes"
+      idealFor: "5-6 días / intermedio serio",
+      actionLabel: "⭐ Plan recomendado"
     },
     {
       id: "mensual-7",
       title: "ÉLITE TOTAL (7 DÍAS)",
       subtitle: "Planificación Maestra",
-      price: 115000,
-      description: "Programación avanzada de 4 semanas. Requiere máxima disciplina y capacidad de trabajo. No apto para principiantes.",
-      features: ["Gestión total de variables", "Análisis de recuperación", "🤖 Tujague AI (Soporte Ilimitado)"],
+      price: 135000,
+      description: "Máxima exigencia, máxima estructura. No apto para principiantes.",
+      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
       highlight: false,
-      idealFor: "Alto volumen / NO Principiantes",
-      actionLabel: "👑 Soporte Prioritario VIP"
+      idealFor: "7 días / avanzados",
+      actionLabel: "👑 VIP"
     }
   ],
-  // 🔥 NUEVA SECCIÓN: PROTOCOLOS ESTÁTICOS DE DOWNSELL 🔥
+
   static: [
     {
       id: "static-fuerza",
       title: "PROTOCOLO FUERZA BASE",
       subtitle: "4 Semanas (PDF / Panel)",
-      price: 30000,
-      description: "Enfoque 100% Neural. Diseñado matemáticamente para maximizar tu 1RM en los básicos (Sentadilla, Banca, Peso Muerto). Bajo volumen, altísima intensidad y descansos largos. Ideal para destruir estancamientos de fuerza.",
-      features: ["Estructura exacta de progresión", "✗ Sin revisión de videos", "✗ Sin Tujague AI (Asistente Bloqueado)", "✗ Sin contacto con el Coach"],
+      price: 35000,
+      description: "Bloque estático para fuerza: estructura pura, sin soporte.",
+      features: ["Estructura exacta", "✗ Sin revisión de videos", "✗ Sin Tujague AI", "✗ Sin contacto Coach"],
       highlight: false,
-      idealFor: "Estancados en Fuerza / Powerlifters",
-      actionLabel: "🔒 MODO ESTUDIO INDEPENDIENTE"
+      idealFor: "Autodidacta / fuerza",
+      actionLabel: "🔒 Modo independiente"
     },
     {
       id: "static-hipertrofia",
       title: "MUTACIÓN HIPERTRÓFICA",
       subtitle: "4 Semanas (PDF / Panel)",
-      price: 30000,
-      description: "Enfoque en tensión mecánica y daño muscular. Alto volumen de trabajo, técnicas de intensidad (Drop sets, Rest-Pause) y rangos de hipertrofia (8-15 reps). Construcción de masa magra pura con estructura BII.",
-      features: ["Selección óptima de accesorios", "✗ Sin revisión de videos", "✗ Sin Tujague AI (Asistente Bloqueado)", "✗ Sin contacto con el Coach"],
+      price: 35000,
+      description: "Bloque estático para hipertrofia: volumen + técnicas, sin soporte.",
+      features: ["Selección de accesorios", "✗ Sin revisión de videos", "✗ Sin Tujague AI", "✗ Sin contacto Coach"],
       highlight: false,
-      idealFor: "Foco en estética / Bodybuilding",
-      actionLabel: "🔒 MODO ESTUDIO INDEPENDIENTE"
+      idealFor: "Autodidacta / estética",
+      actionLabel: "🔒 Modo independiente"
     }
   ]
 };
 
-const EXTRA_VIDEO_PRICE = 15000;
 
 // PREGUNTAS FRECUENTES (FAQ)
 const FAQS = [
@@ -151,6 +169,40 @@ const FAQS = [
 export default function Home() {
   const [isWeekly, setIsWeekly] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
+// 💸 Precio del módulo extra (upsell-video) desde Supabase
+const [extraVideoPrice, setExtraVideoPrice] = useState<number>(0);
+const [loadingExtraVideoPrice, setLoadingExtraVideoPrice] = useState(true);
+useEffect(() => {
+  let cancelled = false;
+
+  (async () => {
+    const { data, error } = await supabase
+      .from("plans")
+      .select("price, price_ars")
+      .eq("code", "upsell-video")
+      .single();
+
+    if (cancelled) return;
+
+    if (error) {
+      console.error("❌ Error cargando precio upsell-video:", error);
+      setExtraVideoPrice(0);
+    } else {
+      const v =
+        (data as any)?.price_ars != null
+          ? Number((data as any).price_ars)
+          : Number((data as any)?.price || 0);
+
+      setExtraVideoPrice(v);
+    }
+
+    setLoadingExtraVideoPrice(false);
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   const [addVideoReview, setAddVideoReview] = useState(false);
   const [topAthletes, setTopAthletes] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true); 
@@ -1129,7 +1181,7 @@ const handleSelectPlan = (plan: any) => {
                      </div>
                    </div>
                    <div className="text-left sm:text-right pl-16 sm:pl-4 w-full sm:w-auto border-t sm:border-t-0 border-zinc-800/50 pt-4 sm:pt-0">
-                       <span className={`text-2xl sm:text-4xl font-black block tracking-tighter italic ${addVideoReview ? 'text-white' : 'text-zinc-400'}`}>+ARS ${EXTRA_VIDEO_PRICE.toLocaleString()}</span>
+                       <span className={`text-2xl sm:text-4xl font-black block tracking-tighter italic ${addVideoReview ? 'text-white' : 'text-zinc-400'}`}>+ARS ${loadingExtraVideoPrice ? "..." : extraVideoPrice.toLocaleString("es-AR")}</span>
                    </div>
                    <input type="checkbox" className="hidden" checked={addVideoReview} onChange={(e) => setAddVideoReview(e.target.checked)}/>
                  </label>
@@ -1242,7 +1294,7 @@ const handleSelectPlan = (plan: any) => {
                  <CheckoutClient 
                     selectedPlan={selectedPlan} 
                     extraVideo={selectedPlan.id.startsWith('static') ? false : addVideoReview} 
-                    extraPrice={EXTRA_VIDEO_PRICE} 
+                    extraPrice={extraVideoPrice}
                  />
                </div>
              ) : (
