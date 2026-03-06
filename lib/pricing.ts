@@ -2,6 +2,11 @@
 // ✅ Fuente de verdad de precios: Supabase (tabla plans) + /api/plans/public
 // Este archivo SOLO define catálogo/metadata (sin números).
 
+// lib/pricing.ts  (o src/lib/pricing.ts)
+
+export const EXTRA_VIDEO_PRICE_ARS = 0;
+// Si querés un fallback real, podés poner un número fijo.
+// Pero si ya lo traés desde Supabase, dejalo en 0 y listo
 export type PlanCode =
   | "static-fuerza"
   | "static-hipertrofia"
