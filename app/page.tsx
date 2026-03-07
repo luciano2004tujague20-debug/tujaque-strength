@@ -1,7 +1,7 @@
 "use client";
 
 import PricingV2 from '@/components/PricingV2';
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react"; // FIX: Agregado 'React' para React.ReactNode y React.FormEvent
 import CheckoutClient from "./components/CheckoutClient";
 import Link from "next/link";
 import Image from "next/image";
@@ -168,7 +168,7 @@ const FAQS = [
 
 export default function Home() {
   const [isWeekly, setIsWeekly] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null); // FIX: Tipado con PricingPlan
 // 💸 Precio del módulo extra (upsell-video) desde Supabase
 const [extraVideoPrice, setExtraVideoPrice] = useState<number>(0);
 const [loadingExtraVideoPrice, setLoadingExtraVideoPrice] = useState(true);
@@ -223,7 +223,7 @@ useEffect(() => {
   const [quizAnswers, setQuizAnswers] = useState({ limitante: "", dias: "", nivel: "" });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisText, setAnalysisText] = useState("");
-  const [recommendedPlan, setRecommendedPlan] = useState<any>(null);
+  const [recommendedPlan, setRecommendedPlan] = useState<PricingPlan | null>(null); // FIX: Tipado con PricingPlan
 
   const currentPlans = isWeekly ? PRICING_MATRIX.weekly : PRICING_MATRIX.monthly;
 
@@ -238,7 +238,8 @@ useEffect(() => {
         if (error) throw error;
           
         if (data) {
-           const ranked = data.map(athlete => {
+           // FIX: Se agrega ': any' explícito para evitar error de compilación
+           const ranked = data.map((athlete: any) => {
               const sq = parseInt(athlete.rm_squat) || 0;
               const bp = parseInt(athlete.rm_bench) || 0;
               const dl = parseInt(athlete.rm_deadlift) || 0;
@@ -275,7 +276,7 @@ useEffect(() => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
+        (payload: any) => { // FIX: Tipado del payload a ': any'
           console.log('¡Récord detectado en la base de datos! Actualizando...');
           fetchTopAthletes();
         }
@@ -293,7 +294,8 @@ useEffect(() => {
       }
   }, [botMessages, isBotTyping, isBotOpen]);
 
-const handleSelectPlan = (plan: any) => {
+  // FIX: Parámetro plan tipado como PricingPlan en vez de any
+  const handleSelectPlan = (plan: PricingPlan) => {
     setSelectedPlan(plan);
     setTimeout(() => {
       const checkout = document.getElementById("checkout-final");
@@ -358,7 +360,7 @@ const handleSelectPlan = (plan: any) => {
 
   const handleAcceptRecommendation = () => {
       setIsWeekly(false); 
-      handleSelectPlan(recommendedPlan);
+      if (recommendedPlan) handleSelectPlan(recommendedPlan);
   };
 
   const handleSendBotMessage = async (e: React.FormEvent) => {
@@ -446,7 +448,7 @@ const handleSelectPlan = (plan: any) => {
                className="bg-zinc-900 border border-emerald-500/50 w-16 h-16 sm:w-18 sm:h-18 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:scale-110 transition-transform flex items-center justify-center relative group backdrop-blur-md"
             >
                <span className="absolute -top-12 left-0 bg-zinc-900 border border-zinc-700 text-emerald-400 text-[10px] font-black px-3 py-2 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest">
-                  Consultas
+                 Consultas
                </span>
                <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-zinc-900 rounded-full animate-pulse"></span>
                <svg className="w-8 h-8 sm:w-9 sm:h-9 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1198,13 +1200,13 @@ const handleSelectPlan = (plan: any) => {
             <div className="max-w-6xl mx-auto relative z-10">
                <div className="text-center mb-16 sm:mb-20">
                   <span className="bg-zinc-900 border border-zinc-700 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">
-                     ¿No cuentas con presupuesto para el Coaching VIP?
+                      ¿No cuentas con presupuesto para el Coaching VIP?
                   </span>
                   <h2 className="text-4xl sm:text-5xl md:text-7xl font-black italic tracking-tighter text-zinc-300 mb-6 drop-shadow-md">
-                     LA BÓVEDA ESTÁTICA: <span className="text-white block sm:inline">PLANOS CRUDOS</span>
+                      LA BÓVEDA ESTÁTICA: <span className="text-white block sm:inline">PLANOS CRUDOS</span>
                   </h2>
                   <p className="text-zinc-500 font-medium max-w-2xl mx-auto text-sm sm:text-lg">
-                     Adquirí las estructuras de 4 semanas exactas que uso con mis atletas. <br className="hidden sm:block"/> <strong className="text-red-500">ADVERTENCIA:</strong> Estos pases NO incluyen corrección de video, NO incluyen ajuste de fatiga, ni soporte de WhatsApp. Es modo 100% autodidacta.
+                      Adquirí las estructuras de 4 semanas exactas que uso con mis atletas. <br className="hidden sm:block"/> <strong className="text-red-500">ADVERTENCIA:</strong> Estos pases NO incluyen corrección de video, NO incluyen ajuste de fatiga, ni soporte de WhatsApp. Es modo 100% autodidacta.
                   </p>
                </div>
 

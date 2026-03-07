@@ -1,32 +1,41 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(request: NextRequest) {
-  const path = request.nextUrl.pathname;
+  let response = NextResponse.next({
+    request,
+  });
 
-  // 1. PROTEGER RUTAS DE ADMIN
-  // Si la ruta empieza con /admin...
-  if (path.startsWith("/admin")) {
-    
-    // Excepción: Permitir entrar a la página de login sin llave
-    if (path === "/admin/login") {
-        return NextResponse.next();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+
+          response = NextResponse.next({
+            request,
+          });
+
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
     }
+  );
 
-    // Verificamos si tiene la cookie "ts_admin_session"
-    const isAdmin = request.cookies.get("ts_admin_session");
+  await supabase.auth.getClaims();
 
-    // Si NO tiene la cookie, lo mandamos al login
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
-  }
-
-  // Si todo está bien, dejamos pasar
-  return NextResponse.next();
+  return response;
 }
 
-// Configuración: Solo vigilar estas rutas para no afectar el rendimiento
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
