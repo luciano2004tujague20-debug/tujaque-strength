@@ -25,33 +25,23 @@ const handleLogin = async (e: React.FormEvent) => {
   setErrorMsg("");
 
   try {
-    const signInResult = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    const sessionCheck = await supabase.auth.getSession();
-
-    alert(
-      JSON.stringify(
-        {
-          signInError: signInResult.error?.message ?? null,
-          hasSessionAfterLogin: !!sessionCheck.data.session,
-          sessionUserId: sessionCheck.data.session?.user?.id ?? null,
-          sessionEmail: sessionCheck.data.session?.user?.email ?? null,
-        },
-        null,
-        2
-      )
-    );
-
-    if (signInResult.error) {
+    if (error) {
       setErrorMsg("Credenciales incorrectas. Verificá tu email y contraseña.");
       return;
     }
 
-    // 👇 SOLO PARA TEST: no redirigir todavía
-    return;
+    if (email === "luciano2004tujague20@gmail.com") {
+      document.cookie =
+        "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+      window.location.href = "/admin/athletes";
+    } else {
+      router.push("/dashboard");
+    }
   } finally {
     setLoading(false);
   }
