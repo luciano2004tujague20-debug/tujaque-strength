@@ -160,24 +160,47 @@ const [isDownloadingMeso, setIsDownloadingMeso] = useState(false);
     }
   };
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+useEffect(() => {
+const fetchDashboardData = async () => {
+      // 1. Usamos getSession (memoria rápida) en vez de getUser (servidor) para evitar que nos patee
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
         router.push("/login");
         return;
       }
+      
+      const user = session.user;
       setUser(user);
 
-      const { data: orders } = await supabase
+      // 1. Buscar en el sistema VIEJO (Suscripciones / Sprints)
+      const { data: oldOrders } = await supabase
         .from("orders")
         .select("*")
         .eq("customer_email", user.email)
         .order("created_at", { ascending: false })
         .limit(1);
 
-      if (orders && orders.length > 0) {
-        const currentOrder = orders[0];
+      // 2. Buscar en el sistema NUEVO (Mesociclos PDF)
+      const { data: newEntitlements } = await supabase
+        .from("commerce_user_entitlements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .limit(1);
+
+      const hasOldOrder = oldOrders && oldOrders.length > 0;
+      const hasNewProduct = newEntitlements && newEntitlements.length > 0;
+
+      // Si no tiene nada de nada, cortamos acá
+      if (!hasOldOrder && !hasNewProduct) {
+        setLoading(false);
+        return;
+      }
+
+      // 4. Si tiene un plan del sistema viejo, cargamos su progreso
+      if (hasOldOrder && oldOrders) {
+        const currentOrder = oldOrders[0];
         setOrder(currentOrder);
         setRms({
           squat: currentOrder.rm_squat || "",
@@ -952,16 +975,25 @@ const handleDownloadSecureMeso = async () => {
 
   if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-emerald-500 font-black animate-pulse tracking-widest uppercase text-sm">Inicializando Panel de Control...</div>;
 
-  if (!order) return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center">
-       <h2 className="text-3xl md:text-5xl font-black italic mb-4">SUSCRIPCIÓN NO DETECTADA</h2>
-       <p className="text-zinc-500 mb-8 max-w-md mx-auto">No se encontraron planes activos asociados a este perfil. Por favor, verifique su estado administrativo.</p>
-       <div className="flex flex-col sm:flex-row gap-4">
-         <Link href="/" className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black tracking-widest uppercase hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">Adquirir Acceso</Link>
-         <button onClick={handleLogout} className="border border-zinc-700 text-zinc-300 px-8 py-4 rounded-xl font-black tracking-widest uppercase hover:bg-zinc-800 transition-colors">Finalizar Sesión</button>
-       </div>
-    </div>
-  );
+// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
+// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center">
+        <h2 className="text-3xl md:text-5xl font-black italic mb-4 uppercase">Panel de <span className="text-emerald-500">Recursos</span></h2>
+        <p className="text-zinc-500 mb-8 max-w-md mx-auto">No tienes una suscripción de coaching activa, pero tienes productos digitales desbloqueados.</p>
+        <div className="flex flex-col gap-4">
+           <Link href="/dashboard/producto/mesociclo-fuerza-4-semanas" className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black tracking-widest uppercase hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+             Abrir Mesociclo de Fuerza
+           </Link>
+           <Link href="/dashboard/producto/mesociclo-hipertrofia-4-semanas" className="bg-emerald-500 text-black px-8 py-4 rounded-xl font-black tracking-widest uppercase hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+             Abrir Mesociclo de Hipertrofia
+           </Link>
+           <button onClick={handleLogout} className="border border-zinc-700 text-zinc-300 px-8 py-4 rounded-xl font-black tracking-widest uppercase hover:bg-zinc-800 transition-colors mt-4">Cerrar Sesión</button>
+        </div>
+      </div>
+    );
+  }
 
   // 🔥 EXCLUIR A LOS PLANES ESTÁTICOS DE LA FICHA MÉDICA 🔥
   if (!isOnboarded && !isStaticPlan) {

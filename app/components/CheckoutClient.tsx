@@ -169,7 +169,7 @@ export default function CheckoutClient({
   const originalConversions = (getConversions as any)(subtotal);
   const conversions = (getConversions as any)(totalAmount);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -192,9 +192,15 @@ export default function CheckoutClient({
     try {
       const cleanEmail = formData.email.trim().toLowerCase();
 
+      // 1. Creación o inicio de sesión en Supabase Auth
       const { error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name.trim(), // Importante guardar el nombre para el PDF
+          }
+        }
       });
 
       if (authError && authError.message.toLowerCase().includes("already registered")) {
@@ -204,18 +210,15 @@ export default function CheckoutClient({
         });
 
         if (signInError) {
-          alert(
-            "Ese email ya tiene cuenta pero la contraseña es incorrecta. Si ya eras alumno, usá tu contraseña anterior."
-          );
+          alert("Ese email ya tiene cuenta pero la contraseña es incorrecta. Si ya eras alumno, usá tu contraseña anterior.");
           setLoading(false);
           return;
         }
       } else if (authError) {
-        throw new Error(
-          "No pudimos crear tu cuenta de acceso: " + authError.message
-        );
+        throw new Error("No pudimos crear tu cuenta de acceso: " + authError.message);
       }
 
+      // 2. Mapeo de métodos de pago
       const methodMapping = {
         mercadopago: "mercado_pago",
         transferencia: "transfer_ars",
@@ -223,48 +226,79 @@ export default function CheckoutClient({
         usd: "international_usd",
       };
 
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planCode: selectedPlan.id,
-          paymentMethod: methodMapping[paymentMethod],
-          name: formData.name.trim(),
-          email: cleanEmail,
-          password: formData.password,
-          customerRef: formData.instagram.trim() || null,
-          extraVideo: finalExtraVideo,
-          referredBy: discountApplied?.code || null,
-          finalPrice: totalAmount,
-          onboardingData: {
-            age: formData.age,
-            phone: formData.phone,
-            experience: formData.experience,
-            goal: formData.goal,
-            injuries: formData.injuries,
-            equipment: formData.equipment,
-          },
-        }),
-      });
+      // 🔥 ACÁ ESTÁ LA MAGIA: DECIDIMOS A QUÉ MOTOR MANDAR LA ORDEN 🔥
+      if (isStaticPlan) {
+        // ----------------------------------------------------
+        // MOTOR NUEVO (PRODUCTOS DIGITALES - MESOCICLOS PDF)
+        // ----------------------------------------------------
+        
+        // Ajustamos el ID para que coincida con el "slug" de nuestra base de datos commerce_products
+        let productSlug = "";
+        if (selectedPlan.id === "static-fuerza") productSlug = "mesociclo-fuerza-4-semanas";
+        if (selectedPlan.id === "static-hipertrofia") productSlug = "mesociclo-hipertrofia-4-semanas";
 
-      const data = await response.json();
+        const response = await fetch('/api/commerce/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productSlug })
+        });
 
-      if (!response.ok) {
-        throw new Error(data.error || "Error al procesar la orden");
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Error al iniciar checkout');
+        
+        if (abandonIdRef.current) {
+          await supabase.from("abandoned_checkouts").delete().eq("id", abandonIdRef.current);
+        }
+
+        // Redirigir a Mercado Pago
+        if (data.init_point) {
+          window.location.href = data.init_point;
+        }
+
+      } else {
+        // ----------------------------------------------------
+        // MOTOR VIEJO (SUSCRIPCIONES Y COACHING)
+        // ----------------------------------------------------
+        const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            planCode: selectedPlan.id,
+            paymentMethod: methodMapping[paymentMethod],
+            name: formData.name.trim(),
+            email: cleanEmail,
+            password: formData.password,
+            customerRef: formData.instagram.trim() || null,
+            extraVideo: finalExtraVideo,
+            referredBy: discountApplied?.code || null,
+            finalPrice: totalAmount,
+            onboardingData: {
+              age: formData.age,
+              phone: formData.phone,
+              experience: formData.experience,
+              goal: formData.goal,
+              injuries: formData.injuries,
+              equipment: formData.equipment,
+            },
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || "Error al procesar la orden");
+
+        if (abandonIdRef.current) {
+          await supabase.from("abandoned_checkouts").delete().eq("id", abandonIdRef.current);
+        }
+
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+        } else if (data.orderId) {
+          router.push(`/order/${data.orderId}?email=${encodeURIComponent(cleanEmail)}`);
+        }
       }
 
-      if (abandonIdRef.current) {
-        await supabase
-          .from("abandoned_checkouts")
-          .delete()
-          .eq("id", abandonIdRef.current);
-      }
-
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      } else if (data.orderId) {
-        router.push(`/order/${data.orderId}?email=${encodeURIComponent(cleanEmail)}`);
-      }
     } catch (err: any) {
       console.error(err);
       alert("⚠️ Error: " + err.message);
