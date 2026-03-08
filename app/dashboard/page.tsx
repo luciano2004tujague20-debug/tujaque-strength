@@ -3,7 +3,7 @@
 
 import { resolvePlan } from '@/lib/permissions';
 import { useEffect, useState, useRef, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Link from "next/link";
@@ -11,8 +11,9 @@ import { PDFDocument, rgb } from 'pdf-lib';
 
 export default function DashboardAtleta() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("rutina");
+  const supabase = createClient();
   
+  const [activeTab, setActiveTab] = useState("rutina");
   const [user, setUser] = useState<any>(null);
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
