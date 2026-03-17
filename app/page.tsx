@@ -1,8 +1,8 @@
 "use client";
 
-import PricingV2 from '@/components/PricingV2';
 import React, { useState, useEffect, useRef } from "react";
 import CheckoutClient from "./components/CheckoutClient";
+import PricingV2, { PricingPlan } from "@/components/PricingV2";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -37,228 +37,112 @@ function RevealOnScroll({ children, delay = 0, className = "" }: { children: Rea
   );
 }
 
-// ─── TIPOS + PRICING MATRIX (FUENTE LOCAL TEMPORAL) ───
-type PricingPlan = {
-  id: string;
-  title: string;
-  subtitle: string;
-  price: number;
-  description: string;
-  features: string[];
-  highlight?: boolean;
-  idealFor?: string;
-  actionLabel?: string;
-};
-
-type PricingMatrix = {
-  weekly: PricingPlan[];
-  monthly: PricingPlan[];
-  static: PricingPlan[];
-};
-
-const PRICING_MATRIX: PricingMatrix = {
-  weekly: [
-    {
-      id: "semanal-3-4",
-      title: "INICIO RÁPIDO (3-4 DÍAS)",
-      subtitle: "Prueba Semanal / Adaptación",
-      price: 25000,
-      description: "Entrada al sistema para calibrar técnica y carga sin humo.",
-      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
-      highlight: false,
-      idealFor: "Ocupados / primer sprint",
-      actionLabel: "⚡ Ingreso inmediato"
-    },
-    {
-      id: "semanal-5-6",
-      title: "INTENSIVO (5-6 DÍAS)",
-      subtitle: "Semana de Choque",
-      price: 37000,
-      description: "Alta frecuencia para medir recuperación y técnica bajo fatiga.",
-      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
-      highlight: true,
-      idealFor: "Intermedios serios",
-      actionLabel: "🔥 Más elegido"
-    },
-    {
-      id: "semanal-7",
-      title: "FULL SEMANA (7 DÍAS)",
-      subtitle: "Máxima Exigencia",
-      price: 45000,
-      description: "Para los que entrenan todos los días y quieren estructura estricta.",
-      features: ["Dashboard 7 días", "Registro de métricas", "1 auditoría de video"],
-      highlight: false,
-      idealFor: "Avanzados / alto volumen",
-      actionLabel: "⚙️ Requiere disciplina"
-    }
-  ],
-
-  monthly: [
-    {
-      id: "mensual-3-4",
-      title: "MESOCICLO BASE (3-4 DÍAS)",
-      subtitle: "Progreso Constante",
-      price: 60000,
-      description: "Programación mensual con ajustes semanales para progresar sin quemarte.",
-      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
-      highlight: false,
-      idealFor: "3-4 días / progreso estable",
-      actionLabel: "🤖 AI habilitada"
-    },
-    {
-      id: "mensual-5-6",
-      title: "PRO PERFORMANCE (5-6 DÍAS)",
-      subtitle: "Evolución Real",
-      price: 115000,
-      description: "El estándar del atleta serio: volumen + técnica + ajustes continuos.",
-      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
-      highlight: true,
-      idealFor: "5-6 días / intermedio serio",
-      actionLabel: "⭐ Plan recomendado"
-    },
-    {
-      id: "mensual-7",
-      title: "ÉLITE TOTAL (7 DÍAS)",
-      subtitle: "Planificación Maestra",
-      price: 135000,
-      description: "Máxima exigencia, máxima estructura. No apto para principiantes.",
-      features: ["Programación dinámica semanal", "Control de fatiga (SNC)", "🤖 Tujague AI"],
-      highlight: false,
-      idealFor: "7 días / avanzados",
-      actionLabel: "👑 VIP"
-    }
-  ],
-
-  static: [
-   {
-      id: "calculadora-volumen-basura",
-      title: "The Junk Volume Killer",
-      subtitle: "SOFTWARE + 3 BONUS • ACCESO INMEDIATO",
-      price: 45000,
-      description:
-        "El 80% de tu rutina es volumen inútil. Descubrí en 60 segundos cuánto tiempo estás desperdiciando y qué series eliminar para destrabar tu fuerza.",
-      features: [
-        "🧠 Software: Score de Eficiencia Neural", 
-        "📊 Diagnóstico Clínico Automático", 
-        "🎁 Bonus 1: Guía 5 Errores del Volumen", 
-        "🎁 Bonus 2: Checklist Fallo Real (RIR)", 
-        "🎁 Bonus 3: Rutina BII Optimizada Base",
-        "✗ Sin soporte 1 a 1 del Coach"
-      ],
-      highlight: true,
-      idealFor: "Atletas estancados con rutinas de alto volumen",
-      actionLabel: "🔥 Analizar Mi Rutina",
-    },
-    {
-      id: "static-fuerza",
-      title: "Fuerza Base",
-      subtitle: "4 SEMANAS • PLANO CRUDO",
-      price: 35000,
-      description:
-        "Bloque estático para fuerza. Estructura pura BII-Vintage, sin soporte personalizado.",
-      features: ["Estructura exacta BII", "✗ Sin revisión de videos", "✗ Sin Tujague AI", "✗ Sin contacto con el Coach"],
-      highlight: false,
-      idealFor: "Autodidactas enfocados en fuerza",
-      actionLabel: "🔒 Modo Independiente",
-    },
-    {
-      id: "mesociclo-definicion-4-semanas",
-      title: "Definición (Cut)",
-      subtitle: "4 SEMANAS • PLANO CRUDO",
-      price: 35000,
-      description:
-        "Bloque estático para definición. Protocolo BII para perder grasa reteniendo el 100% de fuerza máxima.",
-      features: ["Protocolo Déficit Calórico", "✗ Sin revisión de videos", "✗ Sin Tujague AI", "✗ Sin contacto con el Coach"],
-      highlight: false,
-      idealFor: "Autodidactas / Pérdida de grasa",
-      actionLabel: "🔥 Modo Independiente",
-    }, 
-    {
-      id: "static-hipertrofia",
-      title: "Mutación",
-      subtitle: "4 SEMANAS • PLANO CRUDO",
-      price: 35000,
-      description:
-        "Bloque estático para hipertrofia. Volumen y técnicas de intensidad pre-armadas.",
-      features: ["Selección de accesorios", "✗ Sin revisión de videos", "✗ Sin Tujague AI", "✗ Sin contacto con el Coach"],
-      highlight: false,
-      idealFor: "Autodidactas enfocados en estética",
-      actionLabel: "🔒 Modo Independiente",
-    },
-    {
-      id: "especializacion-brazos-mutantes",
-      title: "Brazos Mutantes",
-      subtitle: "MÓDULO EXTRA • 4 SEMANAS",
-      price: 8500,
-      description:
-        "Módulo hardcore de 15 minutos (Plug-in). Enchufalo a tu rutina actual y forzá el crecimiento.",
-      features: ["Protocolo Biomecánico", "PDF Descargable", "✗ Sin revisión de videos", "✗ Sin soporte 1 a 1"],
-      highlight: true,
-      idealFor: "Atletas con brazos estancados",
-      actionLabel: "📥 Descarga Inmediata",
-    }
-  ],
-};
-
-// PREGUNTAS FRECUENTES (FAQ)
 const FAQS = [
-  { q: "¿Sirve si entreno solo 3 días a la semana?", a: "Absolutamente. La filosofía BII-Vintage se basa en entrenamientos breves, intensos e infrecuentes. Con 3 días bien programados podés ganar más fuerza que yendo 6 días a hacer volumen basura." },
-  { q: "¿Cuánto tardás en armar mi programación?", a: "Una vez que completás tu Auditoría Inicial en el Dashboard, el plan estará listo en tu perfil entre 24 y 48 horas hábiles." },
-  { q: "¿Necesito ser un atleta avanzado o tener experiencia?", a: "No. Si sos principiante el plan se enfocará 100% en construir tu técnica en los básicos (Sentadilla, Banca, Peso Muerto) antes de meter carga pesada." },
-  { q: "¿Qué pasa si tengo una lesión previa?", a: "Adaptamos los ejercicios y la selección de variantes para no agravar ninguna molestia y fortalecer tu estructura en base a tu ficha clínica." },
-  { q: "¿El sistema Tujague AI viene en todos los planes?", a: "No. El Asistente Inteligente (Tujague AI) es exclusivo para los atletas en planes MENSUALES VIP. Es tu soporte biomecánico 24/7."},
-  { q: "¿Tienen programa de referidos o descuentos?", a: "Mantenemos un estándar clínico y no hacemos 'promociones' masivas para preservar la calidad del servicio. Sin embargo, nuestros atletas activos acceden a la Bóveda de Afiliados. Si un atleta del equipo te invita con su Código Privado, el sistema te aplicará un 15% de bonificación automática en tu ingreso."}
+  { q: "¿Por qué el mínimo de la Mentoría son 3 meses y no se cobra mensual?", a: "Nadie construye fuerza real ni hipertrofia en 4 semanas. El modelo de suscripción mensual invita a rendirse a la primera molestia. Al comprometerte 90, 180 o 365 días, filtrás tus propias excusas. Si solo querés probar, tenés la Bóveda Estática." },
+  { q: "¿Qué diferencia el plan de 6 Meses del de 3 Meses?", a: "El software (Dashboard y Tujague AI) es exactamente el mismo. La diferencia es mi tiempo personal. En el plan de 6 meses (El más elegido) se te habilita una línea directa a mi WhatsApp de Lunes a Viernes para dudas rápidas y correcciones urgentes, además de una Clínica Biomecánica por videollamada al inicio." },
+  { q: "¿Sirve si entreno 3 días a la semana o en un Home Gym?", a: "Es lo ideal. El BII-Vintage se basa en entrenamientos breves, infrecuentes y de intensidad absoluta. Crecés cuando descansás, no sumando horas en el gimnasio. Si tenés una barra, discos y un rack, podés mutar." },
+  { q: "¿Necesito ser un atleta avanzado para aplicar a la Mentoría?", a: "No. De hecho, si sos principiante es mejor, porque evitamos que construyas vicios técnicos desde cero. Nos enfocamos 100% en tu técnica y torque antes de meter carga pesada." },
+  { q: "¿Cómo funcionan los pagos en Pesos, Dólares o Cripto?", a: "El precio oficial está anclado en Dólares, pero podés pagar en Pesos Argentinos (ARS) a través de Mercado Pago (Tarjetas o Saldo) al tipo de cambio del día. También aceptamos pagos internacionales vía Stripe y transferencias directas en Criptomonedas (USDT/BTC)." }
 ];
 
+
 export default function Home() {
-  const [isWeekly, setIsWeekly] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   
-  const [extraVideoPrice, setExtraVideoPrice] = useState<number>(0);
-  const [loadingExtraVideoPrice, setLoadingExtraVideoPrice] = useState(true);
-  
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("plans")
-        .select("price, price_ars")
-        .eq("code", "upsell-video")
-        .single();
-      if (cancelled) return;
-      if (error) {
-        console.error("❌ Error cargando precio upsell-video:", error);
-        setExtraVideoPrice(0);
-      } else {
-        const v = (data as any)?.price_ars != null ? Number((data as any).price_ars) : Number((data as any)?.price || 0);
-        setExtraVideoPrice(v);
-      }
-      setLoadingExtraVideoPrice(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const [addVideoReview, setAddVideoReview] = useState(false);
   const [topAthletes, setTopAthletes] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true); 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-
   const [isBotOpen, setIsBotOpen] = useState(false);
+  
+  // 🔥 REFERENCIAS OPTIMIZADAS (CERO LAG) 🔥
+  const navRef = useRef<HTMLElement>(null);
+  
+  // 🔥 CEREBRO DE LA LÍNEA DE TIEMPO (COLISIÓN PERFECTA) 🔥
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const timelineLineRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const [activeCard, setActiveCard] = useState<number>(-1);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          
+          // 1. Efecto Navbar
+          if (navRef.current) {
+            const intensity = Math.min(scrollY / 400, 0.98); 
+            navRef.current.style.backgroundColor = `rgba(5, 5, 5, ${intensity})`;
+            navRef.current.style.borderBottom = `1px solid rgba(255, 255, 255, ${intensity * 0.1})`;
+            const padding = intensity > 0.5 ? '0.5rem' : '1.5rem';
+            navRef.current.style.paddingTop = padding;
+            navRef.current.style.paddingBottom = padding;
+            navRef.current.style.boxShadow = intensity > 0.5 ? '0 10px 30px rgba(245,158,11,0.05)' : 'none';
+          }
+
+          // 2. Línea de Tiempo con Sincronización Píxel por Píxel
+          if (timelineRef.current && timelineLineRef.current) {
+            const rect = timelineRef.current.getBoundingClientRect();
+            const windowHeight = window.innerHeight;
+            const startOffset = windowHeight / 2; // La línea "nace" en el medio de la pantalla
+            
+            const pixelsScrolled = startOffset - rect.top;
+            
+            // Calculamos el % solo para dibujar la línea
+            let progress = (pixelsScrolled / rect.height) * 100;
+            progress = Math.max(0, Math.min(100, progress));
+            timelineLineRef.current.style.height = `${progress}%`;
+
+            // Verificamos colisión exacta con cada tarjeta
+            let currentActive = -1;
+            cardsRef.current.forEach((card, index) => {
+              if (card) {
+                // Si la punta de la línea bajó más allá del círculo de la tarjeta
+                if (pixelsScrolled >= card.offsetTop + 20) {
+                  currentActive = index;
+                }
+              }
+            });
+            
+            // Solo actualizamos React si cambiamos de nivel para no dar lag
+            if (currentActive !== activeCard) {
+                setActiveCard(currentActive);
+            }
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [activeCard]); // Dependencia necesaria para que el if interno sepa el valor actual
+
   const [botMessages, setBotMessages] = useState<{role: string, content: string}[]>([
-      { role: "assistant", content: "¡Bienvenido! Soy el Asesor Experto de Tujague Strength. ¿Querés que te explique cómo funciona la plataforma web o qué incluye cada plan?" }
+      { role: "assistant", content: "¡Bienvenido! Soy el Asesor Experto de Tujague Strength. ¿Querés que te explique cómo funciona la plataforma web o qué incluye la Mentoría VIP?" }
   ]);
   const [botInput, setBotInput] = useState("");
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [pulseLive, setPulseLive] = useState(false);
   const botEndRef = useRef<HTMLDivElement>(null);
 
-  const [quizStep, setQuizStep] = useState(0);
-  const [quizAnswers, setQuizAnswers] = useState({ dolor: "", soporte: "", dias: "" });
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisText, setAnalysisText] = useState("");
-  const [recommendedPlan, setRecommendedPlan] = useState<PricingPlan | null>(null);
+  const [triageStep, setTriageStep] = useState(0);
+  const [eliteScore, setEliteScore] = useState(0);
 
-  const currentPlans = isWeekly ? PRICING_MATRIX.weekly : PRICING_MATRIX.monthly;
+  const handleTriageAnswer = (isElite: boolean) => {
+    if (isElite) setEliteScore(prev => prev + 1);
+    setTriageStep(prev => prev + 1);
+  };
+
+  const resetTriage = () => {
+    setTriageStep(0);
+    setEliteScore(0);
+  };
 
   const fetchTopAthletes = async () => {
     try {
@@ -321,62 +205,6 @@ export default function Home() {
     if (pricing) pricing.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const startAnalysis = () => {
-    setIsAnalyzing(true);
-    setAnalysisText("Cruzando datos biomecánicos...");
-    setTimeout(() => setAnalysisText("Evaluando tolerancia del Sistema Nervioso Central..."), 800);
-    setTimeout(() => setAnalysisText("Calculando requerimientos de recuperación..."), 1600);
-    setTimeout(() => setAnalysisText("Generando dictamen clínico..."), 2400);
-    setTimeout(() => { setIsAnalyzing(false); setQuizStep(4); }, 3200);
-  };
-
-const handleQuizAnswer = (field: string, value: string) => {
-      const newAnswers = { ...quizAnswers, [field]: value };
-      setQuizAnswers(newAnswers);
-      
-      if (quizStep === 3) {
-          let planToRecommend; 
-          
-          if (newAnswers.soporte === "solo") {
-              if (newAnswers.dolor === "hipertrofia") {
-                  planToRecommend = PRICING_MATRIX.static.find(p => p.id === "static-hipertrofia") || PRICING_MATRIX.static[0];
-              } else {
-                  planToRecommend = PRICING_MATRIX.static.find(p => p.id === "static-fuerza") || PRICING_MATRIX.static[0];
-              }
-          } else {
-              if (newAnswers.dias === "alto") {
-                  planToRecommend = PRICING_MATRIX.monthly[1]; 
-              } else {
-                  planToRecommend = PRICING_MATRIX.monthly[0]; 
-              }
-          }
-
-          setRecommendedPlan(planToRecommend);
-          startAnalysis(); 
-      } else {
-          setQuizStep(quizStep + 1);
-      }
-  };
-
-const getDiagnosticText = () => {
-    let diag = "";
-    if (quizAnswers.dolor === "estancamiento") diag += "Tus números están congelados porque tu SNC se adaptó al estímulo basura. Estás acumulando fatiga sin generar tensión mecánica real. ";
-    if (quizAnswers.dolor === "lesiones") diag += "ALERTA CLÍNICA: Seguir cargando peso sobre una estructura inflamada garantiza una rotura inminente. Necesitamos limpiar tu técnica urgentemente. ";
-    if (quizAnswers.dolor === "hipertrofia") diag += "La hipertrofia BII requiere acercarse al fallo muscular absoluto (RIR 0) con excéntricas controladas, no hacer 4x12 al azar. ";
-
-    if (quizAnswers.soporte === "solo") {
-        diag += "\n\nDado que preferís autogestionarte, aplicar un programa genérico de internet será tu ruina. Tu única opción segura es adquirir los Planos Crudos de la Bóveda Estática: estructuras exactas sin el costo del coaching VIP.";
-    } else {
-        diag += "\n\nTU DIAGNÓSTICO: Tu caso exige intervención directa. Entrenar por tu cuenta ya demostró no funcionar. Necesitás ingresar al Coaching VIP para que yo mismo audite tus videos y mi IA gestione tu recuperación. Es la única forma de progresar sin romperte.";
-    }
-    return diag;
-  };
-
-  const handleAcceptRecommendation = () => {
-      setIsWeekly(false); 
-      if (recommendedPlan) handleSelectPlan(recommendedPlan);
-  };
-
   const handleSendBotMessage = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!botInput.trim()) return;
@@ -408,23 +236,27 @@ const getDiagnosticText = () => {
   return (
     <main className="min-h-screen relative overflow-x-hidden bg-[#000000] text-white font-sans selection:bg-amber-500 selection:text-black">
       
-      {/* ─── FONDO ÉPICO (Oscurecido para Lujo Silencioso) ─── */}
+      {/* ─── FONDO ÉPICO ─── */}
       <div className="fixed inset-0 z-0">
         <Image 
           src="/hero.png" 
           alt="Background"
           fill
-          className="object-cover opacity-10 mix-blend-overlay hidden md:block transform-gpu"
+          className="object-cover opacity-[0.08] hidden md:block transform-gpu"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#000000]/90 via-[#000000]/95 to-[#000000] z-10 transform-gpu"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#000000]/95 via-[#000000]/95 to-[#000000] z-10 transform-gpu"></div>
       </div>
       
-      {/* ─── NAVBAR FLOTANTE ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#000000]/95 md:bg-[#000000]/80 md:backdrop-blur-2xl border-b border-white/5 transition-all duration-300 transform-gpu">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+      {/* ─── NAVBAR FLOTANTE OPTIMIZADO ─── */}
+      <nav 
+        ref={navRef}
+        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 transform-gpu"
+        style={{ backgroundColor: 'transparent', padding: '1.5rem 0' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <Link href="/" className="text-lg sm:text-xl md:text-2xl font-black italic tracking-tighter hover:opacity-80 transition-opacity flex items-center gap-2">
-            TUJAGUE <span className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md">STRENGTH</span>
+            TUJAGUE <span className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.2)]">STRENGTH</span>
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4">
@@ -444,7 +276,7 @@ const getDiagnosticText = () => {
       <a 
         href={whatsappUrl} 
         target="_blank" 
-        className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-[100] bg-amber-500 p-4 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:scale-110 transition-transform active:scale-95 group border border-amber-400 transform-gpu"
+        className="fixed bottom-24 md:bottom-6 right-4 md:right-8 z-[100] bg-amber-500 p-4 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:scale-110 transition-transform active:scale-95 group border border-amber-400 transform-gpu"
       >
         <span className="absolute -top-12 right-0 bg-[#0a0a0c] border border-zinc-800 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
           Hablá con Luciano
@@ -526,68 +358,56 @@ const getDiagnosticText = () => {
             onClick={scrollToPricing}
             className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-[0_0_25px_rgba(245,158,11,0.4)] active:scale-95 transition-transform flex items-center justify-center gap-2"
          >
-            Elegir Mi Plan 🚀
+            Aplicar Ahora 🚀
          </button>
       </div>
 
       {/* ========================================================= */}
-      {/* 1. HERO SECTION (LA PROMESA PRINCIPAL)                    */}
+      {/* 1. HERO SECTION (GANCHO MENTAL)                           */}
       {/* ========================================================= */}
       <RevealOnScroll delay={100}>
-         <header className="relative z-10 pt-40 pb-20 sm:pt-48 sm:pb-32 md:pt-56 md:pb-40 text-center px-4 sm:px-6 overflow-hidden transform-gpu">
-<div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_50%)] pointer-events-none transform-gpu"></div>
-           <span className="inline-flex items-center gap-2 mb-6 sm:mb-8 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[9px] sm:text-[11px] font-black tracking-[0.25em] backdrop-blur-md shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-             <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 animate-pulse"></span>
-             EL MÉTODO BII-VINTAGE
-           </span>
-           
-           <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-[7rem] font-black italic tracking-tighter leading-[1.05] sm:leading-[1.1] mb-6 sm:mb-8 text-white drop-shadow-2xl">
-             FUERZA BRUTA, <br className="hidden sm:block md:hidden"/> SIN VIVIR EN EL <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-700 inline-block pb-2 drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]">GIMNASIO.</span>
-           </h1>
+        <section className="relative w-full min-h-[90vh] flex flex-col items-center justify-center pt-32 pb-20 px-4 overflow-hidden transform-gpu">
+          
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_50%)] pointer-events-none transform-gpu"></div>
 
-           <p className="text-base sm:text-lg md:text-xl text-zinc-400 max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto mb-10 sm:mb-14 leading-relaxed font-medium">
-             Rompé el estancamiento. Dejá las rutinas genéricas de 6 días. Sumate al equipo y construí fuerza real dominando los básicos: <span className="text-white font-bold border-b border-amber-500/50">Sentadilla, Banca, Peso Muerto, Fondos y Militar.</span>
-           </p>
-           
-           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 w-full max-w-md sm:max-w-none mx-auto">
-               <div className="w-full sm:w-auto text-center">
-                   <Link 
-                     href="/aplicar"
-                     className="relative inline-flex items-center justify-center px-8 sm:px-12 py-5 sm:py-6 rounded-2xl sm:rounded-3xl bg-amber-500 text-black font-black tracking-[0.15em] sm:tracking-widest text-xs sm:text-sm hover:bg-amber-400 hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(245,158,11,0.5)] transition-all overflow-hidden group w-full"
-                   >
- <span className="relative z-10">INICIAR EVALUACIÓN CLÍNICA</span>
-                     <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                   </Link>
-                   <p className="text-amber-500/70 font-bold text-[9px] sm:text-[10px] uppercase tracking-[0.2em] mt-3 sm:mt-4">Dictamen de la IA en tiempo real</p>
-               </div>
-               
-               <div className="w-full sm:w-auto text-center">
-                   <button 
-                     onClick={scrollToPricing}
-                     className="px-8 sm:px-12 py-5 sm:py-6 rounded-2xl sm:rounded-3xl bg-[#0a0a0c] border border-zinc-800 text-white font-black tracking-[0.15em] sm:tracking-widest text-xs sm:text-sm hover:bg-white hover:text-black hover:border-white transition-all w-full backdrop-blur-sm"
-                   >
-                     VER PLANES
-                   </button>
-                   <p className="text-zinc-500 font-bold text-[9px] sm:text-[10px] uppercase tracking-[0.2em] mt-3 sm:mt-4">Inicio Inmediato tras la Auditoría</p>
-               </div>
-           </div>
+          <div className="relative z-10 max-w-5xl mx-auto text-center flex flex-col items-center mt-10 md:mt-20">
+            
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <span className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-500 px-5 py-2.5 rounded-full text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-8 shadow-[0_0_20px_rgba(245,158,11,0.2)] backdrop-blur-md">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> EL MÉTODO BII-VINTAGE
+              </span>
+            </div>
 
-           <div className="flex flex-wrap justify-center gap-4 lg:gap-8 mt-12 lg:mt-16 opacity-70">
-              <div className="flex items-center gap-2 text-[10px] lg:text-xs font-bold text-zinc-300 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                 <span className="text-amber-500 text-sm">✔</span> Soporte Directo y Personalizado
-              </div>
-              <div className="flex items-center gap-2 text-[10px] lg:text-xs font-bold text-zinc-300 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                 <span className="text-amber-500 text-sm">✔</span> Corrección Biomecánica
-              </div>
-              <div className="hidden sm:flex items-center gap-2 text-[10px] lg:text-xs font-bold text-zinc-300 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                 <span className="text-amber-500 text-sm">✔</span> Control de Fatiga Exacto
-              </div>
-           </div>
-         </header>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6.5rem] font-black italic text-white uppercase tracking-tighter drop-shadow-lg leading-[0.95] mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+              FORJÁ UN FÍSICO BRUTAL Y UNA <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-300 drop-shadow-[0_0_30px_rgba(245,158,11,0.3)]">MENTE INQUEBRANTABLE.</span>
+            </h1>
+
+            <p className="text-zinc-400 text-sm sm:text-base md:text-xl font-medium max-w-3xl mx-auto mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+              El 90% fracasa por exceso de volumen basura y debilidad mental. Dejá de ser un espectador, dominá tu sistema nervioso y destrabá tu fuerza genética entrenando menos días, pero con intensidad real.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+              <button 
+                onClick={scrollToPricing}
+                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-10 py-5 md:py-6 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_rgba(245,158,11,0.4)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 border border-amber-200"
+              >
+                INICIAR MI TRANSFORMACIÓN <span className="text-lg">➔</span>
+              </button>
+              
+              <button 
+                onClick={scrollToPricing}
+                className="w-full sm:w-auto bg-[#0a0a0c]/80 hover:bg-zinc-900 border border-zinc-700 hover:border-amber-500/50 text-white px-10 py-5 md:py-6 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center backdrop-blur-md"
+              >
+                VER ESTRUCTURAS BII
+              </button>
+            </div>
+
+          </div>
+        </section>
       </RevealOnScroll>
 
       {/* ========================================================= */}
-      {/* 2. MURO DE LA FAMA (PRUEBA SOCIAL INMEDIATA - LIVE TICKER)*/}
+      {/* 1.5 MURO DE LA FAMA (Datos Reales)                          */}
       {/* ========================================================= */}
       <section className="relative z-10 py-24 sm:py-32 bg-[#000000] border-b border-white/5 overflow-hidden transform-gpu">
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none transform-gpu"></div>
@@ -655,85 +475,226 @@ const getDiagnosticText = () => {
       </section>
 
       {/* ========================================================= */}
-      {/* 3. EL ENTRENADOR Y SUS MARCAS (ESTILO REVISTA EDITORIAL)  */}
+      {/* 2. EL LEGADO Y LA METODOLOGÍA (TIMELINE DINÁMICA PERFECTA)*/}
       {/* ========================================================= */}
-      <section className="relative z-10 py-24 sm:py-32 px-4 sm:px-6 border-b border-white/5 overflow-hidden bg-[#020202] transform-gpu">
+      <section className="relative z-10 py-24 sm:py-32 px-4 sm:px-6 overflow-hidden bg-[#050505] border-b border-white/5 transform-gpu">
         <RevealOnScroll>
-           <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-12 sm:gap-16 md:gap-24">
-             <div className="relative group w-[280px] h-[380px] sm:w-[350px] sm:h-[450px] lg:w-[400px] lg:h-[500px] flex-shrink-0">
-                <div className="absolute -inset-10 sm:-inset-16 bg-[radial-gradient(circle,rgba(245,158,11,0.2)_0%,transparent_60%)] opacity-50 group-hover:opacity-80 transition-opacity duration-700 transform-gpu"></div>
-                <div className="relative w-full h-full rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-900">
-                   <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover opacity-80 group-hover:opacity-100 transition-all duration-1000 group-hover:scale-110" />
-                   {/* Overlay Glassmorphism Estilo Revista */}
-                   <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/80 to-transparent">
-                      <span className="font-black text-amber-500 tracking-widest uppercase text-[10px]">Head Coach</span>
-                      <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Luciano Tujague</h3>
-                   </div>
-                </div>
-             </div>
-             
-             <div className="flex-1 text-center lg:text-left min-w-0 max-w-full">
-               <span className="text-amber-500 font-black tracking-[0.2em] text-[10px] sm:text-xs mb-6 inline-block uppercase border-b border-amber-500/30 pb-2">Filosofía de Entrenamiento</span>
-               
-               <h2 className="text-5xl sm:text-7xl lg:text-[5rem] xl:text-[6rem] font-black mb-6 sm:mb-8 italic tracking-tighter text-white leading-[0.9] drop-shadow-md">
-                   SOPORTA EL<br/>
-                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-700 block mt-2">DOLOR.</span>
+          <div className="max-w-7xl mx-auto">
+            
+            <div className="text-center mb-20">
+               <h2 className="text-4xl md:text-7xl font-black italic text-white uppercase tracking-tighter mb-4">
+                 EL CAMINO DEL <span className="text-amber-500">MUTANTE</span>
                </h2>
-               
-               <div className="space-y-4 sm:space-y-6 text-zinc-400 text-base sm:text-lg lg:text-xl leading-relaxed font-medium max-w-xl mx-auto lg:mx-0">
-                   <p>Aplico la metodología <strong className="text-white">BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica y la gestión absoluta de la fatiga.</p>
-                   <p>Mi filosofía exige tolerancia: priorizo la técnica impecable con excéntricas de hasta 6 segundos. No busco entretenerte; busco efectividad real.</p>
-               </div>
-               
-               {/* RMs VERIFICADOS - DISEÑO LUJO SILENCIOSO */}
-               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mt-10 sm:mt-14 max-w-4xl mx-auto lg:mx-0">
-                 {[
-                   { v: "+152 KG", l: "Squat" },
-                   { v: "+110 KG", l: "Banca" },
-                   { v: "+110 KG", l: "Deadlift" },
-                   { v: "+60 KG", l: "Militar" },
-                   { v: "+60 KG", l: "Fondos" }
-                 ].map((stat, i) => (
-                   <div key={i} className="bg-[#0a0a0c] p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900 transition-all group shadow-sm">
-                      <p className="text-white font-black text-2xl sm:text-3xl italic leading-none group-hover:text-amber-400 transition-colors drop-shadow-md">{stat.v}</p>
-                      <p className="text-[9px] sm:text-[10px] text-zinc-500 font-black tracking-widest mt-2 uppercase">{stat.l}</p>
-                   </div>
-                 ))}
-               </div>
-             </div>
-           </div>
+               <p className="text-zinc-500 text-sm md:text-base font-medium max-w-2xl mx-auto uppercase tracking-widest">
+                 De la frustración genética a la maestría biomecánica.
+               </p>
+            </div>
+
+            {/* 🔥 CONTENEDOR DE LA LÍNEA DE TIEMPO 🔥 */}
+            <div ref={timelineRef} className="relative max-w-5xl mx-auto mb-32 pb-10">
+              
+              {/* LÍNEA GRIS (FONDO) */}
+              <div className="absolute left-[24px] md:left-1/2 top-0 bottom-0 w-1 bg-zinc-900 md:-translate-x-1/2 rounded-full"></div>
+              
+              {/* LÍNEA DE FUEGO (SE LLENA EXACTO AL BAJAR) */}
+              <div 
+                ref={timelineLineRef} 
+                className="absolute left-[24px] md:left-1/2 top-0 w-1 bg-gradient-to-b from-amber-400 via-amber-600 to-amber-500 md:-translate-x-1/2 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.8)] transition-all duration-75 ease-out z-0" 
+                style={{ height: '0%' }}
+              ></div>
+
+              {/* HITO 1 */}
+              <div ref={(el) => { cardsRef.current[0] = el; }} className="relative flex flex-col md:flex-row items-center justify-between mb-16 group">
+                 <div className={`absolute left-[24px] md:left-1/2 w-6 h-6 border-4 rounded-full md:-translate-x-1/2 transition-all duration-300 z-10 mt-6 md:mt-0 ${activeCard >= 0 ? 'border-amber-500 bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.8)] scale-125' : 'bg-[#050505] border-zinc-700'}`}></div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-0 md:text-right md:pr-12 pt-4 md:pt-0">
+                    <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 0 ? 'text-amber-500' : 'text-zinc-500'}`}>01. La Frustración</span>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 0 ? 'text-white' : 'text-zinc-400'}`}>EL ERROR DE LAS 6 SEMANAS</h3>
+                 </div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-2 md:mt-0">
+                    <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 0 ? 'border-amber-500/50 bg-zinc-900 shadow-[0_10px_30px_rgba(245,158,11,0.15)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
+                       <p className={`text-sm leading-relaxed transition-colors duration-300 ${activeCard >= 0 ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                         Como el 99%, empecé creyendo que más era mejor. 6 días de gimnasio, 20 series por músculo, volumen basura y cero progreso real. Estaba agotado, pero mi físico no cambiaba.
+                       </p>
+                    </div>
+                 </div>
+              </div>
+
+              {/* HITO 2 */}
+              <div ref={(el) => { cardsRef.current[1] = el; }} className="relative flex flex-col md:flex-row-reverse items-center justify-between mb-16 group">
+                 <div className={`absolute left-[24px] md:left-1/2 w-6 h-6 border-4 rounded-full md:-translate-x-1/2 transition-all duration-300 z-10 mt-6 md:mt-0 ${activeCard >= 1 ? 'border-amber-500 bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.8)] scale-125' : 'bg-[#050505] border-zinc-700'}`}></div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-12 pt-4 md:pt-0 text-left">
+                    <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 1 ? 'text-amber-500' : 'text-zinc-500'}`}>02. El Hallazgo</span>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 1 ? 'text-white' : 'text-zinc-400'}`}>MÉTODO BII-VINTAGE</h3>
+                 </div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-0 md:pr-12 mt-2 md:mt-0">
+                    <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 1 ? 'border-amber-500/80 bg-gradient-to-br from-zinc-900 to-[#0a0a0c] shadow-[0_10px_40px_rgba(245,158,11,0.2)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
+                       <p className={`text-sm leading-relaxed font-medium transition-colors duration-300 ${activeCard >= 1 ? 'text-amber-50' : 'text-zinc-500'}`}>
+                         Descubrí que la clave no era añadir, sino recortar. Intensidad absoluta, recuperación quirúrgica y un enfoque obsesivo en la biomecánica. Mis marcas empezaron a volar.
+                       </p>
+                    </div>
+                 </div>
+              </div>
+
+              {/* HITO 3 */}
+              <div ref={(el) => { cardsRef.current[2] = el; }} className="relative flex flex-col md:flex-row items-center justify-between mb-16 group">
+                 <div className={`absolute left-[24px] md:left-1/2 w-6 h-6 border-4 rounded-full md:-translate-x-1/2 transition-all duration-300 z-10 mt-6 md:mt-0 ${activeCard >= 2 ? 'border-amber-500 bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.8)] scale-125' : 'bg-[#050505] border-zinc-700'}`}></div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-0 md:text-right md:pr-12 pt-4 md:pt-0">
+                    <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 2 ? 'text-amber-500' : 'text-zinc-500'}`}>03. El Sistema</span>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 2 ? 'text-white' : 'text-zinc-400'}`}>TUJAGUE STRENGTH</h3>
+                 </div>
+                 
+                 <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-2 md:mt-0">
+                    <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 2 ? 'border-amber-500/50 bg-zinc-900 shadow-[0_10px_30px_rgba(245,158,11,0.15)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
+                       <p className={`text-sm leading-relaxed transition-colors duration-300 ${activeCard >= 2 ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                         Hoy no solo entreno, diseño evolución. He volcado mi metodología en un ecosistema digital que utiliza IA y monitoreo del SNC para que dejes de adivinar y empieces a mutar.
+                       </p>
+                    </div>
+                 </div>
+              </div>
+
+              {/* HITO 4: EL COACH Y TUS RMS */}
+              <div ref={(el) => { cardsRef.current[3] = el; }} className="relative flex flex-col md:flex-row items-center justify-between group mt-24">
+                 <div className={`absolute left-[24px] md:left-1/2 w-8 h-8 border-4 rounded-full md:-translate-x-1/2 transition-all duration-500 z-10 flex items-center justify-center mt-6 md:mt-0 ${activeCard >= 3 ? 'border-amber-500 bg-[#050505] shadow-[0_0_40px_rgba(245,158,11,1)] scale-125' : 'bg-[#050505] border-zinc-700'}`}>
+                   <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${activeCard >= 3 ? 'bg-amber-400 animate-pulse' : 'bg-zinc-700'}`}></div>
+                 </div>
+                 
+                 {/* IZQUIERDA: FOTO DEL COACH */}
+                 <div className="w-full md:w-5/12 pl-16 md:pl-0 md:pr-12 pt-4 md:pt-0 flex justify-center md:justify-end">
+                    <div className={`relative w-[280px] h-[380px] sm:w-[350px] sm:h-[450px] flex-shrink-0 transition-all duration-700 ${activeCard >= 3 ? 'scale-[1.02]' : 'scale-95 opacity-50 grayscale'}`}>
+                      <div className={`absolute -inset-10 bg-[radial-gradient(circle,rgba(245,158,11,0.2)_0%,transparent_60%)] transition-opacity duration-700 transform-gpu ${activeCard >= 3 ? 'opacity-100' : 'opacity-0'}`}></div>
+                      <div className={`relative w-full h-full rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden border transition-colors duration-500 ${activeCard >= 3 ? 'border-amber-500/30 shadow-2xl shadow-amber-500/20' : 'border-zinc-800'}`}>
+                         <Image src="/hero.png" alt="Luciano Tujague" fill className="object-cover" />
+                         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/80 to-transparent">
+                            <span className="font-black text-amber-500 tracking-widest uppercase text-[10px]">Head Coach</span>
+                            <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Luciano Tujague</h3>
+                         </div>
+                      </div>
+                    </div>
+                 </div>
+                 
+                 {/* DERECHA: FILOSOFÍA Y TUS MARCAS */}
+                 <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-8 md:mt-0">
+                    <div className={`text-left min-w-0 max-w-full transition-all duration-700 ${activeCard >= 3 ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-8'}`}>
+                      <span className="text-amber-500 font-black tracking-[0.2em] text-[10px] sm:text-xs mb-4 inline-block uppercase border-b border-amber-500/30 pb-2">Resultados Innegables</span>
+                      
+                      <h2 className="text-4xl sm:text-5xl font-black mb-6 italic tracking-tighter text-white leading-[0.9] drop-shadow-md">
+                          SOPORTA EL<br/>
+                          <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-700 block mt-2">DOLOR.</span>
+                      </h2>
+                      
+                      <p className="text-zinc-400 text-sm sm:text-base leading-relaxed font-medium mb-8">
+                        Aplico la metodología <strong className="text-white">BII-VINTAGE</strong> para maximizar el rendimiento en básicos, enfocándome en la biomecánica y la gestión absoluta de la fatiga.
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        {[
+                          { v: "+152 KG", l: "Squat" },
+                          { v: "+110 KG", l: "Banca" },
+                          { v: "+110 KG", l: "Deadlift" },
+                          { v: "+60 KG", l: "Militar" }
+                        ].map((stat, i) => (
+                          <div key={i} className={`p-4 rounded-2xl border transition-all duration-500 shadow-sm ${activeCard >= 3 ? 'bg-[#0a0a0c] border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#050505] border-zinc-800'}`}>
+                             <p className={`font-black text-2xl italic leading-none drop-shadow-md transition-colors duration-500 ${activeCard >= 3 ? 'text-amber-500' : 'text-zinc-600'}`}>{stat.v}</p>
+                             <p className="text-[9px] text-zinc-500 font-black tracking-widest mt-1 uppercase">{stat.l}</p>
+                          </div>
+                        ))}
+                        <div className={`p-4 rounded-2xl border transition-all duration-500 shadow-sm col-span-2 text-center ${activeCard >= 3 ? 'bg-[#0a0a0c] border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#050505] border-zinc-800'}`}>
+                           <p className={`font-black text-2xl italic leading-none drop-shadow-md transition-colors duration-500 ${activeCard >= 3 ? 'text-amber-500' : 'text-zinc-600'}`}>+60 KG</p>
+                           <p className="text-[9px] text-zinc-500 font-black tracking-widest mt-1 uppercase">Fondos</p>
+                        </div>
+                      </div>
+                    </div>
+                 </div>
+              </div>
+
+            </div>
+
+          </div>
         </RevealOnScroll>
       </section>
 
-      {/* ========================================================= */}
-      {/* 4. EL PANEL Y TECNOLOGÍA (CARACTERÍSTICAS DEL SERVICIO)   */}
+{/* ========================================================= */}
+      {/* 4. EL MANIFIESTO (FILTRO DE IDENTIDAD)                      */}
       {/* ========================================================= */}
       <section className="relative z-10 py-24 sm:py-32 bg-[#000000] border-b border-white/5 overflow-hidden">
          <RevealOnScroll>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-               <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic mb-6 sm:mb-8 text-white tracking-tighter drop-shadow-lg">EL ECOSISTEMA <span className="text-amber-500">DIGITAL</span></h2>
-               <p className="text-zinc-400 mb-16 sm:mb-24 max-w-3xl mx-auto text-base sm:text-xl font-medium leading-relaxed px-4">Olvidate de los PDFs genéricos por correo. Al sumarte a los planes VIP, ingresás a tu propio Dashboard Privado, una herramienta diseñada exclusivamente para el alto rendimiento.</p>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+               <div className="text-center mb-16 sm:mb-24">
+                  <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+                     Filtro de Admisión
+                  </span>
+                  <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic mb-6 sm:mb-8 text-white tracking-tighter drop-shadow-lg">
+                     EL MANIFIESTO <span className="text-amber-500">BII</span>
+                  </h2>
+                  <p className="text-zinc-400 max-w-2xl mx-auto text-sm sm:text-lg font-medium leading-relaxed">
+                     No acepto a cualquiera en la Mentoría Élite. Mi tiempo y la capacidad de mis servidores están reservados exclusivamente para atletas que entienden de qué se trata este juego.
+                  </p>
+               </div>
                
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-                  {[
-                    { icon: "📈", title: "Curva de Progreso", desc: "Tus RMs graficados automáticamente en tiempo real.", colSpan: "lg:col-span-2" },
-                    { icon: "⚡", title: "Control SNC", desc: "Monitoreo diario de sueño, peso y nivel de estrés general.", colSpan: "lg:col-span-1" },
-                    { icon: "🧠", title: "Auto-Regulación", desc: "Ajuste milimétrico de RPE y RIR.", colSpan: "lg:col-span-1" },
-                    { icon: "📹", title: "Auditoría en Video", desc: "Devoluciones cuadro por cuadro del Coach directo en tu panel, para que no pierdas un solo kilo por mala técnica.", colSpan: "lg:col-span-4" }
-                  ].map((feature, i) => (
-                      <div key={i} className={`bg-[#0a0a0c] border border-zinc-800 p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] text-left hover:bg-zinc-900/60 hover:border-amber-500/50 transition-all duration-500 shadow-sm group ${feature.colSpan}`}>
-                          <div className="text-4xl sm:text-5xl mb-6 sm:mb-8 bg-black w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center rounded-2xl sm:rounded-3xl border border-zinc-800 shadow-inner group-hover:scale-110 transition-transform">{feature.icon}</div>
-                          <h3 className="text-white font-black italic text-2xl sm:text-3xl uppercase tracking-tight mb-3 sm:mb-4">{feature.title}</h3>
-                          <p className="text-zinc-400 text-sm sm:text-base font-medium leading-relaxed">{feature.desc}</p>
-                      </div>
-                  ))}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
+                  
+                  {/* LOS RECHAZADOS (Izquierda) */}
+                  <div className="bg-[#050505] border border-red-900/30 p-8 sm:p-10 rounded-[2.5rem] relative overflow-hidden group hover:border-red-500/50 transition-all duration-500 shadow-[0_0_30px_rgba(239,68,68,0.02)] hover:shadow-[0_0_40px_rgba(239,68,68,0.05)]">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+                     <div className="text-red-500 text-4xl mb-6">✕</div>
+                     <h3 className="text-2xl font-black italic text-white uppercase tracking-tight mb-6">ESTO <span className="text-red-500">NO ES</span> PARA VOS SI:</h3>
+                     <ul className="space-y-4">
+                        <li className="flex items-start gap-3">
+                           <span className="text-red-500 mt-1">▪</span>
+                           <span className="text-zinc-400 text-sm font-medium">Buscás "entretenerte" en el gimnasio saltando de máquina en máquina sin una estructura fija.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-red-500 mt-1">▪</span>
+                           <span className="text-zinc-400 text-sm font-medium">Creés que entrenar 6 días a la semana te hace "más disciplinado" (solo te hace propenso a lesiones y pérdida de tiempo).</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-red-500 mt-1">▪</span>
+                           <span className="text-zinc-400 text-sm font-medium">No estás dispuesto a grabarte para que audite tu técnica. El ego no te deja desarmar tu sentadilla para volver a aprender.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-red-500 mt-1">▪</span>
+                           <span className="text-zinc-400 text-sm font-medium">Buscás atajos mágicos en 2 semanas sin registrar tu fatiga, RPE o Sistema Nervioso Central.</span>
+                        </li>
+                     </ul>
+                  </div>
+
+                  {/* LOS MUTANTES (Derecha) */}
+                  <div className="bg-gradient-to-b from-[#0a0a0c] to-[#050505] border border-amber-500/30 p-8 sm:p-10 rounded-[2.5rem] relative overflow-hidden group hover:border-amber-500/80 transition-all duration-500 shadow-[0_10px_40px_rgba(245,158,11,0.1)] hover:shadow-[0_10px_50px_rgba(245,158,11,0.2)] md:-translate-y-4">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
+                     <div className="text-amber-500 text-4xl mb-6">✓</div>
+                     <h3 className="text-2xl font-black italic text-white uppercase tracking-tight mb-6">ESTO ES <span className="text-amber-500">EXACTAMENTE</span> PARA VOS SI:</h3>
+                     <ul className="space-y-4">
+                        <li className="flex items-start gap-3">
+                           <span className="text-amber-500 mt-1">▪</span>
+                           <span className="text-zinc-300 text-sm font-medium">Estás estancado en tus marcas y entendiste que la fuerza real viene de la optimización del torque y la biomecánica.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-amber-500 mt-1">▪</span>
+                           <span className="text-zinc-300 text-sm font-medium">Valorás tu tiempo. Preferís ir 3/4 días con intensidad absoluta y dejar que la recuperación haga la magia de la hipertrofia.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-amber-500 mt-1">▪</span>
+                           <span className="text-zinc-300 text-sm font-medium">Querés dejar de ser tu propio experimento y usar una estructura probada, auditada por un Coach y respaldada por IA.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                           <span className="text-amber-500 mt-1">▪</span>
+                           <span className="text-zinc-300 text-sm font-medium">Sos calculador: estás dispuesto a reportar tu fatiga y calidad de sueño para que el sistema calibre tu volumen exacto.</span>
+                        </li>
+                     </ul>
+                  </div>
+
                </div>
             </div>
          </RevealOnScroll>
       </section>
 
       {/* ========================================================= */}
-      {/* 5. TUJAGUE AI SYSTEM (AZUL TECNOLÓGICO)                   */}
+      {/* 5. TUJAGUE AI SYSTEM                                      */}
       {/* ========================================================= */}
       <section className="relative z-10 py-24 sm:py-32 bg-[#020202] border-b border-white/5 overflow-hidden transform-gpu">
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle,rgba(59,130,246,0.1)_0%,transparent_50%)] pointer-events-none transform-gpu"></div>
@@ -742,13 +703,13 @@ const getDiagnosticText = () => {
                
                <div className="flex-1 text-center lg:text-left w-full">
                   <span className="bg-blue-500/10 border border-blue-500/30 text-blue-400 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-[9px] sm:text-[10px] font-black tracking-widest uppercase mb-6 inline-block shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-                      Exclusivo Planes Mensuales VIP
+                      Exclusivo Programa Élite
                   </span>
                   <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic tracking-tighter text-white mb-6 sm:mb-8 leading-none drop-shadow-md">
                       SOPORTE INTELIGENTE <span className="text-blue-500 block sm:inline">24/7</span>
                   </h2>
                   <p className="text-zinc-400 font-medium leading-relaxed mb-10 sm:mb-14 text-base sm:text-xl">
-                      Nuestros planes mensuales incluyen acceso a <strong>Tujague AI</strong>. Un sistema de inteligencia artificial entrenado con mi metodología para resolver dudas estructurales, nutricionales y de biomecánica al instante.
+                      Nuestra Mentoría incluye acceso a <strong>Tujague AI</strong>. Un sistema de inteligencia artificial entrenado con mi metodología para resolver dudas estructurales, nutricionales y de biomecánica al instante.
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto lg:mx-0 text-left">
@@ -810,265 +771,157 @@ const getDiagnosticText = () => {
       </section>
 
       {/* ========================================================= */}
-      {/* 6. TRIAGE CLÍNICO (TEST TIPO APP iOS)                       */}
+      {/* 6. SISTEMA DE TRIAGE (TEST PREDICTIVO)                      */}
       {/* ========================================================= */}
       <section className="relative z-20 py-24 sm:py-32 px-4 sm:px-6 bg-[#000000] border-b border-white/5 overflow-hidden transform-gpu">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none transform-gpu"></div>
         <RevealOnScroll>
-           <div className="max-w-4xl mx-auto text-center relative z-10">
+            <div className="max-w-4xl mx-auto text-center relative z-10">
               <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-5 py-2 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-6 sm:mb-8 inline-block animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                 Evaluación Estructural
+                 Diagnóstico Predictivo
               </span>
               <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic tracking-tighter text-white mb-6 drop-shadow-lg">
                  SISTEMA DE <span className="text-amber-500 block sm:inline">TRIAGE</span>
               </h2>
               <p className="text-zinc-400 font-medium mb-10 sm:mb-14 max-w-xl mx-auto text-sm sm:text-base px-4">
-                 El 90% de los atletas fracasa por una mala gestión de la fatiga. Respondé esta auditoría de 3 pasos y nuestro algoritmo determinará la dosis exacta de volumen que tu Sistema Nervioso Central necesita para mutar sin romperse.
+                 No todos califican para la Mentoría Élite. Respondé con honestidad para que el algoritmo determine tu ruta óptima de entrenamiento BII.
               </p>
 
-              {/* Diseño "App de iOS" para el Test */}
               <div className="bg-[#0a0a0c] border border-zinc-800 p-6 sm:p-10 md:p-14 rounded-[2.5rem] sm:rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-xl relative min-h-[350px] sm:min-h-[400px] flex flex-col justify-center text-left">
                  
-                 {/* PASO 0: Inicio */}
-                 {quizStep === 0 && (
+                 {/* PANTALLA DE INICIO */}
+                 {triageStep === 0 && (
                     <div className="animate-in fade-in zoom-in duration-300 text-center">
                         <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#050505] border border-zinc-800 rounded-3xl flex items-center justify-center text-4xl sm:text-5xl mx-auto mb-8 shadow-inner">
-                            🔬
+                           🎯
                         </div>
-                        <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight mb-8 sm:mb-10">Iniciar Auditoría</h3>
+                        <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight mb-4 sm:mb-6">¿Qué protocolo necesitás?</h3>
+                        <p className="text-zinc-400 mb-8 max-w-md mx-auto text-sm md:text-base">Evaluaremos tu contexto biomecánico y logístico en 3 simples preguntas.</p>
                         <button 
-                            onClick={() => setQuizStep(1)}
+                            onClick={() => setTriageStep(1)}
                             className="bg-amber-500 hover:bg-amber-400 text-black px-10 sm:px-14 py-5 sm:py-6 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95 w-full sm:w-auto"
                         >
-                            Comenzar Test ⚡
+                            Comenzar Diagnóstico ⚡
                         </button>
                     </div>
                  )}
 
-                 {/* PASO 1: Limitante */}
-                 {quizStep === 1 && !isAnalyzing && (
+                 {/* PREGUNTA 1 */}
+                 {triageStep === 1 && (
                     <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <div className="flex items-center gap-2 mb-6">
-                           {[1, 2, 3].map(num => (
-                              <div key={num} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${quizStep >= num ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-800'}`}></div>
-                           ))}
-                        </div>
-<h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">1. ¿Cuál es tu síntoma principal?</h3>
+                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 1 de 3</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">1. ¿Cuál es tu mayor obstáculo actual bajo la barra?</h3>
                         <div className="space-y-3">
-                            {[
-                                { label: "Estancamiento Crónico", desc: "No logro subir mis marcas, siento que acumulo fatiga.", value: "estancamiento" },
-                                { label: "Dolores y Molestias", desc: "Me duelen las articulaciones al cargar pesado.", value: "lesiones" },
-                                { label: "Falta de Estímulo", desc: "Quiero hipertrofia y mutar visualmente, no sé cómo aislar el músculo.", value: "hipertrofia" }
-                            ].map((opt, idx) => (
-                                <button 
-                                   key={idx}
-                                   onClick={() => handleQuizAnswer('dolor', opt.value)}
-                                   className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(245,158,11,0.1)]"
-                                >
-                                    <p className="text-amber-500 font-black uppercase tracking-widest text-[10px] mb-1 group-hover:text-amber-400">{opt.label}</p>
-                                    <p className="text-zinc-300 text-xs sm:text-sm font-medium">{opt.desc}</p>
-                                </button>
-                            ))}
+                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Estoy estancado en mis marcas.</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Siento dolores crónicos y la fatiga me está pasando factura hace meses.</p>
+                            </button>
+                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Avanzo bien, me falta estructura.</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">No tengo dolores graves, solo necesito un plan claro para progresar.</p>
+                            </button>
                         </div>
                     </div>
                  )}
 
-                 {/* PASO 2: Experiencia/Nivel */}
-                 {quizStep === 2 && !isAnalyzing && (
+                 {/* PREGUNTA 2 */}
+                 {triageStep === 2 && (
                     <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <div className="flex items-center gap-2 mb-6">
-                           {[1, 2, 3].map(num => (
-                              <div key={num} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${quizStep >= num ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-800'}`}></div>
-                           ))}
-                        </div>
-<h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">2. ¿Qué nivel de soporte buscás?</h3>
+                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 2 de 3</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">2. ¿Qué nivel de precisión técnica buscás?</h3>
                         <div className="space-y-3">
-                            {[
-                                { label: "🚨 URGENTE: Necesito Coaching VIP", desc: "Quiero que auditen mi técnica en video y controlen mi fatiga para no romperme.", value: "vip" },
-                                { label: "🛑 INTERMEDIO: Solo dame los planos", desc: "Entreno por mi cuenta. Solo quiero las estructuras BII-Vintage a seguir.", value: "solo" }
-                            ].map((opt, idx) => (
-                                <button 
-                                   key={idx}
-                                   onClick={() => handleQuizAnswer('soporte', opt.value)}
-                                   className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(245,158,11,0.1)]"
-                                >
-                                    <p className="text-amber-500 font-black uppercase tracking-widest text-[10px] mb-1 group-hover:text-amber-400">{opt.label}</p>
-                                    <p className="text-zinc-300 text-xs sm:text-sm font-medium">{opt.desc}</p>
-                                </button>
-                            ))}
+                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Auditoría Quirúrgica (Video).</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Necesito que corrijas mis videos, ajustes mis palancas y sigas mi recuperación.</p>
+                            </button>
+                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Do It Yourself (Independiente).</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Tengo técnica decente, solo decime el volumen y la intensidad. Yo lo ejecuto solo.</p>
+                            </button>
                         </div>
                     </div>
                  )}
 
-                 {/* PASO 3: Días */}
-                 {quizStep === 3 && !isAnalyzing && (
+                 {/* PREGUNTA 3 */}
+                 {triageStep === 3 && (
                     <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <div className="flex items-center gap-2 mb-6">
-                           {[1, 2, 3].map(num => (
-                              <div key={num} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${quizStep >= num ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-800'}`}></div>
-                           ))}
-                        </div>
-                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">3. ¿Cuántos días reales podés entrenar sin fallar?</h3>
+                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 3 de 3</p>
+                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">3. ¿Cuál es tu compromiso con este proceso?</h3>
                         <div className="space-y-3">
-                            {[
-                                { label: "2 a 3 Días", desc: "Baja frecuencia. Requiere una intensidad brutal.", value: "bajo" },
-                                { label: "4 Días", desc: "Frecuencia estándar. La mejor para gestionar fatiga.", value: "medio" },
-                                { label: "5 a 6 Días", desc: "Alto volumen. Zona de peligro para el Sistema Nervioso.", value: "alto" }
-                            ].map((opt, idx) => (
-                                <button 
-                                   key={idx}
-                                   onClick={() => handleQuizAnswer('dias', opt.value)}
-                                   className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(245,158,11,0.1)]"
-                                >
-                                    <p className="text-amber-500 font-black uppercase tracking-widest text-[10px] mb-1 group-hover:text-amber-400">{opt.label}</p>
-                                    <p className="text-zinc-300 text-xs sm:text-sm font-medium">{opt.desc}</p>
-                                </button>
-                            ))}
+                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Voy a por todo. (High-Ticket)</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Quiero acceso total a la IA, al Dashboard privado y a la Mentoría Premium.</p>
+                            </button>
+                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
+                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Presupuesto Inicial. (Low-Ticket)</p>
+                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Quiero probar un mesociclo estandarizado económico antes de dar el salto.</p>
+                            </button>
                         </div>
                     </div>
                  )}
 
-                 {/* PANTALLA DE CARGA FALSA */}
-                 {isAnalyzing && (
-                    <div className="text-center py-12 animate-in fade-in duration-300 w-full">
-                        <div className="w-16 h-16 border-4 border-zinc-800 border-t-amber-500 rounded-full animate-spin mx-auto mb-6 shadow-[0_0_30px_rgba(245,158,11,0.2)]"></div>
-                        <h4 className="text-amber-400 font-black uppercase tracking-widest text-sm mb-2">Procesando Biometría...</h4>
-                        <p className="text-zinc-500 text-xs font-mono">{analysisText}</p>
-                    </div>
-                 )}
-
-                 {/* PASO 4: RESULTADO CLÍNICO Y CTA */}
-                 {quizStep === 4 && recommendedPlan && (
+                 {/* RESULTADO FINAL */}
+                 {triageStep === 4 && (
                     <div className="animate-in zoom-in duration-500 w-full text-left">
+                        <div className="text-center mb-8">
+                           <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-[0_0_40px_rgba(245,158,11,0.2)] bg-zinc-900 border-2 border-amber-500">
+                             {eliteScore >= 2 ? '👑' : '📄'}
+                           </div>
+                           <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight">
+                             {eliteScore >= 2 ? 'Tu camino es la Mentoría Élite' : 'Tu camino es un Plan Estático'}
+                           </h3>
+                        </div>
+
                         <div className="bg-[#050505] border border-amber-500/30 rounded-2xl p-6 md:p-8 mb-8 relative shadow-inner">
                             <div className="absolute top-0 left-0 w-2 h-full bg-amber-500 rounded-l-2xl"></div>
-                            <h4 className="text-amber-400 font-black italic uppercase text-lg md:text-xl mb-4 tracking-tight flex items-center gap-2">
-                               <span className="text-2xl">📋</span> Dictamen Estructural:
-                            </h4>
-                            <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                                {getDiagnosticText()}
+                            <p className="text-zinc-300 text-sm md:text-base leading-relaxed font-medium">
+                                {eliteScore >= 2 
+                                  ? "Tus respuestas indican que necesitás atención personalizada, corrección de palancas y seguimiento de fatiga. La Mentoría High-Ticket es la única forma de garantizar tus resultados sin lesionarte."
+                                  : "Tus respuestas indican que sos independiente y tenés un presupuesto ajustado. Un PDF estandarizado con la estructura BII-Vintage es exactamente lo que necesitás hoy para destrabar tus marcas."
+                                }
                             </p>
                         </div>
 
-                        <div className="text-center bg-[#050505] border border-zinc-800 p-6 md:p-8 rounded-2xl shadow-sm">
-                            <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-2">La solución para tu caso:</p>
-                            <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight mb-6">
-                                {recommendedPlan.title}
-                            </h3>
-                            
-                            <div className="flex flex-col sm:flex-row justify-center gap-4 w-full">
+                        <div className="flex flex-col sm:flex-row justify-center gap-4 w-full">
+                            {eliteScore >= 2 ? (
                                 <button 
-                                   onClick={handleAcceptRecommendation}
-                                   className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-black px-8 py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95"
+                                   onClick={() => { document.getElementById('cajas-nuevas')?.scrollIntoView({ behavior: 'smooth' }); }}
+                                   className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-95"
                                 >
-                                    APLICAR AL PLAN 🚀
+                                   VER MENTORÍA ÉLITE 🚀
                                 </button>
-<button 
-                                   onClick={() => { setQuizStep(0); setQuizAnswers({dolor: "", soporte: "", dias: ""}); }}
-                                   className="w-full sm:w-auto bg-transparent border border-zinc-700 hover:border-zinc-500 text-zinc-400 px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
+                            ) : (
+                                <button 
+                                   onClick={() => { document.getElementById('cajas-nuevas')?.scrollIntoView({ behavior: 'smooth' }); }}
+                                   className="w-full sm:w-auto bg-zinc-100 hover:bg-white text-black px-8 py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-95"
                                 >
-                                    Rehacer Test
+                                   VER PLANES ESTÁTICOS 📄
                                 </button>
-                            </div>
+                            )}
+                            <button 
+                               onClick={resetTriage}
+                               className="w-full sm:w-auto bg-transparent border border-zinc-700 hover:border-zinc-500 text-zinc-400 px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
+                            >
+                               Rehacer Test
+                            </button>
                         </div>
                     </div>
                  )}
 
               </div>
-           </div>
+            </div>
         </RevealOnScroll>
       </section>
 
       {/* ========================================================= */}
-      {/* 7. EL COMPONENTE PRICINGV2 (LOS PLANES VIP)               */}
+      {/* 7. LA NUEVA OFERTA (PRECIOS UNIFICADOS)                   */}
       {/* ========================================================= */}
-      <div id="cajas-nuevas">
-         <PricingV2 onSelectPlan={handleSelectPlan} />
-      </div>
-
-      {/* ========================================================= */}
-      {/* 8. LA BÓVEDA ESTÁTICA (DOWNSELL Y PRODUCTOS BARATOS)      */}
-      {/* ========================================================= */}
-      <section id="boveda-estatica" className="relative z-10 py-24 sm:py-32 px-4 sm:px-6 bg-[#000000] border-t border-zinc-800/50 overflow-hidden transform-gpu">
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[radial-gradient(circle,rgba(39,39,42,0.3)_0%,transparent_60%)] pointer-events-none transform-gpu"></div>
-         <RevealOnScroll>
-            <div className="max-w-7xl mx-auto relative z-10">
-               <div className="text-center mb-16 sm:mb-20">
-                  <span className="bg-zinc-900 border border-zinc-700 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">
-                      Material Autodidacta
-                  </span>
-                  <h2 className="text-4xl sm:text-5xl md:text-7xl font-black italic tracking-tighter text-zinc-300 mb-6 drop-shadow-md">
-                      LA BÓVEDA ESTÁTICA: <span className="text-white block sm:inline">PLANOS CRUDOS</span>
-                  </h2>
-                  <p className="text-zinc-500 font-medium max-w-2xl mx-auto text-sm sm:text-lg">
-                      Adquirí las estructuras y protocolos exactos que uso con mis atletas. <br className="hidden sm:block"/> <strong className="text-red-500">ADVERTENCIA:</strong> Estos pases NO incluyen corrección de video, NO incluyen ajuste de fatiga, ni soporte de WhatsApp.
-                  </p>
-               </div>
-
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 max-w-6xl mx-auto">
-                  {PRICING_MATRIX.static.map((plan) => (
-                     <div 
-                        key={plan.id} 
-                        onClick={() => handleSelectPlan(plan)}
-                        className={`p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] cursor-pointer group transition-all duration-300 border bg-[#0a0a0c] flex flex-col ${
-                           selectedPlan?.id === plan.id 
-                           ? 'border-white scale-[1.02] shadow-[0_0_50px_rgba(255,255,255,0.1)] z-10' 
-                           : 'border-zinc-800 hover:border-zinc-500 shadow-sm'
-                        }`}
-                     >
-                        <h3 className="text-xl sm:text-2xl font-black italic mb-1 tracking-tighter text-zinc-300 uppercase">{plan.title}</h3>
-                        <p className="text-zinc-500 font-bold tracking-[0.2em] text-[8px] sm:text-[10px] mb-4 border-b border-zinc-800/80 pb-4 uppercase">{plan.subtitle}</p>
-                        
-                        <div className="text-3xl sm:text-4xl font-black mb-3 text-white tracking-tighter flex items-center">
-                           <span className="text-lg sm:text-xl text-zinc-600 mr-2">$</span>
-                           {plan.price.toLocaleString('es-AR')} 
-                        </div>
-
-                        {/* Etiqueta especial solo para el producto de Brazos */}
-                        {plan.id === 'especializacion-brazos-mutantes' ? (
-                           <div className="bg-[#050505] border border-amber-500/30 p-3 rounded-xl mb-4">
-                              <p className="text-[7px] sm:text-[8px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">Módulo Complementario:</p>
-                              <p className="text-[10px] sm:text-xs text-zinc-300 font-bold">Sumale 15 mins a tu rutina y explotá tus brazos.</p>
-                           </div>
-                        ) : plan.id === 'calculadora-volumen-basura' ? (
-                           <div className="bg-[#050505] border border-amber-500/30 p-3 rounded-xl mb-4">
-                              <p className="text-[7px] sm:text-[8px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">Software de Diagnóstico:</p>
-                              <p className="text-[10px] sm:text-xs text-zinc-300 font-bold">Auditoría automática BII-Vintage.</p>
-                           </div>
-                        ) : (
-                           <div className="bg-[#050505] border border-zinc-800 p-3 rounded-xl mb-4">
-                              <p className="text-[7px] sm:text-[8px] font-black text-red-500 uppercase tracking-[0.2em] mb-1">⚠️ Restricción Clínica:</p>
-                              <p className="text-[10px] sm:text-xs text-zinc-400 font-bold">Solo para atletas experimentados que dominan el RPE.</p>
-                           </div>
-                        )}
-
-                        <p className="text-zinc-500 mb-6 text-xs sm:text-sm leading-relaxed flex-grow">{plan.description}</p>
-                        
-                        <ul className="space-y-2 mb-6">
-                           {plan.features.map((f, idx) => (
-                           <li key={idx} className={`flex items-start gap-2 text-xs font-medium ${f.includes('✗') ? 'text-zinc-600' : 'text-zinc-300'}`}>
-                              <span className="font-black mt-0.5">{f.includes('✗') ? '' : '✓'}</span>
-                              <span>{f}</span>
-                           </li>
-                           ))}
-                        </ul>
-
-                        <button className={`w-full py-3 sm:py-4 rounded-xl font-black tracking-[0.2em] text-[9px] transition-all duration-300 uppercase border ${
-                           selectedPlan?.id === plan.id 
-                           ? 'bg-white text-black border-white shadow-[0_0_30px_rgba(255,255,255,0.3)]' 
-                           : 'bg-[#050505] text-zinc-400 group-hover:bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'
-                        }`}>
-                           {selectedPlan?.id === plan.id ? 'PLANO SELECCIONADO' : plan.actionLabel}
-                        </button>
-                     </div>
-                  ))}
-               </div>
-            </div>
-         </RevealOnScroll>
-      </section>
+      <RevealOnScroll>
+        <PricingV2 onSelectPlan={handleSelectPlan} />
+      </RevealOnScroll>
 
       {/* ========================================================= */}
-      {/* 9. CHECKOUT GLOBAL                                        */}
+      {/* 8. CHECKOUT GLOBAL                                        */}
       {/* ========================================================= */}
       <section id="checkout-final" className="relative z-10 pt-20 sm:pt-32 pb-32 sm:pb-48 px-4 sm:px-6 bg-[#000000] border-t border-white/5 overflow-hidden">
         <RevealOnScroll>
@@ -1081,7 +934,7 @@ const getDiagnosticText = () => {
              
              {selectedPlan ? (
                <div className="bg-[#0a0a0c] border border-zinc-800/80 rounded-[2.5rem] sm:rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden pb-12 lg:pb-0 backdrop-blur-2xl">
-                 <div className={`absolute top-0 right-0 w-[500px] h-[500px] pointer-events-none -mr-40 -mt-40 transform-gpu ${selectedPlan?.id.startsWith('static') || selectedPlan?.id.startsWith('especializacion') || selectedPlan?.id.startsWith('calculadora') ? 'bg-[radial-gradient(circle,rgba(255,255,255,0.05)_0%,transparent_60%)]' : 'bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_60%)]'}`}></div>
+                 <div className={`absolute top-0 right-0 w-[500px] h-[500px] pointer-events-none -mr-40 -mt-40 transform-gpu ${selectedPlan?.id.startsWith('static') || selectedPlan?.id.startsWith('mesociclo') ? 'bg-[radial-gradient(circle,rgba(255,255,255,0.05)_0%,transparent_60%)]' : 'bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_60%)]'}`}></div>
                  
                  <div className="p-4 sm:p-6 bg-[#050505] border-b border-zinc-800 flex justify-between items-center relative z-20">
                     <button 
@@ -1098,11 +951,10 @@ const getDiagnosticText = () => {
                     </button>
                  </div>
 
-                 {/* Pasamos addVideoReview como false forzosamente si es un plan estático */}
                  <CheckoutClient 
                     selectedPlan={selectedPlan} 
-                    extraVideo={(selectedPlan.id.startsWith('static') || selectedPlan.id.startsWith('especializacion') || selectedPlan.id.startsWith('calculadora')) ? false : addVideoReview} 
-                    extraPrice={extraVideoPrice}
+                    extraVideo={false} 
+                    extraPrice={0}
                  />
                </div>
              ) : (
@@ -1120,7 +972,7 @@ const getDiagnosticText = () => {
       </section>
 
       {/* ========================================================= */}
-      {/* 10. PREGUNTAS FRECUENTES Y FOOTER                         */}
+      {/* 9. PREGUNTAS FRECUENTES Y FOOTER                          */}
       {/* ========================================================= */}
       <section className="relative z-10 py-24 lg:py-32 px-4 sm:px-6 bg-[#050505] border-t border-white/5">
          <RevealOnScroll>
@@ -1129,7 +981,7 @@ const getDiagnosticText = () => {
                   
                   <div className="lg:col-span-5 text-center lg:text-left sticky top-32">
                      <h2 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-white mb-4 drop-shadow-md">PREGUNTAS <span className="text-amber-500 block">FRECUENTES</span></h2>
-                     <p className="text-zinc-400 font-medium text-sm lg:text-base mb-8">Resolvé tus dudas antes de elegir tu plan de entrenamiento. La claridad es fundamental antes de comprometerse con el proceso.</p>
+                     <p className="text-zinc-400 font-medium text-sm lg:text-base mb-8">Resolvé tus dudas antes de aplicar. La claridad es fundamental antes de comprometerse con el proceso.</p>
                      
                      <div className="hidden lg:flex items-center gap-4 bg-[#0a0a0c] p-6 rounded-2xl border border-zinc-800">
                         <span className="text-3xl">💬</span>

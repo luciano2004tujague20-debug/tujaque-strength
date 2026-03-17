@@ -210,10 +210,22 @@ export default function AdminOrdersPage() {
         runRadarAnalysis(ordersData); // Ejecutamos la IA rápida al cargar
     }
     
-    if (plansData) {
-        setPlans(plansData);
-        if (plansData.length > 0) {
-            setNewAthlete(prev => ({ ...prev, planCode: plansData[0].code }));
+if (plansData) {
+        // 🔥 FILTRO HIGH-TICKET: Mostramos los planes oficiales 3.0
+        const activePlanCodes = [
+            'elite-90-dias', 
+            'elite-180-dias', 
+            'leyenda-365-dias',
+            'static-fuerza', 
+            'static-hipertrofia', 
+            'mesociclo-definicion-4-semanas'
+        ];
+        
+        const filteredPlans = plansData.filter(p => activePlanCodes.includes(p.code));
+        
+        setPlans(filteredPlans);
+        if (filteredPlans.length > 0) {
+            setNewAthlete(prev => ({ ...prev, planCode: filteredPlans[0].code }));
         }
     }
     setLoading(false);
@@ -293,7 +305,7 @@ export default function AdminOrdersPage() {
               body: JSON.stringify({ athletesData: activeAthletesSummary })
           });
           const data = await res.json();
-          if (data.result) setRadarReport(data.result);
+          if (data.result) setRadarReport(data.result.replace(/\*\*/g, ''));
       } catch (error) {
           setRadarReport("Fallo de conexión satelital con el Radar IA.");
       } finally {
@@ -401,8 +413,16 @@ export default function AdminOrdersPage() {
           const { error } = await supabase.from('orders').update(updatePayload).eq('order_id', order.order_id);
           if (error) throw error;
 
-          alert("✅ Pago aprobado y atleta activado.");
           fetchData(); 
+          
+// 📲 MAGIA HIGH-TICKET: Abrir WhatsApp automático al aprobar
+          const isElite = order.plan_id?.includes('elite') || order.plan_id?.includes('leyenda');
+          const phone = order.onboarding_data?.phone ? order.onboarding_data.phone.replace(/[^0-9]/g, '') : '';
+          const waMsg = encodeURIComponent(`¡Fiera! Acabo de procesar tu pago por el ${isElite ? 'Programa Élite' : 'Plan Estático'}. Tu panel VIP ya está 100% activo en la web. ¡Arrancamos con todo! 🚀`);
+          const waUrl = phone ? `https://api.whatsapp.com/send?phone=${phone}&text=${waMsg}` : `https://api.whatsapp.com/send?text=${waMsg}`;
+          
+          alert("✅ Pago aprobado y rutina inyectada. Abriendo WhatsApp para saludar al atleta...");
+          window.open(waUrl, '_blank');
       } catch (err: any) {
           alert("Error al aprobar: " + err.message);
       } finally {
@@ -453,7 +473,25 @@ export default function AdminOrdersPage() {
     } catch (error: any) { alert("❌ Error: " + error.message); } finally { setCreating(false); }
   }
 
-  const totalRecaudado = orders.filter((o) => o.status === "paid").reduce((acc, curr) => acc + Number(curr.amount_ars), 0);
+  // ✅ SEPARACIÓN DE DIVISAS INTELIGENTE (Pesos y Dólares)
+  const totalARS = orders
+      .filter((o) => o.status === "paid" && Number(o.amount_ars) > 1000) 
+      .reduce((acc, curr) => acc + Number(curr.amount_ars), 0);
+
+  const totalUSD = orders
+      .filter((o) => {
+// Es USD si el monto numérico exacto es bajo (USD), o si el plan incluye la palabra Elite o Leyenda.
+          const isElitePlan = o.plan_id?.includes('elite') || o.plan_id?.includes('leyenda');
+          const isLowAmount = Number(o.amount_ars) <= 1000;
+          return o.status === "paid" && (isElitePlan || isLowAmount);
+      })
+      .reduce((acc, curr) => {
+          // Si el plan es elite pero por algún error guardó "725000", forzamos a sumar "500" a la bolsa USD
+          if (curr.plan_id === 'programa-elite-12-semanas' && Number(curr.amount_ars) > 1000) {
+              return acc + 500;
+          }
+          return acc + Number(curr.amount_ars);
+      }, 0);
 
   // ✅ SEMÁFORO DE FATIGA
   const getFatigueStatus = (order: any) => {
@@ -465,16 +503,18 @@ export default function AdminOrdersPage() {
      return { color: "bg-emerald-500", text: "Óptimo", pulse: false };
   };
 
-  // Filtrado visual de la tabla
+// Filtrado visual de la tabla (NUEVO MODELO HIGH-TICKET 3.0)
   const filteredOrders = orders.filter(o => {
-      if (filterTab === 'activos') return o.status === 'paid' && o.sub_status === 'active';
-      if (filterTab === 'pendientes') return o.status === 'awaiting_payment' || o.status === 'pending';
-      if (filterTab === 'vencidos') return o.sub_status === 'vencido';
+      const isElite = o.plan_id?.includes('elite') || o.plan_id?.includes('leyenda');
+      if (filterTab === 'todos') return true;
+      if (filterTab === 'elite') return isElite && o.status === 'paid';
+      if (filterTab === 'estaticos') return !isElite && o.status === 'paid';
+      if (filterTab === 'pendientes') return (o.status === 'awaiting_payment' || o.status === 'pending');
       return true;
   });
 
   return (
-<div className="bg-transparent min-h-screen text-white font-sans pb-20 selection:bg-amber-500 selection:text-black relative">      
+    <div className="bg-transparent min-h-screen text-white font-sans pb-20 selection:bg-amber-500 selection:text-black relative">      
       {/* Fondo VIP Global */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[150px] pointer-events-none"></div>
 
@@ -510,12 +550,19 @@ export default function AdminOrdersPage() {
                 </button>
             </div>
 
-            <div className="w-full sm:w-auto bg-[#050505] border border-zinc-800 p-5 md:p-6 rounded-xl md:rounded-2xl text-center sm:text-right min-w-[200px] shadow-inner">
-                <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-center sm:justify-end gap-2">
+            <div className="w-full sm:w-auto bg-[#050505] border border-zinc-800 p-4 md:p-5 rounded-xl md:rounded-2xl text-center sm:text-right min-w-[200px] shadow-inner">
+                <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500 mb-2 flex items-center justify-center sm:justify-end gap-2 border-b border-zinc-800/80 pb-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></span>
                   Capital Recaudado
                 </p>
-                <p className="text-3xl md:text-4xl font-black italic text-emerald-400 tracking-tight">${totalRecaudado.toLocaleString()}</p>
+                <div className="flex flex-col items-center sm:items-end gap-1">
+                    <p className="text-2xl md:text-3xl font-black italic text-emerald-400 tracking-tight">
+                       ${totalARS.toLocaleString('es-AR')} <span className="text-[9px] md:text-[10px] text-zinc-500 not-italic font-bold">ARS</span>
+                    </p>
+                    <p className="text-xl md:text-2xl font-black italic text-emerald-500 tracking-tight">
+                       ${totalUSD.toLocaleString('en-US')} <span className="text-[9px] md:text-[10px] text-zinc-500 not-italic font-bold">USD</span>
+                    </p>
+                </div>
             </div>
           </div>
         </div>
@@ -583,7 +630,8 @@ export default function AdminOrdersPage() {
             
             <div className="flex bg-[#0a0a0c] p-1 rounded-xl border border-zinc-800 shadow-inner w-full sm:w-auto overflow-x-auto">
                 <button onClick={() => setFilterTab('todos')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'todos' ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}>Todos</button>
-                <button onClick={() => setFilterTab('activos')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'activos' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}>Activos</button>
+                <button onClick={() => setFilterTab('elite')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'elite' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}>💎 Élite VIP</button>
+                <button onClick={() => setFilterTab('estaticos')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'estaticos' ? 'bg-zinc-800/80 text-zinc-300 border border-zinc-600 shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}>📄 Estáticos</button>
                 <button onClick={() => setFilterTab('pendientes')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'pendientes' ? 'bg-orange-600/20 text-orange-400 border border-orange-500/30 shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}>Pendientes</button>
             </div>
         </div>
@@ -640,10 +688,19 @@ export default function AdminOrdersPage() {
                                                 </div>
                                             </td>
 
-                                            {/* Columna: Plan Contratado */}
-                                            <td className="p-5">
-                                                <p className="text-xs font-bold text-zinc-300 uppercase">{order.plans?.name || 'Plan Eliminado'}</p>
-                                                {order.has_kit && <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 mt-1 inline-block">+ Kit Acelerador</span>}
+                                            {/* Columna: Plan Contratado (Jerarquía Visual) */}
+<td className="p-5 flex flex-col items-start gap-1 mt-2">
+                                                {(order.plan_id?.includes('elite') || order.plan_id?.includes('leyenda')) ? (
+                                                    <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1">
+                                                        💎 High-Ticket
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1">
+                                                        📄 Bóveda
+                                                    </span>
+                                                )}
+                                                <p className="text-xs font-bold text-zinc-200 uppercase mt-1">{order.plans?.name || order.plan_id}</p>
+                                                {order.has_kit && <span className="text-[8px] font-black uppercase text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block mt-1">+ Kit Acelerador</span>}
                                             </td>
 
                                             {/* Columna: Estado (Badges) */}
@@ -703,9 +760,9 @@ export default function AdminOrdersPage() {
                                                         {enablingKitId === order.order_id ? "..." : (order.has_kit ? "❌ Quitar Kit" : "🎁 Dar Kit")}
                                                     </button>
 
-                                                    {/* Botón: Ver Ficha Clínica */}
+{/* Botón: Ver Ficha Clínica */}
                                                     <Link 
-                                                        href={`/admin/orders/${order.order_id}`} 
+                                                        href={`/admin/orders/${order.id}`} 
                                                         className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border border-zinc-700 transition-colors"
                                                     >
                                                         Ver Ficha

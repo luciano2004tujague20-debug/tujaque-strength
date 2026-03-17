@@ -53,9 +53,9 @@ export async function POST(req: Request) {
       max_tokens: 1500,
     });
 
-    let replyText = response.choices[0]?.message?.content || "";
-    // 🔥 EL ASESINO DE ASTERISCOS 🔥
-    replyText = replyText.replace(/\*/g, '');
+ let replyText = response.choices[0]?.message?.content || "";
+    // 🔥 EL ASESINO DE FORMATO MEJORADO 🔥
+    replyText = replyText.replace(/[*#_`~\[\]]/g, '');
 
     return NextResponse.json({ reply: replyText });
 

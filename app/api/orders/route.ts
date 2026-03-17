@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EXTRA_VIDEO_PRICE_ARS } from "@/lib/pricing";
-import { MercadoPagoConfig, Preference } from "mercadopago";
+import { MercadoPagoConfig, Preference, PreApproval } from "mercadopago"; 
 
 const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
 
-// Función experta para generar un código de referido único (Ej: JUAN74)
 function generateReferralCode(name: string) {
     const firstName = name.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
-    const randomNum = Math.floor(Math.random() * 90 + 10); // Número entre 10 y 99
+    const randomNum = Math.floor(Math.random() * 90 + 10); 
     return `${firstName}${randomNum}`;
 }
 
-// 🔥 PASE VIP PARA PLANES ESTÁTICOS (Evita que tire error 404 al buscar en la tabla vieja) 🔥
 const STATIC_PLANS: Record<string, { code: string, name: string, price: number }> = {
   "static-fuerza": { code: "static-fuerza", name: "Fuerza Base", price: 35000 },
   "static-hipertrofia": { code: "static-hipertrofia", name: "Mutación Hipertrófica", price: 35000 },
-  "mesociclo-definicion-4-semanas": { code: "mesociclo-definicion-4-semanas", name: "Definición (Cut)", price: 35000 }
+  "mesociclo-definicion-4-semanas": { code: "mesociclo-definicion-4-semanas", name: "Definición (Cut)", price: 35000 },
+  "programa-elite-12-semanas": { code: "programa-elite-12-semanas", name: "Mentoría Élite BII-Vintage", price: 500 },
+  "clinica-tecnica": { code: "clinica-tecnica", name: "Clínica Técnica BII", price: 50 },
+  "bii-performance-mensual": { code: "bii-performance-mensual", name: "BII Performance (Suscripción)", price: 80 }
 };
 
 export async function POST(req: Request) {
@@ -31,11 +32,10 @@ export async function POST(req: Request) {
       customerRef, 
       extraVideo,
       onboardingData,
-      referredBy,   // ✅ NUEVO: Código del amigo que lo refirió
-      finalPrice    // ✅ NUEVO: El precio real que debe pagar (con descuento aplicado)
+      referredBy,   
+      finalPrice    
     } = body;
     
-    // 1. Buscamos el plan. Si es estático, usa el PASE VIP. Si no, lo busca en la DB.
     let plan = STATIC_PLANS[planCode];
 
     if (!plan) {
@@ -49,16 +49,13 @@ export async function POST(req: Request) {
         plan = dbPlan;
     }
 
-    // Si viene un finalPrice desde el frontend (con descuento), usamos ese. 
-    // Si no (por si acaso alguien intenta hackear o falla algo), calculamos el normal.
     const basePlanPrice = Number(plan.price) || 0; 
     const extraPrice = extraVideo ? EXTRA_VIDEO_PRICE_ARS : 0;
     const amountToCharge = finalPrice ? finalPrice : (basePlanPrice + extraPrice); 
     
     const orderId = `TS-${Date.now()}`;
-    const newReferralCode = generateReferralCode(name); // ✅ Creamos su código propio
+    const newReferralCode = generateReferralCode(name); 
 
-    // 2. CREACIÓN DE LA ORDEN (CON BILLETERA VIRTUAL)
     const { error: insErr } = await supabaseAdmin.from("orders").insert({
       order_id: orderId,
       plan_id: plan.code, 
@@ -72,11 +69,9 @@ export async function POST(req: Request) {
       extra_video: !!extraVideo,
       extra_video_price_ars: extraPrice,
       onboarding_data: onboardingData || {},
-      
-      // ✅ INFRAESTRUCTURA BII-AFFILIATES
-      referral_code: newReferralCode, // Su código para compartir
-      referred_by: referredBy || null, // A quién le debemos pagar la comisión
-      wallet_balance: 0 // Inicia con $0 en créditos
+      referral_code: newReferralCode, 
+      referred_by: referredBy || null, 
+      wallet_balance: 0 
     });
 
     if (insErr) {
@@ -84,30 +79,52 @@ export async function POST(req: Request) {
       throw new Error(insErr.message);
     }
 
-    // 3. Generación de Link de Mercado Pago
     let paymentUrl = null;
+    
     if (paymentMethod === 'mercado_pago') {
-      const preference = new Preference(client);
-      const mpResponse = await preference.create({
-        body: {
-          items: [{
-            id: plan.code,
-            title: `Plan ${plan.name} - Tujague Strength`,
-            quantity: 1,
-            unit_price: amountToCharge, // ✅ Le cobramos lo que dicta el descuento
-            currency_id: 'ARS',
-          }],
-          external_reference: orderId,
-          payer: { email: email },
-          back_urls: {
-            success: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`, 
-            failure: `${process.env.NEXT_PUBLIC_SITE_URL}/order/${orderId}?status=failure`,
-            pending: `${process.env.NEXT_PUBLIC_SITE_URL}/order/${orderId}?status=pending`,
-          },
-          auto_return: "approved",
-        },
-      });
-      paymentUrl = mpResponse.init_point;
+      
+      if (plan.code === "bii-performance-mensual") {
+          const preapproval = new PreApproval(client);
+          const mpResponse = await preapproval.create({
+            body: {
+              reason: `Suscripción Mensual - ${plan.name}`,
+              external_reference: orderId,
+              payer_email: email,
+              auto_recurring: {
+                frequency: 1,
+                frequency_type: "months",
+                transaction_amount: amountToCharge, 
+                currency_id: "ARS",
+              },
+              back_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+              status: "pending",
+            }
+          });
+          paymentUrl = mpResponse.init_point;
+          
+      } else {
+          const preference = new Preference(client);
+          const mpResponse = await preference.create({
+            body: {
+              items: [{
+                id: plan.code,
+                title: `Plan ${plan.name} - Tujague Strength`,
+                quantity: 1,
+                unit_price: amountToCharge,
+                currency_id: 'ARS',
+              }],
+              external_reference: orderId,
+              payer: { email: email },
+              back_urls: {
+                success: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`, 
+                failure: `${process.env.NEXT_PUBLIC_SITE_URL}/order/${orderId}?status=failure`,
+                pending: `${process.env.NEXT_PUBLIC_SITE_URL}/order/${orderId}?status=pending`,
+              },
+              auto_return: "approved",
+            },
+          });
+          paymentUrl = mpResponse.init_point;
+      }
     } 
 
     return NextResponse.json({ ok: true, orderId, paymentUrl });

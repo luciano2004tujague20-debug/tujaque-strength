@@ -106,7 +106,7 @@ export async function POST(req: Request) {
         Ejecuta la auditoría de proporciones y emite el dictamen clínico.`;
     }
 
-    // CONFIGURACIÓN DINÁMICA DE LA IA
+// CONFIGURACIÓN DINÁMICA DE LA IA
     const response = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemPrompt },
@@ -114,19 +114,21 @@ export async function POST(req: Request) {
       ],
       model: "llama-3.3-70b-versatile",
       temperature: 0.2, // Baja temperatura para mantener el perfil clínico y exacto
-      max_tokens: action === "coach_copilot" ? 800 : 350, 
+      max_tokens: action === "coach_copilot" || action === "analyze_rms" ? 1000 : 500,
       response_format: action === "analyze_fatigue" ? { type: "json_object" } : undefined
     });
 
     let reply = response.choices[0]?.message?.content || "";
-    // 🔥 EL ASESINO DE ASTERISCOS 🔥
-    reply = reply.replace(/\*/g, '');
     
+    // 🔥 SEPARACIÓN LÓGICA DE RESPUESTAS 🔥
     if (action === "analyze_fatigue") {
+        // 1. Si es JSON, lo devolvemos intacto para no romper la estructura de datos
         return NextResponse.json({ result: JSON.parse(reply) });
+    } else {
+        // 2. Si es texto para el atleta, usamos el ASESINO DE FORMATO MEJORADO
+        reply = reply.replace(/[*#_`~\[\]]/g, '');
+        return NextResponse.json({ result: reply });
     }
-
-    return NextResponse.json({ result: reply });
 
   } catch (error: any) {
     console.error("❌ ERROR EN INSIGHTS GROQ:", error.message || error);

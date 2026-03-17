@@ -1,4 +1,3 @@
-// Actualizacion de PDFs
 "use client";
 
 import { resolvePlan } from '@/lib/permissions';
@@ -48,18 +47,23 @@ export default function DashboardAtleta() {
   
   const [savingOnboarding, setSavingOnboarding] = useState(false);
   const [isBeginner, setIsBeginner] = useState(false);
-  
-  const [loadingUpsell, setLoadingUpsell] = useState(false);
-  const [loadingUpgrade, setLoadingUpgrade] = useState(false);
-  const [loadingRenewal, setLoadingRenewal] = useState(false); 
 
+  // ─── Variables de Renovación Élite ───
+  const [loadingRenewal, setLoadingRenewal] = useState(false); 
   const [useWalletBalance, setUseWalletBalance] = useState(false);
 
   const [onboardingData, setOnboardingData] = useState({
       age: "", body_weight: "", height: "", experience: "intermedio", goal: "fuerza",
-      equipment: "gimnasio", medical_history: "", training_days: "3",
+      equipment: "gimnasio", medical_history: "", training_days: "4", // Default 4 days for Elite
       rm_squat: "", rm_bench: "", rm_deadlift: "", rm_dips: "", rm_military: ""
   });
+
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [jointIssues, setJointIssues] = useState<string[]>([]);
+  
+  const toggleJoint = (joint: string) => {
+      setJointIssues(prev => prev.includes(joint) ? prev.filter(j => j !== joint) : [...prev, joint]);
+  };
 
   const [calcLift, setCalcLift] = useState("squat");
   const [calcPercent, setCalcPercent] = useState(80);
@@ -74,6 +78,9 @@ export default function DashboardAtleta() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [fatigueStatus, setFatigueStatus] = useState<any>(null);
+  // Nuevos estados para la IA
+  const [analyzingFatigue, setAnalyzingFatigue] = useState(false);
+  const [fatigueVerdict, setFatigueVerdict] = useState("");
   const [warmupPlan, setWarmupPlan] = useState("");
   const [generatingWarmup, setGeneratingWarmup] = useState(false);
   const [logFeedback, setLogFeedback] = useState("");
@@ -105,35 +112,32 @@ export default function DashboardAtleta() {
   const [calculatedMacros, setCalculatedMacros] = useState<{cals: number, prot: number, fats: number, carbs: number, water: string} | null>(null);
 
   const [generatingPDF, setGeneratingPDF] = useState(false);
-
-const [isDownloadingMeso, setIsDownloadingMeso] = useState(false);
+  const [isDownloadingMeso, setIsDownloadingMeso] = useState(false);
 
   const [rmAiLoading, setRmAiLoading] = useState(false);
   const [rmAiFeedback, setRmAiFeedback] = useState("");
 
-// 🔥 NUEVO CEREBRO DE PERMISOS 🔥
-// 🔥 CEREBRO DE PERMISOS ACTUALIZADO Y BLINDADO 🔥
-  // 1. Restauramos accessLevel para que el menú no se rompa
-  const { productType, trainingFrequency, accessLevel } = resolvePlan(order?.plan_id, order?.plan_title);
-
-// 2. Identificamos con precisión quirúrgica a los planes estáticos
+// 🔥 CEREBRO DE PERMISOS BII-VINTAGE 3.0 (HIGH-TICKET) 🔥
   const safePlanId = (order?.plan_id || "").toLowerCase();
-  const safePlanTitle = (order?.plan_title || "").toLowerCase();
 
-  const isStaticPlan = safePlanId.includes('static') || 
-                         safePlanId.includes('definicion') || 
-                         safePlanId.includes('cut') || 
-                         safePlanId.includes('mesociclo-') ||
-                         safePlanId.includes('calculadora') ||
-                         safePlanId.includes('especializacion') ||
-                         safePlanId.includes('brazos') ||
-                         safePlanTitle.includes('fuerza base') ||
-                         safePlanTitle.includes('mutación');
-
-  // 3. Restauramos isStatic para los botones de las pestañas
-  const isStatic = isStaticPlan; 
-  const isMonthlyPlan = !isStaticPlan;
+  // 1. Identificamos qué plan compró el usuario
+  // Ahora la Mentoría Élite abarca 90 días, 180 días y el plan "Leyenda" de 365 días.
+  const isElitePlan = safePlanId.includes('elite') || safePlanId.includes('leyenda') || safePlanId.includes('vip');
   
+  // 2. Si no es Élite/Leyenda, por descarte es un plan Estático (Bóveda de PDFs)
+  const isStaticPlan = !isElitePlan;
+
+  // 3. Matriz de Accesos de Alta Gama
+  // El Plan Estático SOLO accede a la Bóveda de PDFs (Rutina). Todo lo demás está bloqueado.
+  const canViewRoutine = true; 
+  const canViewVideos = isElitePlan;
+  const canViewSNC = isElitePlan;
+  const canViewRMs = isElitePlan;
+  const canViewAI = isElitePlan;
+  
+  // Link de WhatsApp para agendar llamada (Upsell)
+  const whatsappUpsellUrl = "https://wa.me/5491123021760?text=" + encodeURIComponent("Hola Coach, estoy en mi Dashboard y quiero aplicar a la Mentoría Élite para desbloquear todas las herramientas de alto rendimiento. ¿Podemos agendar una llamada?");
+
   useEffect(() => {
     let interval: any = null;
     if (isTimerActive && time > 0) {
@@ -179,9 +183,8 @@ const [isDownloadingMeso, setIsDownloadingMeso] = useState(false);
     }
   };
 
-useEffect(() => {
-const fetchDashboardData = async () => {
-      // 1. Usamos getSession (memoria rápida) en vez de getUser (servidor) para evitar que nos patee
+  useEffect(() => {
+    const fetchDashboardData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -192,7 +195,6 @@ const fetchDashboardData = async () => {
       const user = session.user;
       setUser(user);
 
-      // 1. Buscar en el sistema VIEJO (Suscripciones / Sprints)
       const { data: oldOrders } = await supabase
         .from("orders")
         .select("*")
@@ -200,7 +202,6 @@ const fetchDashboardData = async () => {
         .order("created_at", { ascending: false })
         .limit(1);
 
-// 2. Buscar en el sistema NUEVO leyendo los recibos de compra pagados
       const { data: newOrders } = await supabase
         .from("commerce_orders")
         .select(`
@@ -215,7 +216,6 @@ const fetchDashboardData = async () => {
       const hasOldOrder = oldOrders && oldOrders.length > 0;
       const hasNewProduct = newOrders && newOrders.length > 0;
 
-      // Extraemos exactamente el nombre del PDF que compró (el slug)
       if (hasNewProduct && newOrders) {
         const boughtSlugs: string[] = [];
         newOrders.forEach((o: any) => {
@@ -230,13 +230,11 @@ const fetchDashboardData = async () => {
         setMyProducts(boughtSlugs);
       }
 
-      // Si no tiene nada de nada, cortamos acá
       if (!hasOldOrder && !hasNewProduct) {
         setLoading(false);
         return;
       }
 
-      // 4. Si tiene un plan del sistema viejo, cargamos su progreso
       if (hasOldOrder && oldOrders) {
         const currentOrder = oldOrders[0];
         setOrder(currentOrder);
@@ -268,10 +266,10 @@ const fetchDashboardData = async () => {
             hit_failure: currentOrder.checkin_hit_failure !== false
         });
         
-const planId = currentOrder.plan_id || "";
+        const planId = currentOrder.plan_id || "";
         const planTitle = (currentOrder.plan_title || "").toLowerCase();
         
-// 🔥 TRUCO: Si es un plan estático, dejamos pasar directo al usuario sin pedir ficha
+        // Excluir planes estáticos del onboarding obligatorio
         const isStaticCheck = planId.includes('static') || 
                               planId.includes('definicion') || 
                               planId.includes('cut') || 
@@ -288,9 +286,7 @@ const planId = currentOrder.plan_id || "";
             setIsOnboarded(currentOrder.is_onboarded === true);
         }
         
-        const isMonthly = planId.includes('mensual') || planTitle.includes('mesociclo') || planTitle.includes('performance') || planTitle.includes('élite') || planTitle.includes('elite');
-
-        if (isMonthly && currentOrder.checkin_history && currentOrder.checkin_history.length > 0) {
+        if (!isStaticCheck && currentOrder.checkin_history && currentOrder.checkin_history.length > 0) {
             const recentCheckins = currentOrder.checkin_history.slice(-3);
             fetch('/api/assistant/insights', {
                 method: 'POST',
@@ -334,7 +330,7 @@ const planId = currentOrder.plan_id || "";
     router.push("/login");
   };
 
-  const handleSaveOnboarding = async (e: React.FormEvent) => {
+const handleSaveOnboarding = async (e: React.FormEvent) => {
       e.preventDefault();
       setSavingOnboarding(true);
       try {
@@ -343,14 +339,16 @@ const planId = currentOrder.plan_id || "";
           const finalDeadlift = isBeginner ? "0" : onboardingData.rm_deadlift;
           const finalDips = isBeginner ? "0" : onboardingData.rm_dips;
           const finalMilitary = isBeginner ? "0" : onboardingData.rm_military;
+          
+          // 🔥 Acá inyectamos los botones de dolor articular al historial médico
           const finalMedical = isBeginner 
-              ? `[ATLETA PRINCIPIANTE] - ${onboardingData.medical_history}` 
-              : onboardingData.medical_history;
+              ? `[ATLETA PRINCIPIANTE] - Lesiones: ${jointIssues.join(", ")} | Detalle: ${onboardingData.medical_history}` 
+              : `Lesiones: ${jointIssues.join(", ")} | Detalle: ${onboardingData.medical_history}`;
 
           const { error } = await supabase
               .from('orders')
               .update({
-                  is_onboarded: true,
+                  is_onboarded: true, // Lo marcamos como completado
                   age: onboardingData.age,
                   body_weight: onboardingData.body_weight,
                   height: onboardingData.height,
@@ -370,8 +368,10 @@ const planId = currentOrder.plan_id || "";
           if (error) throw error;
           
           setRms({ squat: finalSquat, bench: finalBench, deadlift: finalDeadlift, dips: finalDips, military: finalMilitary });
-          alert("✅ Auditoría completada con éxito. Bienvenido al sistema BII-Vintage.");
-          setIsOnboarded(true); 
+          
+          // 🔥 En vez de cerrar el modal de golpe, lo mandamos al paso 5 (El puente de WhatsApp)
+          setOnboardingStep(5); 
+          
       } catch (error: any) {
           alert("❌ Error: " + error.message);
       } finally {
@@ -392,7 +392,7 @@ const planId = currentOrder.plan_id || "";
          alert("💾 Registros de rendimiento almacenados exitosamente.");
 
          const allLogsText = Object.values(logs).join(" ").trim();
-         if (isMonthlyPlan && allLogsText.length > 15) {
+         if (isElitePlan && allLogsText.length > 15) {
              const res = await fetch('/api/assistant/insights', {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
@@ -479,9 +479,10 @@ const planId = currentOrder.plan_id || "";
     }
   };
 
-  const handleSaveCheckin = async (e: React.FormEvent) => {
+const handleSaveCheckin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCheckin(true);
+    setFatigueVerdict(""); // Limpiamos el veredicto anterior si lo hubiera
     
     const newEntry = {
         date: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
@@ -514,60 +515,37 @@ const planId = currentOrder.plan_id || "";
        
        alert("✅ Auditoría fisiológica enviada a la Base de Datos del Coach.");
        setCheckinHistory(updatedHistory);
+
+       // 🔥 LA MAGIA DE LA IA COMIENZA AQUÍ 🔥
+       setAnalyzingFatigue(true);
+       try {
+           const res = await fetch('/api/chat', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                   action: 'fatigue_analysis',
+                   data: {
+                       sleep_hours: Number(checkin.sleep),
+                       stress_level: Number(checkin.stress),
+                       lethargy: Number(checkin.energy) <= 4 // Si la energía es 4 o menos, consideramos letargo
+                   }
+               })
+           });
+           
+           const data = await res.json();
+           if (data.result) {
+               setFatigueVerdict(data.result);
+           }
+       } catch (aiError) {
+           console.error("Error contactando a la IA:", aiError);
+       } finally {
+           setAnalyzingFatigue(false);
+       }
+
     } catch (error: any) {
        alert("Error: " + error.message);
     } finally {
        setSavingCheckin(false);
-    }
-  };
-
-  const handleBuyUpsell = async () => {
-    setLoadingUpsell(true);
-    try {
-        const res = await fetch("/api/checkout-upsell", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: order.id, email: user.email })
-        });
-        const data = await res.json();
-        if (data.initPoint) {
-            window.location.href = data.initPoint; 
-        } else {
-            alert("Error de conexión con la pasarela financiera.");
-        }
-    } catch (error) {
-        alert("Error de red.");
-    } finally {
-        setLoadingUpsell(false);
-    }
-  };
-
-  const handleUpgradeToMonthly = async () => {
-    setLoadingUpgrade(true);
-    try {
-        const currentPlanId = order?.plan_id || "";
-        const currentPlanTitle = order?.plan_title || "";
-
-        const res = await fetch("/api/checkout-upgrade", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-               orderId: order.id, 
-               email: user.email,
-               currentPlanId: currentPlanId,
-               currentPlanTitle: currentPlanTitle
-            })
-        });
-        const data = await res.json();
-        if (data.initPoint) {
-            window.location.href = data.initPoint; 
-        } else {
-            alert(data.error || "Error de conexión con la pasarela financiera.");
-        }
-    } catch (error) {
-        alert("Error de red.");
-    } finally {
-        setLoadingUpgrade(false);
     }
   };
 
@@ -597,7 +575,6 @@ const planId = currentOrder.plan_id || "";
     }
   };
 
- // 🔥 GENERADOR PDF CORREGIDO (Exclusivo para mensuales/semanales. Limpia Emojis para evitar error WinAnsi) 🔥
   const downloadPDF = async () => {
       setGeneratingPDF(true);
 
@@ -610,12 +587,9 @@ const planId = currentOrder.plan_id || "";
           const pages = pdfDoc.getPages();
           const firstPage = pages[0]; 
 
-          // Función para borrar emojis y caracteres raros que crashean el PDF
           const cleanText = (str: string | undefined | null) => {
               if (!str) return "";
-              // Reemplaza comillas y guiones raros por los normales
               let s = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, "-").replace(/[\u2026]/g, "...");
-              // Elimina todo lo que no sea código ASCII estándar para evitar el WinAnsi error
               return s.replace(/[^\x00-\xFF]/g, ""); 
           };
 
@@ -623,7 +597,6 @@ const planId = currentOrder.plan_id || "";
           firstPage.drawText(cleanText(checkin.weight || order?.body_weight) || '-', { x: 150, y: 520, size: 12, color: rgb(0, 0, 0) });
           firstPage.drawText(cleanText(order?.goal) || 'Fuerza / Hipertrofia', { x: 400, y: 550, size: 12, color: rgb(0, 0, 0) });
 
-          // Inyectar rutinas en las páginas con maxWidth y lineHeight para evitar líneas cortadas
           const textOptions = { x: 50, y: 650, size: 10, maxWidth: 500, lineHeight: 14, color: rgb(0, 0, 0) };
           
           if (pages[2] && order?.routine_d1) pages[2].drawText(cleanText(order.routine_d1), textOptions);
@@ -648,22 +621,20 @@ const planId = currentOrder.plan_id || "";
       }
   };
 
-  // 🔥 NUEVA FUNCIÓN: DESCARGA DEL KIT ACELERADOR 🔥
   const handleDownloadKit = () => {
       const link = document.createElement('a');
-      link.href = '/kit_acelerador_bii_vintage.pdf'; // El archivo debe estar en tu carpeta "public"
+      link.href = '/kit_acelerador_bii_vintage.pdf'; 
       link.download = 'Kit_Acelerador_BII_Vintage.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
   };
 
-const handleDownloadSecureMeso = async () => {
+  const handleDownloadSecureMeso = async () => {
     if (!order || !order.id) return;
     setIsDownloadingMeso(true);
     
     try {
-        // 1. NUEVO: Obtenemos tu "llave" de sesión actual usando tu cliente viejo
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
 
@@ -671,12 +642,11 @@ const handleDownloadSecureMeso = async () => {
             throw new Error("No se encontró la credencial de sesión. Vuelve a iniciar sesión.");
         }
 
-        // 2. Adjuntamos la llave en los "headers" del mensaje
         const response = await fetch('/api/download-pdf', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // ACÁ VA LA LLAVE
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({ orderId: order.id }) 
         });
@@ -691,7 +661,6 @@ const handleDownloadSecureMeso = async () => {
         const link = document.createElement('a');
         link.href = url;
         
-// 🔥 LÓGICA ACTUALIZADA PARA LOS 3 GORILAS 🔥
         const planId = (order.plan_id || "").toLowerCase();
         const planTitle = (order.plan_title || "").toLowerCase();
         
@@ -716,7 +685,7 @@ const handleDownloadSecureMeso = async () => {
     } finally {
         setIsDownloadingMeso(false);
     }
-};
+  };
 
   const handleBioMessage = async (e: React.FormEvent) => {
      e.preventDefault();
@@ -864,7 +833,7 @@ const handleDownloadSecureMeso = async () => {
       if(!panicExercise.trim() || !panicProblem.trim()) return alert("Complete los datos requeridos para el diagnóstico.");
       setPanicLoading(true); setPanicResponse("");
       try {
-          const res = await fetch('/api/assistant/elite', {
+          const res = await fetch('/api/chat', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'panic_button', data: { exercise: panicExercise, problem: panicProblem, medical_history: order.medical_history } })
           });
@@ -1049,7 +1018,7 @@ const handleDownloadSecureMeso = async () => {
       adherenceLabel = "Riesgo de Estancamiento";
   }
 
-  // 🔥 ESQUELETO DE CARGA ESTILO APP NATIVA 🔥
+  // ESQUELETO DE CARGA
   if (loading) return (
     <div className="min-h-screen bg-[#000000] p-4 md:p-12 flex flex-col gap-6 md:gap-8">
       <div className="w-full h-32 md:h-40 bg-[#0a0a0c] rounded-[2rem] animate-pulse border border-zinc-800/50 shadow-lg"></div>
@@ -1061,15 +1030,10 @@ const handleDownloadSecureMeso = async () => {
     </div>
   );
 
-// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
-// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
-// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
-// 🔥 NUEVO: Pantalla que detecta si no tiene plan viejo, pero SÍ tiene productos nuevos 🔥
+  // VISTA SIN ORDEN PERO CON PRODUCTOS NUEVOS
   if (!order) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center selection:bg-emerald-500 selection:text-black relative overflow-hidden">
-        
-      {/* Luces de fondo épicas */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(16,185,129,0.1)_0%,transparent_60%)] pointer-events-none -mr-20 -mt-20 transform-gpu"></div>
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(16,185,129,0.05)_0%,transparent_60%)] pointer-events-none -ml-20 -mb-20 transform-gpu"></div>
 
@@ -1081,7 +1045,6 @@ const handleDownloadSecureMeso = async () => {
              Mis <span className="text-emerald-500">Recursos</span>
            </h2>
 
-           {/* SI TIENE PRODUCTOS COMPRADOS, LE MOSTRAMOS SOLO EL QUE COMPRÓ */}
            {myProducts.length > 0 ? (
              <>
                <p className="text-zinc-400 mb-12 max-w-md mx-auto text-sm md:text-base font-medium">
@@ -1111,11 +1074,9 @@ const handleDownloadSecureMeso = async () => {
                      <span className="text-[10px] text-emerald-400 uppercase font-black tracking-[0.2em] mt-1 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">Descargar PDF oficial →</span>
                    </Link>
                  )}
-
                </div>
              </>
            ) : (
-             /* SI TODAVÍA NO SE LE APROBÓ EL PAGO O ESTÁ CARGANDO */
              <div className="mb-12 bg-zinc-900/50 border border-zinc-800 p-8 rounded-[2rem] max-w-lg mx-auto shadow-inner">
                <span className="text-5xl block mb-4 animate-bounce">⏳</span>
                <h3 className="text-xl font-black text-white uppercase tracking-widest mb-3">Aguardando Confirmación</h3>
@@ -1125,7 +1086,6 @@ const handleDownloadSecureMeso = async () => {
                </p>
              </div>
            )}
-
            <button onClick={handleLogout} className="border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-900/50 px-8 py-4 rounded-xl text-[10px] font-black tracking-widest uppercase transition-colors w-full sm:w-auto">
              Cerrar Sesión
            </button>
@@ -1134,7 +1094,7 @@ const handleDownloadSecureMeso = async () => {
     );
   }
 
-// 🔥 EXCLUIR A LOS PLANES ESTÁTICOS DE LA FICHA MÉDICA 🔥
+// ONBOARDING VIP: MULTI-STEP CON PUENTE A WHATSAPP
   if (!isOnboarded && !isStaticPlan) {
     return (
       <main className="min-h-screen bg-[#000000] text-white flex flex-col items-center p-4 md:p-12 font-sans selection:bg-amber-500 selection:text-black overflow-y-auto">
@@ -1145,152 +1105,199 @@ const handleDownloadSecureMeso = async () => {
             <button onClick={handleLogout} className="text-zinc-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Cerrar Sesión</button>
         </div>
 
-        <div className="max-w-5xl w-full bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-14 rounded-[2rem] md:rounded-[3rem] shadow-[0_0_80px_rgba(245,158,11,0.05)] relative overflow-hidden my-auto animate-in fade-in zoom-in duration-500">
-            
-<div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none -mr-20 -mt-20 transform-gpu"></div>
-           <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none -ml-20 -mb-20 transform-gpu"></div>
+        <div className="max-w-4xl w-full bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-[0_0_80px_rgba(245,158,11,0.05)] relative overflow-hidden my-auto">
+           {/* BARRA DE PROGRESO (Oculta en el paso 5) */}
+           {onboardingStep < 5 && (
+             <div className="mb-10">
+               <div className="flex justify-between mb-2">
+                 {[1, 2, 3, 4].map(step => (
+                   <div key={step} className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${onboardingStep >= step ? 'text-amber-500' : 'text-zinc-600'}`}>Fase {step}</div>
+                 ))}
+               </div>
+               <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden flex">
+                 <div className="bg-amber-500 h-full transition-all duration-500" style={{ width: `${(onboardingStep / 4) * 100}%` }}></div>
+               </div>
+             </div>
+           )}
 
-           <div className="text-center mb-8 md:mb-12 relative z-10 border-b border-zinc-800/50 pb-8">
-               <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-4 inline-block shadow-inner">
-                   Paso Obligatorio
-               </span>
-               <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic tracking-tighter uppercase mb-4 text-white">
-                   Auditoría <span className="text-amber-500">Clínica</span> Inicial
-               </h2>
-               <p className="text-zinc-400 font-medium text-sm md:text-base max-w-2xl mx-auto px-4">
-                  Necesitamos configurar tu perfil biomecánico y fisiológico en el sistema para que el Coach pueda estructurar tu mesociclo con precisión milimétrica.
-               </p>
-           </div>
-
-           <form onSubmit={handleSaveOnboarding} className="space-y-6 md:space-y-10 relative z-10">
+           <form onSubmit={handleSaveOnboarding} className="relative z-10">
               
-              <div className="bg-[#050505] border border-zinc-800 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner group hover:border-amber-500/30 transition-colors">
-                  <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/80 pb-3 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> 1. Perfil Biométrico
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              {/* PASO 1: BIOMETRÍA */}
+              {onboardingStep === 1 && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2 text-white">Escaneo <span className="text-amber-500">Biométrico</span></h2>
+                  <p className="text-zinc-400 font-medium text-sm mb-8">Estructura base para la red neuronal.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                       <div>
-                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold group-hover:text-amber-500 transition-colors">Edad</label>
-                          <input required type="number" value={onboardingData.age || ""} onChange={(e) => setOnboardingData({...onboardingData, age: e.target.value})} placeholder="Ej: 25" className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors shadow-inner placeholder:text-zinc-700" />
+                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Edad</label>
+                          <input required type="number" value={onboardingData.age} onChange={(e) => setOnboardingData({...onboardingData, age: e.target.value})} placeholder="Ej: 25" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors" />
                       </div>
                       <div>
-                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold group-hover:text-amber-500 transition-colors">Peso Corporal (KG)</label>
-                          <input required type="number" step="0.1" value={onboardingData.body_weight || ""} onChange={(e) => setOnboardingData({...onboardingData, body_weight: e.target.value})} placeholder="Ej: 80.5" className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors shadow-inner placeholder:text-zinc-700" />
+                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Peso Corporal (KG)</label>
+                          <input required type="number" step="0.1" value={onboardingData.body_weight} onChange={(e) => setOnboardingData({...onboardingData, body_weight: e.target.value})} placeholder="Ej: 80.5" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors" />
                       </div>
                       <div>
-                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold group-hover:text-amber-500 transition-colors">Estatura (CM)</label>
-                          <input required type="number" value={onboardingData.height || ""} onChange={(e) => setOnboardingData({...onboardingData, height: e.target.value})} placeholder="Ej: 178" className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors shadow-inner placeholder:text-zinc-700" />
+                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Estatura (CM)</label>
+                          <input required type="number" value={onboardingData.height} onChange={(e) => setOnboardingData({...onboardingData, height: e.target.value})} placeholder="Ej: 178" className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors" />
                       </div>
                   </div>
-              </div>
+                  <button type="button" onClick={() => { if(onboardingData.age && onboardingData.body_weight && onboardingData.height) setOnboardingStep(2); else alert("Completá los datos"); }} className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Siguiente Fase ➔</button>
+                </div>
+              )}
 
-              <div className="bg-[#050505] border border-zinc-800 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner group hover:border-amber-500/30 transition-colors">
-                  <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/80 pb-3 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> 2. Logística de Entrenamiento
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+              {/* PASO 2: LOGÍSTICA */}
+              {onboardingStep === 2 && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2 text-white">Variables <span className="text-amber-500">Logísticas</span></h2>
+                  <p className="text-zinc-400 font-medium text-sm mb-8">Para estructurar el microciclo a tu estilo de vida.</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
                       <div>
                           <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Objetivo Principal</label>
-                          <select value={onboardingData.goal || "fuerza"} onChange={(e) => setOnboardingData({...onboardingData, goal: e.target.value})} className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors cursor-pointer appearance-none shadow-inner">
+                          <select value={onboardingData.goal} onChange={(e) => setOnboardingData({...onboardingData, goal: e.target.value})} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500">
                               <option value="fuerza">Fuerza Absoluta (Powerlifting)</option>
                               <option value="hipertrofia">Hipertrofia Estética</option>
                               <option value="hibrido">Híbrido (Powerbuilding)</option>
                           </select>
                       </div>
                       <div>
-                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Nivel de Experiencia</label>
-                          <select value={onboardingData.experience || "intermedio"} onChange={(e) => setOnboardingData({...onboardingData, experience: e.target.value})} className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors cursor-pointer appearance-none shadow-inner">
+                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Experiencia</label>
+                          <select value={onboardingData.experience} onChange={(e) => setOnboardingData({...onboardingData, experience: e.target.value})} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500">
                               <option value="principiante">Principiante (Menos de 1 año)</option>
                               <option value="intermedio">Intermedio (1 a 3 años)</option>
                               <option value="avanzado">Avanzado (+3 años)</option>
                           </select>
                       </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                      {!(safePlanId.includes('3-4') || safePlanId.includes('5-6') || safePlanId.includes('-7')) && (
-                          <div>
-                              <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Días Disponibles</label>
-                              <select value={onboardingData.training_days || "3"} onChange={(e) => setOnboardingData({...onboardingData, training_days: e.target.value})} className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors cursor-pointer appearance-none shadow-inner">
-                                  <option value="3">3 Días</option>
-                                  <option value="4">4 Días</option>
-                                  <option value="5">5 Días</option>
-                                  <option value="6">6 Días</option>
-                              </select>
-                          </div>
-                      )}
+                      <div>
+                          <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Días Disponibles</label>
+                          <select value={onboardingData.training_days} onChange={(e) => setOnboardingData({...onboardingData, training_days: e.target.value})} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500">
+                              <option value="3">3 Días</option>
+                              <option value="4">4 Días (Recomendado)</option>
+                              <option value="5">5 Días</option>
+                              <option value="6">6 Días</option>
+                          </select>
+                      </div>
                       <div>
                           <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Equipamiento</label>
-                          <select value={onboardingData.equipment || "gimnasio"} onChange={(e) => setOnboardingData({...onboardingData, equipment: e.target.value})} className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500 transition-colors cursor-pointer appearance-none shadow-inner">
-                              <option value="gimnasio">Gimnasio Comercial Completo</option>
-                              <option value="home_gym">Home Gym (Barra, discos, rack, banco)</option>
-                              <option value="limitado">Equipamiento Limitado</option>
+                          <select value={onboardingData.equipment} onChange={(e) => setOnboardingData({...onboardingData, equipment: e.target.value})} className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-amber-500">
+                              <option value="gimnasio">Gym Comercial (Poleas, máquinas)</option>
+                              <option value="home_gym">Home Gym (Solo Barra y Rack)</option>
                           </select>
                       </div>
                   </div>
-              </div>
+                  <div className="flex gap-4">
+                     <button type="button" onClick={() => setOnboardingStep(1)} className="w-1/3 bg-zinc-900 hover:bg-zinc-800 text-white py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Atrás</button>
+                     <button type="button" onClick={() => setOnboardingStep(3)} className="w-2/3 bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Siguiente Fase ➔</button>
+                  </div>
+                </div>
+              )}
 
-              <div className="bg-[#050505] border border-zinc-800 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner group hover:border-amber-500/30 transition-colors">
-                  <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/80 pb-3 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span> 3. Historial de Lesiones
-                  </h3>
-                  <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold group-hover:text-amber-500 transition-colors">Detalle de dolores crónicos o previas</label>
+              {/* PASO 3: MAPEO ARTICULAR */}
+              {onboardingStep === 3 && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2 text-white">Mapeo <span className="text-red-500">Articular</span></h2>
+                  <p className="text-zinc-400 font-medium text-sm mb-6">Identificá zonas de dolor crónico para prevenir sobrecargas.</p>
+
+                  <div className="flex flex-wrap gap-3 mb-6">
+                     {["Rodillas", "Lumbares", "Hombros", "Codos", "Muñecas", "Caderas"].map(joint => (
+                        <button 
+                           key={joint} type="button" onClick={() => toggleJoint(joint)}
+                           className={`px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${jointIssues.includes(joint) ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-[#050505] border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
+                        >
+                           {joint} {jointIssues.includes(joint) && "⚠️"}
+                        </button>
+                     ))}
+                  </div>
+
+                  <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 font-bold">Detalles adicionales (Opcional)</label>
                   <textarea 
-                     value={onboardingData.medical_history || ""}
-                     onChange={(e) => setOnboardingData({...onboardingData, medical_history: e.target.value})}
-                     placeholder="Ej: Dolor lumbar crónico al pasar paralelo en sentadilla..."
-                     className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-xl px-5 py-4 text-white text-sm font-medium outline-none focus:border-amber-500 transition-colors resize-none h-32 md:h-24 placeholder:text-zinc-700 shadow-inner custom-scrollbar"
+                     value={onboardingData.medical_history} onChange={(e) => setOnboardingData({...onboardingData, medical_history: e.target.value})}
+                     placeholder="Ej: Tengo hernia discal L4-L5 diagnosticada hace 2 años..."
+                     className="w-full bg-[#050505] border border-zinc-800 rounded-xl px-5 py-4 text-white text-sm outline-none focus:border-red-500 transition-colors h-24 resize-none mb-8"
                   />
-              </div>
 
-              <div className="bg-[#050505] border border-zinc-800 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner group hover:border-amber-500/30 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 border-b border-zinc-800/80 pb-4">
-                     <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2">
-                         <span className="w-2 h-2 rounded-full bg-amber-500"></span> 4. Marcas Base (1RM)
-                     </h3>
-                     <label className="flex items-center gap-2 cursor-pointer bg-[#0a0a0c] px-4 py-2.5 rounded-xl border border-zinc-700 hover:border-amber-500 transition-all w-full sm:w-auto justify-center sm:justify-start">
+                  <div className="flex gap-4">
+                     <button type="button" onClick={() => setOnboardingStep(2)} className="w-1/3 bg-zinc-900 hover:bg-zinc-800 text-white py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Atrás</button>
+                     <button type="button" onClick={() => setOnboardingStep(4)} className="w-2/3 bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Siguiente Fase ➔</button>
+                  </div>
+                </div>
+              )}
+
+              {/* PASO 4: CALIBRACIÓN NEURAL (RMS) */}
+              {onboardingStep === 4 && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <div className="flex justify-between items-start mb-6">
+                     <div>
+                        <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2 text-white">Calibración <span className="text-amber-500">Neural</span></h2>
+                        <p className="text-zinc-400 font-medium text-sm">Tus máximos a 1 Repetición (1RM) en KG.</p>
+                     </div>
+                     <label className="flex items-center gap-2 cursor-pointer bg-zinc-900 px-4 py-2 rounded-xl border border-zinc-700 hover:border-amber-500 transition-all">
                         <span className="text-[10px] font-bold text-white uppercase tracking-widest">Soy Principiante Total</span>
                         <input type="checkbox" checked={isBeginner} onChange={() => setIsBeginner(!isBeginner)} className="accent-amber-500 w-4 h-4 cursor-pointer" />
                      </label>
                   </div>
-                  
+
                   {!isBeginner ? (
-                      <div className="animate-in slide-in-from-top-4 duration-500">
-                          <p className="text-zinc-400 text-xs md:text-sm mb-6 font-medium">Pesos máximos estimados a 1 repetición (KG).</p>
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                              {['squat', 'bench', 'deadlift', 'military', 'dips'].map(lift => (
-                                 <div key={lift} className={lift === 'deadlift' ? "col-span-2 md:col-span-1" : ""}>
-                                    <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 text-center font-bold">
-                                        {lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Banca' : lift === 'deadlift' ? 'P. Muerto' : lift === 'military' ? 'Militar' : 'Fondos'}
-                                    </label>
-                                    <input required={!isBeginner} type="number" placeholder="0" value={(onboardingData as any)[`rm_${lift}`] || ""} onChange={e => setOnboardingData({...onboardingData, [`rm_${lift}`]: e.target.value})} className="w-full bg-[#0a0a0c] border border-zinc-800 rounded-2xl p-4 md:p-5 text-center text-white font-black text-2xl md:text-3xl outline-none focus:border-amber-500 transition-colors shadow-inner placeholder:text-zinc-800"/>
-                                 </div>
-                              ))}
-                          </div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                          {['squat', 'bench', 'deadlift', 'military', 'dips'].map(lift => (
+                             <div key={lift} className={lift === 'deadlift' ? "col-span-2 md:col-span-1" : ""}>
+                                <label className="block text-[10px] text-zinc-400 uppercase tracking-widest mb-2 text-center font-bold">
+                                    {lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Banca' : lift === 'deadlift' ? 'P. Muerto' : lift === 'military' ? 'Militar' : 'Fondos'}
+                                </label>
+                                <input required={!isBeginner} type="number" placeholder="0" value={(onboardingData as any)[`rm_${lift}`] || ""} onChange={e => setOnboardingData({...onboardingData, [`rm_${lift}`]: e.target.value})} className="w-full bg-[#050505] border border-zinc-800 rounded-2xl p-4 text-center text-white font-black text-2xl outline-none focus:border-amber-500 transition-colors"/>
+                             </div>
+                          ))}
                       </div>
                   ) : (
-                      <div className="bg-amber-500/10 border border-amber-500/30 p-8 rounded-2xl text-center shadow-inner">
+                      <div className="bg-amber-500/10 border border-amber-500/30 p-8 rounded-2xl text-center mb-8">
                           <span className="text-3xl mb-3 block">🛡️</span>
-                          <p className="text-amber-400 font-bold text-sm">El sistema diseñará una fase de adaptación para construir tu fuerza base desde cero. No necesitas ingresar RMs previos.</p>
+                          <p className="text-amber-400 font-bold text-sm">El sistema construirá tu fuerza base desde cero. No necesitas ingresar RMs.</p>
                       </div>
                   )}
-              </div>
 
-              <div className="pt-8">
-                  <button 
-                     type="submit"
-                     disabled={savingOnboarding}
-                     className="w-full bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black py-6 md:py-8 rounded-[2rem] font-black text-sm md:text-base uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_rgba(245,158,11,0.3)] hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:transform-none border border-amber-200"
-                  >
-                     {savingOnboarding ? 'Sincronizando Base de Datos...' : 'GUARDAR FICHA CLÍNICA E INGRESAR AL PANEL'}
-                  </button>
-              </div>
+                  <div className="flex gap-4">
+                     <button type="button" onClick={() => setOnboardingStep(3)} className="w-1/3 bg-zinc-900 hover:bg-zinc-800 text-white py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Atrás</button>
+                     <button type="submit" disabled={savingOnboarding} className="w-2/3 bg-gradient-to-r from-amber-500 to-amber-400 text-black py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50">
+                        {savingOnboarding ? 'Sincronizando...' : 'GUARDAR AUDITORÍA 💾'}
+                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PASO 5: PUENTE AL WHATSAPP (ÉXITO) */}
+              {onboardingStep === 5 && (
+                <div className="text-center animate-in zoom-in duration-500 py-8">
+                  <div className="w-24 h-24 bg-emerald-500/10 border-2 border-emerald-500 rounded-full flex items-center justify-center text-5xl mx-auto mb-6 shadow-[0_0_40px_rgba(16,185,129,0.4)]">✅</div>
+                  <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase mb-4 text-white">¡Diagnóstico <span className="text-emerald-500">Procesado!</span></h2>
+                  <p className="text-zinc-300 font-medium text-sm md:text-base max-w-lg mx-auto mb-8 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                     Tus datos han sido encriptados en la base del Coach. <br/><br/>
+                     Para finalizar tu alta en la Mentoría Élite, envíame por WhatsApp tus <strong className="text-emerald-400">fotos de estado físico actual (frente, perfil y espalda)</strong>.
+                  </p>
+
+                  <div className="flex flex-col gap-4 max-w-sm mx-auto">
+                     <a 
+                        href={`https://wa.me/5491123021760?text=${encodeURIComponent(`¡Coach! Acabo de completar mi Auditoría Clínica en la App. Te paso mis fotos de estado físico actual para calibrar el plan:`)}`} 
+                        target="_blank"
+                        onClick={() => setIsOnboarded(true)} // Lo deja pasar al panel al hacer clic
+                        className="bg-[#25D366] hover:bg-[#20bd5a] text-black py-5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,211,102,0.4)] flex justify-center items-center gap-2"
+                     >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
+                        MANDAR FOTOS POR WHATSAPP
+                     </a>
+                     <button type="button" onClick={() => setIsOnboarded(true)} className="bg-transparent border border-zinc-700 hover:bg-zinc-900 text-zinc-400 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all">
+                        Omitir y Entrar al Panel
+                     </button>
+                  </div>
+                </div>
+              )}
+
            </form>
         </div>
       </main>
     );
   }
 
-  // 🔥 BLOQUEO ESTRICTO POR CADUCIDAD (SPRINTS VENCIDOS) 🔥
   if (isLocked) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center selection:bg-red-500 selection:text-white">
@@ -1303,13 +1310,13 @@ const handleDownloadSecureMeso = async () => {
         <p className="text-zinc-400 mb-10 max-w-md mx-auto text-sm md:text-base font-medium leading-relaxed">
             Tu tiempo de acceso ha concluido. El diagnóstico y la estructura generada quedan blindados en la base de datos del Coach. 
             <br /><br />
-            Para no perder el progreso y continuar tu evolución, ingresá al Ecosistema Élite.
+            Para no perder el progreso y continuar tu evolución, solicitá admisión a la Mentoría Élite.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto">
-            <button onClick={handleUpgradeToMonthly} disabled={loadingUpgrade} className="flex-1 bg-emerald-500 text-black px-8 py-5 rounded-2xl font-black text-xs tracking-widest uppercase hover:bg-emerald-400 transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:scale-105 active:scale-95 disabled:opacity-50">
-                {loadingUpgrade ? 'CONECTANDO...' : 'PASAR A MENSUAL'}
-            </button>
-            <button onClick={handleLogout} className="border border-zinc-700 text-zinc-300 px-8 py-5 rounded-2xl font-black text-xs tracking-widest uppercase hover:bg-zinc-800 transition-colors">
+            <a href={whatsappUpsellUrl} target="_blank" className="flex-1 bg-amber-500 text-black px-8 py-5 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-amber-400 transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95 flex items-center justify-center">
+                RENOVAR MENTORÍA ÉLITE
+            </a>
+            <button onClick={handleLogout} className="border border-zinc-700 text-zinc-300 px-8 py-5 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-zinc-800 transition-colors">
                 Cerrar Sesión
             </button>
         </div>
@@ -1328,17 +1335,17 @@ const handleDownloadSecureMeso = async () => {
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 md:mb-12 gap-6 bg-[#0a0a0c] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
         <div className="w-full lg:w-auto">
           <div className="flex justify-between items-center w-full mb-4">
-<Link href="/" className="flex items-center gap-2 text-amber-500 bg-amber-500/10 hover:bg-amber-500 hover:text-black px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border border-amber-500/20 shadow-md">
-            <span className="text-sm">🏠</span> Volver a la Web
-          </Link>
-          <button onClick={handleLogout} className="text-[10px] font-black tracking-widest uppercase text-zinc-500 hover:text-white transition-colors lg:hidden">
-            Cerrar Sesión
-          </button>
-      </div>
+            <Link href="/" className="flex items-center gap-2 text-amber-500 bg-amber-500/10 hover:bg-amber-500 hover:text-black px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border border-amber-500/20 shadow-md">
+               <span className="text-sm">🏠</span> Volver a la Web
+            </Link>
+            <button onClick={handleLogout} className="text-[10px] font-black tracking-widest uppercase text-zinc-500 hover:text-white transition-colors lg:hidden">
+              Cerrar Sesión
+            </button>
+          </div>
       
-      <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase drop-shadow-md mt-2">
-        PANEL DE <span className="text-amber-500">MANDO</span>
-      </h1>
+          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase drop-shadow-md mt-2">
+            PANEL DE <span className="text-amber-500">MANDO</span>
+          </h1>
           <div className="flex flex-wrap items-center gap-3 mt-3">
              <p className="text-xs md:text-sm text-zinc-400 uppercase tracking-widest font-medium">ID Atleta: <span className="text-white font-bold">{order.customer_name}</span></p>
              {daysLeft !== null && daysLeft > 3 && (<span className="bg-zinc-800/80 border border-zinc-700 text-zinc-300 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Acceso: {daysLeft} Días</span>)}
@@ -1382,7 +1389,7 @@ const handleDownloadSecureMeso = async () => {
                       </div>
 
                       <p className="text-zinc-300 text-sm font-medium leading-relaxed bg-black/40 p-4 rounded-xl border border-zinc-800/80 mb-4">
-                          Si un prospecto usa tu código, él recibe un <strong className="text-emerald-500">15% de bonificación</strong> en su ingreso, y el sistema inyecta el <strong className="text-emerald-500">20% del valor de su plan</strong> directo en tu Billetera Virtual. Traé 5 personas y tu mesociclo te sale $0.
+                          Si un prospecto usa tu código, él recibe un <strong className="text-emerald-500">15% de bonificación</strong> en su ingreso, y el sistema inyecta el <strong className="text-emerald-500">20% del valor</strong> directo en tu Billetera Virtual. Traé 5 personas y tu mentoría te sale $0.
                       </p>
                       
                       <div className="bg-black/60 border border-zinc-800 p-5 rounded-2xl mt-4">
@@ -1441,11 +1448,11 @@ const handleDownloadSecureMeso = async () => {
 
                           {isFreeMonthSecured ? (
                               <p className="text-xs md:text-sm text-emerald-400 font-bold bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 text-center shadow-inner">
-                                  🎉 ¡Felicidades, Atleta! El sistema tiene fondos suficientes para que tu próxima renovación cueste exactamente $0.
+                                  🎉 ¡Felicidades, Atleta! El sistema tiene fondos suficientes para que tu próxima Mentoría cueste exactamente $0.
                               </p>
                           ) : (
                               <p className="text-[10px] md:text-xs text-zinc-500 font-bold uppercase tracking-widest text-center">
-                                  Faltan <span className="text-white">${(precioPlanAtleta - balance).toLocaleString()}</span> de saldo para financiar el próximo mes al 100%.
+                                  Faltan <span className="text-white">${(precioPlanAtleta - balance).toLocaleString()}</span> de saldo para financiar la renovación.
                               </p>
                           )}
                       </div>
@@ -1455,36 +1462,27 @@ const handleDownloadSecureMeso = async () => {
       )}
 
       {/* USO DE BILLETERA EN ALERTA DE RENOVACIÓN */}
-      {daysLeft !== null && daysLeft <= 3 && (
+      {daysLeft !== null && daysLeft <= 3 && !isStaticPlan && (
          <div className="mb-10 bg-gradient-to-r from-red-600/20 to-red-900/20 border border-red-500/50 p-6 md:p-8 rounded-[2rem] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-[0_0_40px_rgba(239,68,68,0.2)] animate-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-5">
                <span className="text-5xl md:text-6xl animate-bounce">⚠️</span>
                <div>
-                  <h3 className="text-white font-black italic text-xl md:text-2xl tracking-tighter uppercase">Plan próximo a caducar ({daysLeft} días)</h3>
-                  <p className="text-red-200/80 text-sm md:text-base font-medium mt-1">Evite interrupciones en su mesociclo procesando la renovación.</p>
+                  <h3 className="text-white font-black italic text-xl md:text-2xl tracking-tighter uppercase">Mentoría próxima a caducar ({daysLeft} días)</h3>
+                  <p className="text-red-200/80 text-sm md:text-base font-medium mt-1">Evite interrupciones en su progreso y agende la renovación.</p>
                </div>
             </div>
             <div className="flex flex-col gap-3 w-full lg:w-auto">
-               {order.wallet_balance > 0 && (
-                  <label className="flex items-center gap-3 bg-red-950/60 border border-red-500/40 p-4 rounded-2xl cursor-pointer hover:bg-red-900/80 transition-all shadow-inner">
-                     <input type="checkbox" checked={useWalletBalance} onChange={(e) => setUseWalletBalance(e.target.checked)} className="w-5 h-5 accent-red-500 cursor-pointer" />
-                     <div>
-                        <p className="text-white text-[10px] md:text-xs font-black uppercase tracking-widest">Usar mis ${Number(order.wallet_balance).toLocaleString()} de Billetera</p>
-                     </div>
-                  </label>
-               )}
-               <button 
-                  onClick={handleRenewPlan} 
-                  disabled={loadingRenewal}
-                  className="w-full lg:w-auto bg-red-500 hover:bg-red-400 text-black px-10 py-5 rounded-2xl font-black tracking-[0.2em] text-xs md:text-sm uppercase transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] whitespace-nowrap disabled:opacity-50 active:scale-95"
+               <a 
+                  href={whatsappUpsellUrl} target="_blank"
+                  className="w-full lg:w-auto bg-red-500 hover:bg-red-400 text-black px-10 py-5 rounded-2xl font-black tracking-[0.2em] text-xs md:text-sm uppercase transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] whitespace-nowrap active:scale-95 flex items-center justify-center"
                >
-                  {loadingRenewal ? 'PROCESANDO...' : 'GESTIONAR RENOVACIÓN'}
-               </button>
+                  GESTIONAR RENOVACIÓN ÉLITE
+               </a>
             </div>
          </div>
       )}
 
-{/* 🔥 NAVEGACIÓN DE TABS (BOTTOM BAR EN MÓVILES / TABS ARRIBA EN PC) 🔥 */}
+      {/* 🔥 TABS (TODOS LAS VEN, PERO SI ES ESTATICO SE BLOQUEAN POR DENTRO) 🔥 */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl border-t border-zinc-800/80 p-3 md:relative md:bg-transparent md:border-none md:p-0 md:mb-10 md:flex md:overflow-x-auto md:gap-4 md:border-b md:border-zinc-800 md:pb-4 md:custom-scrollbar md:whitespace-nowrap">
         <div className="flex justify-around md:justify-start items-center w-full max-w-7xl mx-auto gap-1">
           
@@ -1493,59 +1491,49 @@ const handleDownloadSecureMeso = async () => {
             <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Plan</span>
           </button>
           
-          {!isStatic && (
-            <>
-              {accessLevel.videoUploadLimit > 0 && (
-                <button onClick={() => setActiveTab("videos")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "videos" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-                  <span className="text-2xl md:text-lg">📹</span>
-                  <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Video</span>
-                </button>
-              )}
-              
-              <button onClick={() => setActiveTab("boveda")} className={`hidden md:flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "boveda" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-                <span className="text-2xl md:text-lg">🏛️</span>
-                <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Bóveda</span>
-              </button>
-              
-              {accessLevel.canViewMetrics && (
-                <button onClick={() => setActiveTab("rm")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "rm" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-                  <span className="text-2xl md:text-lg">📈</span>
-                  <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">RMs</span>
-                </button>
-              )}
-              
-              {accessLevel.hasSNCAnalysis && (
-                <button onClick={() => setActiveTab("checkin")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "checkin" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-                  <span className="text-2xl md:text-lg">⚡</span>
-                  <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">SNC</span>
-                </button>
-              )}
-              
-              <div className="hidden lg:block flex-1"></div>
-              
-              <button onClick={() => setActiveTab("asistente")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "asistente" ? "text-blue-400 md:bg-blue-600 md:text-white md:shadow-[0_0_30px_rgba(37,99,235,0.4)] md:border-blue-500" : "text-blue-500/50 hover:text-blue-400 md:bg-blue-900/10 md:border md:border-blue-900/30"}`}>
-                <span className="text-2xl md:text-lg">🤖</span>
-                <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">IA {!accessLevel.canUseTujagueAI && "🔒"}</span>
-              </button>
-            </>
-          )}
+          <button onClick={() => setActiveTab("videos")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "videos" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
+            <span className="text-2xl md:text-lg">📹</span>
+            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Video {!canViewVideos && "🔒"}</span>
+          </button>
+          
+          <button onClick={() => setActiveTab("boveda")} className={`hidden md:flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "boveda" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
+            <span className="text-2xl md:text-lg">🏛️</span>
+            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Bóveda {!isElitePlan && "🔒"}</span>
+          </button>
+          
+          <button onClick={() => setActiveTab("rm")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "rm" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
+            <span className="text-2xl md:text-lg">📈</span>
+            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">RMs {!canViewRMs && "🔒"}</span>
+          </button>
+          
+          <button onClick={() => setActiveTab("checkin")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "checkin" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
+            <span className="text-2xl md:text-lg">⚡</span>
+            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">SNC {!canViewSNC && "🔒"}</span>
+          </button>
+          
+          <div className="hidden lg:block flex-1"></div>
+          
+          <button onClick={() => setActiveTab("asistente")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "asistente" ? "text-blue-400 md:bg-blue-600 md:text-white md:shadow-[0_0_30px_rgba(37,99,235,0.4)] md:border-blue-500" : "text-blue-500/50 hover:text-blue-400 md:bg-blue-900/10 md:border md:border-blue-900/30"}`}>
+            <span className="text-2xl md:text-lg">🤖</span>
+            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">IA {!canViewAI && "🔒"}</span>
+          </button>
         </div>
       </div>
 
       <div className="animate-in fade-in duration-500">
         
-        {/* ─── PANTALLA ASISTENTE IA ─── */}
-        {activeTab === "asistente" && !isStaticPlan && (
+{/* ─── PANTALLA ASISTENTE IA ─── */}
+        {activeTab === "asistente" && (
            <>
-             {!isMonthlyPlan ? (
+             {!canViewAI ? (
                  <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-blue-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
                      <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-blue-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">🤖</div>
                      <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">SISTEMA <span className="text-blue-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La tecnología de soporte biomecánico y análisis nutricional de Tujague AI es exclusiva para usuarios con suscripciones de Nivel Mensual.</p>
-                     <button onClick={handleUpgradeToMonthly} disabled={loadingUpgrade} className="relative z-10 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(37,99,235,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50 w-full sm:w-auto">
-                         {loadingUpgrade ? "INICIANDO PASARELA..." : "ACTUALIZAR A PASE MENSUAL"}
-                     </button>
+                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La tecnología de soporte biomecánico y análisis nutricional de Tujague AI es exclusiva para atletas en la Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(37,99,235,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                         POSTULARME A MENTORÍA ÉLITE 🚀
+                     </a>
                  </div>
               ) : (
                   <div className="max-w-5xl mx-auto flex flex-col h-[75vh] min-h-[600px] bg-[#0a0a0c] border border-zinc-800/80 rounded-[2rem] md:rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
@@ -1710,7 +1698,7 @@ const handleDownloadSecureMeso = async () => {
         {activeTab === "rutina" && (
           <div className="relative pb-24 max-w-[100vw] overflow-x-hidden md:max-w-6xl mx-auto"> 
 
-{/* 🔥 VISTA EXCLUSIVA PARA PLANES ESTÁTICOS / CALCULADORA 🔥 */}
+            {/* 🔥 VISTA EXCLUSIVA PARA PLANES ESTÁTICOS / CALCULADORA 🔥 */}
             {isStaticPlan ? (
                 <div className="bg-[#0a0a0c] border border-emerald-500/30 p-10 md:p-20 rounded-[3rem] text-center shadow-[0_0_80px_rgba(16,185,129,0.1)] relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500">
                     <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
@@ -1720,45 +1708,28 @@ const handleDownloadSecureMeso = async () => {
                             <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">JUNK VOLUME <span className="text-amber-500">KILLER</span></h2>
                             <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Tu software de diagnóstico está listo. Ingresá a la herramienta interactiva para auditar tu rutina y descargar el Material de Rescate.</p>
                             
-                            {order?.status === 'paid' ? (
-                                <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95">
-                                    🧮 INICIAR SOFTWARE DE DIAGNÓSTICO
-                                </Link>
-                            ) : (
-                                <div className="relative z-10 bg-amber-500/10 border border-amber-500/30 p-8 rounded-3xl mt-6">
-                                    <span className="text-4xl block mb-4 animate-bounce">⏳</span>
-                                    <h4 className="text-amber-500 font-black uppercase tracking-widest mb-2 animate-pulse">Validando Transferencia</h4>
-                                    <p className="text-amber-400/80 text-sm font-medium">El Coach está verificando tu pago. El acceso al software se habilitará en breve.</p>
-                                </div>
-                            )}
+                            <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95">
+                                🧮 INICIAR SOFTWARE DE DIAGNÓSTICO
+                            </Link>
                         </>
                     ) : (
                         <>
-                            <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">TU MESOCICLO ESTÁ <span className="text-emerald-500">LISTO</span></h2>
-                            <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa pre-armado de 4 semanas. El documento PDF oficial contiene toda la planificación, metodologías y hojas de registro.</p>
+                            <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">TU ESTRUCTURA ESTÁ <span className="text-emerald-500">LISTA</span></h2>
+                            <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa estático. El documento PDF oficial contiene toda la planificación y parámetros a seguir.</p>
                             
-                            {order?.status === 'paid' ? (
-                                <button 
-                                    onClick={handleDownloadSecureMeso}
-                                    disabled={isDownloadingMeso}
-                                    className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50"
-                                >
-                                    {isDownloadingMeso ? '🔐 ENCRIPTANDO DOCUMENTO...' : '📥 DESCARGAR PDF OFICIAL'}
-                                </button>
-                            ) : (
-                                <div className="relative z-10 bg-amber-500/10 border border-amber-500/30 p-8 rounded-3xl mt-6">
-                                    <span className="text-4xl block mb-4 animate-bounce">⏳</span>
-                                    <h4 className="text-amber-500 font-black uppercase tracking-widest mb-2 animate-pulse">Validando Transferencia</h4>
-                                    <p className="text-amber-400/80 text-sm font-medium">El Coach está verificando tu pago. Una vez que lo apruebe desde la base de datos, el botón de descarga se habilitará automáticamente aquí mismo.</p>
-                                </div>
-                            )}
+                            <button 
+                                onClick={handleDownloadSecureMeso}
+                                disabled={isDownloadingMeso}
+                                className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50"
+                            >
+                                {isDownloadingMeso ? '🔐 ENCRIPTANDO DOCUMENTO...' : '📥 DESCARGAR PDF OFICIAL'}
+                            </button>
                         </>
                     )}
-                </div>
+</div>
             ) : (
-/* 🔥 VISTA DE RUTINA NORMAL PARA PLANES MENSUALES/SEMANALES 🔥 */
+            /* 🔥 VISTA DE RUTINA NORMAL PARA MENTORÍA ÉLITE 🔥 */
                 <>
-                  {/* FOCO DEL DÍA (NUEVO) */}
                   <div className="mb-8 bg-gradient-to-br from-amber-900/20 to-[#0a0a0c] p-8 md:p-10 rounded-[2.5rem] border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.1)] relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none"></div>
                       <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -1781,7 +1752,7 @@ const handleDownloadSecureMeso = async () => {
                                  {generatingPDF ? 'GENERANDO...' : '📄 EXPORTAR A PDF'}
                              </button>
 
-                             {isMonthlyPlan && (
+                             {isElitePlan && (
                                  <button 
                                     onClick={() => setShowPanicModal(true)}
                                     className="w-full justify-center bg-red-600/10 border border-red-500/30 hover:bg-red-600 hover:text-white text-red-500 px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-inner active:scale-95"
@@ -1830,28 +1801,22 @@ const handleDownloadSecureMeso = async () => {
                      </div>
                   )}
 
-{/* 🔥 CRONÓMETRO Y CALCULADORA (NUEVO DISEÑO VIP) */}
-                  <div className="grid lg:grid-cols-2 gap-6 md:gap-8 mb-8">
-                     {/* CRONÓMETRO */}
-                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] flex flex-col items-center shadow-xl relative overflow-hidden text-center group hover:border-amber-500/30 transition-all">
-                        <div className={`w-16 h-16 md:w-20 md:h-20 rounded-3xl flex items-center justify-center text-3xl border mb-6 transition-all shadow-inner ${isTimerActive ? 'bg-red-500/10 border-red-500/30 text-red-500 animate-pulse' : 'bg-amber-500/10 border-amber-500/30 text-amber-500 group-hover:scale-110'}`}>⏱️</div>
-                        <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl mb-2">Recuperación Neural</h3>
-                        <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-6">Descanso entre series efectivas</p>
-                        
-                        <div className="flex gap-3 w-full bg-[#050505] p-2 rounded-2xl border border-zinc-800 mb-8 shadow-inner">
-                           <button onClick={() => resetTimer(180)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 180 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>3 MIN</button>
-                           <button onClick={() => resetTimer(240)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 240 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>4 MIN</button>
-                           <button onClick={() => resetTimer(300)} className={`flex-1 py-3 rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all ${time === 300 && !isTimerActive ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>5 MIN</button>
+{/* ─── HERRAMIENTAS DE PRECISIÓN (ÉLITE) ─── */}
+                  <div className="grid grid-cols-1 gap-6 md:gap-8 mb-8">
+                     
+                     {/* 🔥 THE JUNK VOLUME KILLER (HERRAMIENTA ÉLITE) 🔥 */}
+                     <div className="bg-gradient-to-r from-red-950/40 to-black border border-red-500/30 p-6 md:p-8 rounded-[2rem] shadow-[0_0_40px_rgba(239,68,68,0.15)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 blur-[80px] pointer-events-none group-hover:bg-red-500/20 transition-all duration-700"></div>
+                        <div className="flex items-center gap-5 relative z-10 w-full md:w-auto">
+                            <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner shrink-0 group-hover:scale-110 transition-transform">🧮</div>
+                            <div>
+                                <h3 className="text-2xl font-black italic text-white tracking-tighter uppercase mb-1">Junk Volume <span className="text-red-500">Killer</span></h3>
+                                <p className="text-zinc-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Auditoría Quirúrgica de Volumen</p>
+                            </div>
                         </div>
-                        
-                        <div className="bg-[#050505] border border-zinc-800 py-6 rounded-2xl w-full text-center shadow-inner mb-8 relative overflow-hidden">
-                           <div className={`absolute bottom-0 left-0 h-1 bg-amber-500 transition-all ${isTimerActive ? 'w-full animate-[shimmer_1s_infinite]' : 'w-0'}`}></div>
-                           <span className={`font-mono text-6xl md:text-7xl font-black tracking-tighter transition-colors ${isTimerActive ? 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]' : 'text-white'}`}>{formatTime(time)}</span>
-                        </div>
-                        
-                        <button onClick={toggleTimer} className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all shadow-lg border border-transparent active:scale-95 ${isTimerActive ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-amber-500 text-black hover:bg-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.3)]'}`}>
-                           {isTimerActive ? 'Suspender Reloj' : time === 0 ? 'Restablecer' : 'Iniciar Temporizador'}
-                        </button>
+                        <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 w-full md:w-auto bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] active:scale-95 text-center flex items-center justify-center gap-2">
+                            <span>INICIAR SOFTWARE</span> <span className="text-lg">→</span>
+                        </Link>
                      </div>
 
                      {/* CALCULADORA DE CARGA */}
@@ -1864,7 +1829,7 @@ const handleDownloadSecureMeso = async () => {
                                  <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Calculadora de Intensidad</p>
                               </div>
                            </div>
-                           {isMonthlyPlan && (
+                           {isElitePlan && (
                                <button onClick={handleGenerateWarmup} disabled={generatingWarmup} className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.15)] w-full sm:w-auto justify-center mt-4 sm:mt-0">
                                   {generatingWarmup ? 'Analizando...' : '🤖 Generar Warm-Up'}
                                </button>
@@ -1903,7 +1868,7 @@ const handleDownloadSecureMeso = async () => {
                      </div>
                   </div>
 
-                  {/* 🔥 CICLOS (SOLO VISIBLES SI NO ES MESOCICLO) */}
+                  {/* 🔥 CICLOS (Macrociclos y Mesociclos) */}
                   {(order.macrocycle || order.mesocycle || order.microcycle) && (
                     <div className="mb-8 bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] flex flex-col lg:flex-row gap-6 justify-between items-stretch shadow-xl relative overflow-hidden">
                       <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 relative z-10">
@@ -2012,7 +1977,7 @@ const handleDownloadSecureMeso = async () => {
 
                         {order.status !== 'paid' && (
                             <p className="text-amber-500 text-xs md:text-sm font-bold mt-8 animate-pulse bg-amber-500/10 p-4 rounded-xl inline-block border border-amber-500/20">
-                                El Coach está revisando tu transferencia. La rutina comenzará a diseñarse en breve.
+                                El Coach está revisando tu transferencia. La Mentoría comenzará a diseñarse en breve.
                             </p>
                         )}
                     </div>
@@ -2078,612 +2043,595 @@ const handleDownloadSecureMeso = async () => {
         )}
 
 {/* ─── PESTAÑA BOVEDA TÉCNICA ─── */}
-        {activeTab === "boveda" && !isStaticPlan && (
-          <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
-             <div className="text-center mb-10">
-                <h2 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Bóveda Técnica <span className="text-amber-500">BII-Vintage</span></h2>
-                <p className="text-zinc-400 mt-4 text-sm md:text-base font-medium max-w-2xl mx-auto">Estudie rigurosamente el diseño de palancas y ejecución antes del abordaje práctico en el gimnasio.</p>
-             </div>
-
-             {/* 🔥 BANNER DEL KIT ACELERADOR VIP (SOLO SI LO COMPRÓ) 🔥 */}
-             {(order?.has_kit || order?.wants_kit || order?.upsell_kit) && (
-                 <div className="bg-gradient-to-r from-amber-900/40 to-[#0a0a0c] border border-amber-500/50 p-6 md:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(245,158,11,0.2)] flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden mb-12 group">
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-amber-500/20 transition-all duration-700"></div>
-                     <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
-                         <div className="w-16 h-16 md:w-20 md:h-20 bg-black border border-amber-500/50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 group-hover:scale-110 transition-transform">
-                             📚
-                         </div>
-                         <div className="text-left">
-                             <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-500 mb-1 block animate-pulse">Material Premium Desbloqueado</span>
-                             <h3 className="text-2xl md:text-3xl font-black italic text-white tracking-tighter uppercase">Kit Acelerador BII-Vintage</h3>
-                             <p className="text-zinc-300 font-medium text-sm mt-1">Guía definitiva de nutrición, descansos y mentalidad.</p>
-                         </div>
-                     </div>
-                     <button 
-                         onClick={handleDownloadKit}
-                         className="relative z-10 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 py-5 rounded-xl font-black text-xs md:text-sm uppercase tracking-widest shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all active:scale-95 whitespace-nowrap w-full md:w-auto border border-amber-200"
-                     >
-                         📥 DESCARGAR KIT
-                     </button>
+        {activeTab === "boveda" && (
+           <>
+             {!isElitePlan ? (
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">🏛️</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La Bóveda Técnica y los manuales de calibración biomecánica están reservados exclusivamente para atletas de la Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                         AGENDAR LLAMADA DE ADMISIÓN 📞
+                     </a>
                  </div>
-             )}
-
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-                {[
-                  { id: 'squat', name: 'Sentadilla (Squat)', url: '' }, 
-                  { id: 'bench', name: 'Press Banca (Bench)', url: '' },
-                  { id: 'deadlift', name: 'Peso Muerto (Deadlift)', url: '' },
-                  { id: 'military', name: 'Press Militar (OHP)', url: '' },
-                  { id: 'dips', name: 'Fondos (Dips)', url: '' }
-                ].map(video => (
-                   <div key={video.id} className="bg-[#050505] border border-zinc-800/80 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-xl hover:shadow-[0_0_40px_rgba(245,158,11,0.15)] hover:border-amber-500/30 transition-all group">
-                      <div className="p-6 md:p-8 border-b border-zinc-800 bg-[#0a0a0c]">
-                         <h3 className="font-black italic uppercase text-lg md:text-xl text-white tracking-tight group-hover:text-amber-400 transition-colors">{video.name}</h3>
-                      </div>
-                      
-                      {video.url ? (
-                         <div className="aspect-video w-full bg-black">
-                            <iframe width="100%" height="100%" src={video.url} title={video.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-                         </div>
-                      ) : (
-                         <div className="aspect-video w-full bg-black flex flex-col items-center justify-center p-8 relative shadow-inner">
-                             <div className="w-16 h-16 md:w-20 md:h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center border border-zinc-800 mb-6 opacity-50 shadow-inner group-hover:scale-110 transition-transform">
-                                 <span className="text-3xl">🔒</span>
-                             </div>
-                             <h4 className="text-zinc-500 font-black tracking-widest text-[10px] md:text-xs uppercase text-center">Clínica Técnica en Producción</h4>
-                             <p className="text-zinc-600 text-[9px] md:text-[10px] mt-2 font-bold uppercase tracking-widest">Coach Luciano Tujague</p>
-                         </div>
-                      )}
+             ) : (
+                <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
+                   <div className="text-center mb-10">
+                      <h2 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Bóveda Técnica <span className="text-amber-500">BII-Vintage</span></h2>
+                      <p className="text-zinc-400 mt-4 text-sm md:text-base font-medium max-w-2xl mx-auto">Estudie rigurosamente el diseño de palancas y ejecución antes del abordaje práctico en el gimnasio.</p>
                    </div>
-                ))}
-             </div>
-          </div>
+
+                   {/* 🔥 BANNER DEL KIT ACELERADOR VIP 🔥 */}
+                   {(order?.has_kit || order?.wants_kit || order?.upsell_kit) && (
+                       <div className="bg-gradient-to-r from-amber-900/40 to-[#0a0a0c] border border-amber-500/50 p-6 md:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(245,158,11,0.2)] flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden mb-12 group">
+                           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-amber-500/20 transition-all duration-700"></div>
+                           <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
+                               <div className="w-16 h-16 md:w-20 md:h-20 bg-black border border-amber-500/50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 group-hover:scale-110 transition-transform">📚</div>
+                               <div className="text-left">
+                                   <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-500 mb-1 block animate-pulse">Material Premium Desbloqueado</span>
+                                   <h3 className="text-2xl md:text-3xl font-black italic text-white tracking-tighter uppercase">Kit Acelerador BII-Vintage</h3>
+                                   <p className="text-zinc-300 font-medium text-sm mt-1">Guía definitiva de nutrición, descansos y mentalidad.</p>
+                               </div>
+                           </div>
+                           <button onClick={handleDownloadKit} className="relative z-10 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 py-5 rounded-xl font-black text-xs md:text-sm uppercase tracking-widest shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all active:scale-95 whitespace-nowrap w-full md:w-auto border border-amber-200">
+                               📥 DESCARGAR KIT
+                           </button>
+                       </div>
+                   )}
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+                      {[
+                        { id: 'squat', name: 'Sentadilla (Squat)', url: '' }, 
+                        { id: 'bench', name: 'Press Banca (Bench)', url: '' },
+                        { id: 'deadlift', name: 'Peso Muerto (Deadlift)', url: '' },
+                        { id: 'military', name: 'Press Militar (OHP)', url: '' },
+                        { id: 'dips', name: 'Fondos (Dips)', url: '' }
+                      ].map(video => (
+                         <div key={video.id} className="bg-[#050505] border border-zinc-800/80 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-xl hover:shadow-[0_0_40px_rgba(245,158,11,0.15)] hover:border-amber-500/30 transition-all group">
+                            <div className="p-6 md:p-8 border-b border-zinc-800 bg-[#0a0a0c]">
+                               <h3 className="font-black italic uppercase text-lg md:text-xl text-white tracking-tight group-hover:text-amber-400 transition-colors">{video.name}</h3>
+                            </div>
+                            {video.url ? (
+                               <div className="aspect-video w-full bg-black">
+                                  <iframe width="100%" height="100%" src={video.url} title={video.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                               </div>
+                            ) : (
+                               <div className="aspect-video w-full bg-black flex flex-col items-center justify-center p-8 relative shadow-inner">
+                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center border border-zinc-800 mb-6 opacity-50 shadow-inner group-hover:scale-110 transition-transform"><span className="text-3xl">🔒</span></div>
+                                   <h4 className="text-zinc-500 font-black tracking-widest text-[10px] md:text-xs uppercase text-center">Clínica Técnica en Producción</h4>
+                                   <p className="text-zinc-600 text-[9px] md:text-[10px] mt-2 font-bold uppercase tracking-widest">Coach Luciano Tujague</p>
+                               </div>
+                            )}
+                         </div>
+                      ))}
+                   </div>
+                </div>
+             )}
+           </>
         )}
 
 {/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS ─── */}
-        {activeTab === "videos" && !isStaticPlan && (
-          <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
-            {productType === 'SPRINT' ? (
-                <div className="bg-[#0a0a0c] border border-amber-500/30 p-6 md:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(245,158,11,0.1)] relative overflow-hidden max-w-4xl mx-auto">
-                     <div className="text-center md:text-left mb-8 border-b border-zinc-800/50 pb-6">
-                        <h3 className="text-2xl md:text-3xl font-black italic text-amber-400 uppercase tracking-tight drop-shadow-md">Auditoría Técnica <span className="text-white">(1 de 1)</span></h3>
-                        <p className="text-zinc-400 mt-2 text-sm">Tu Sprint de Calibración incluye una revisión de técnica. Seleccioná el ejercicio y subí el video para el análisis del Coach.</p>
-                     </div>
-                     
-                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-                        <select 
-                           value={order.name_extra1 || ''}
-                           onChange={(e) => handleUpdateExtraName('extra1', e.target.value)}
-                           disabled={!!order.video_extra1}
-                           className="bg-[#050505] border border-zinc-800 text-lg md:text-xl font-black italic text-white uppercase outline-none w-full sm:w-2/3 focus:border-amber-500 transition-colors disabled:opacity-50 p-4 md:p-5 rounded-xl cursor-pointer shadow-inner appearance-none"
-                        >
-                           <option value="" disabled>Selecciona el levantamiento a auditar...</option>
-                           <option value="Sentadilla">Sentadilla</option>
-                           <option value="Press Banca">Press Banca</option>
-                           <option value="Peso Muerto">Peso Muerto</option>
-                           <option value="Press Militar">Press Militar</option>
-                           <option value="Fondos">Fondos</option>
-                        </select>
-                        {order.video_extra1 
-                           ? <span className="bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase border border-amber-500/30 shadow-inner w-full sm:w-auto text-center">En Revisión ⏳</span> 
-                           : <span className="bg-[#050505] border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">Slot Disponible</span>
-                        }
-                     </div>
+        {activeTab === "videos" && (
+           <>
+             {!canViewVideos ? (
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">📹</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">Tu plan actual no incluye auditoría en video. Esta herramienta de precisión biomecánica es exclusiva para los atletas bajo Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                         AGENDAR LLAMADA DE ADMISIÓN 📞
+                     </a>
+                 </div>
+             ) : (
+                <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
+                   <div className="space-y-16">
+                      {/* VIDEOS PRINCIPALES */}
+                      <div>
+                         <div className="text-center md:text-left mb-10">
+<h3 className="text-3xl md:text-4xl font-black italic text-amber-500 uppercase tracking-tighter drop-shadow-md">Auditoría <span className="text-white">Biomecánica</span></h3>
+                            <p className="text-zinc-400 font-medium text-sm md:text-base mt-2">Módulo clínico de corrección. Aporte su ejecución para recibir el dictamen técnico del Head Coach.</p>
+                         </div>
+                         
+                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
+                           {mainLifts.map(lift => (
+                              <div key={lift.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-amber-500/30 transition-colors group">
+                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
+                                    <h3 className="text-2xl font-black italic text-white uppercase tracking-tight">{lift.label}</h3>
+                                    {order[`video_${lift.id}`] 
+                                        ? <span className="bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-amber-500/30 shadow-inner w-full sm:w-auto text-center">Evidencia Cargada</span> 
+                                        : <span className="bg-[#050505] border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">En Espera</span>
+                                    }
+                                 </div>
 
-                     <div className="mb-8 bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
-                        <div>
-                           <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
-                           <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
-                        </div>
-                        <label className={`cursor-pointer px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === 'extra1' || order.video_extra1 || !order.name_extra1 ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-amber-600 to-amber-500 text-black hover:from-amber-500 hover:to-amber-400 active:scale-95'}`}>
-                           {uploading === 'extra1' ? 'TRANSMITIENDO...' : order.video_extra1 ? 'VIDEO RECIBIDO ✓' : !order.name_extra1 ? 'SELECCIONÁ EJERCICIO PRIMERO' : 'CARGAR VIDEO 📹'}
-                           <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'extra1')} disabled={uploading === 'extra1' || !!order.video_extra1 || !order.name_extra1} />
-                        </label>
-                     </div>
+                                 <div className="mb-8 bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
+                                    <div>
+                                       <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Serie Efectiva</p>
+                                       <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                    </div>
+                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 active:scale-95'}`}>
+                                       {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
+                                       <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
+                                    </label>
+                                 </div>
 
-                     <div className="bg-amber-950/20 border border-amber-500/30 p-6 md:p-8 rounded-[1.5rem] shadow-inner">
-                        <h4 className="flex items-center gap-3 text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
-                           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Determinación del Coach
-                        </h4>
-                        {order.feedback_extra1 ? (
-                           <p className="text-amber-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order.feedback_extra1}</p>
-                        ) : (
-                           <p className="text-amber-500/40 text-xs md:text-sm italic font-medium">Una vez subido el video, el Coach publicará su diagnóstico estructural aquí.</p>
-                        )}
-                     </div>
-                </div>
-            ) : !order.has_video_review && !isMonthlyPlan ? (
-                <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden text-center max-w-4xl mx-auto">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-red-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
-                    <div className="w-20 h-20 md:w-28 md:h-28 bg-[#050505] rounded-full flex items-center justify-center border border-zinc-800 mx-auto mb-8 relative z-10 shadow-inner">
-                        <span className="text-4xl md:text-5xl opacity-50">🔒</span>
-                    </div>
-                    <h2 className="text-4xl md:text-6xl font-black italic mb-6 tracking-tighter text-white relative z-10 uppercase drop-shadow-md">
-                        MÓDULO <span className="text-red-500">RESTRINGIDO</span>
-                    </h2>
-                    <p className="text-zinc-400 font-medium max-w-2xl mx-auto mb-12 text-sm md:text-lg relative z-10 leading-relaxed px-4">
-                        Su suscripción actual omite la Auditoría Técnica Biomecánica. Esta es la herramienta indispensable para eludir estancamientos mecánicos estructurales bajo cargas máximas.
-                    </p>
-                    <div className="bg-[#050505] border border-zinc-800 p-6 md:p-10 rounded-3xl max-w-lg mx-auto mb-12 text-left relative z-10 shadow-lg">
-                        <p className="text-[10px] md:text-xs text-zinc-500 font-black tracking-widest uppercase mb-6 border-b border-zinc-800/50 pb-3">Beneficios del Sistema:</p>
-                        <ul className="space-y-4 md:space-y-5">
-                            <li className="flex items-start gap-4 text-sm md:text-base text-zinc-300 font-medium"><span className="text-amber-500 font-black">✓</span> Auditoría clínica de patrones motores.</li>
-                            <li className="flex items-start gap-4 text-sm md:text-base text-zinc-300 font-medium"><span className="text-amber-500 font-black">✓</span> Calibración de palancas y tensión estructural.</li>
-                            <li className="flex items-start gap-4 text-sm md:text-base text-zinc-300 font-medium"><span className="text-amber-500 font-black">✓</span> Intervención directa del Head Coach en la base de datos.</li>
-                        </ul>
-                    </div>
-                    <button onClick={handleBuyUpsell} disabled={loadingUpsell} className="relative z-10 inline-flex items-center justify-center bg-gradient-to-r from-amber-500 to-amber-400 text-black px-10 md:px-14 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(245,158,11,0.3)] disabled:opacity-50 hover:scale-105 active:scale-95 w-full sm:w-auto border border-amber-200">
-                        {loadingUpsell ? 'ESTABLECIENDO CONEXIÓN FINANCIERA...' : 'DESBLOQUEAR MÓDULO POR ARS $15.000'}
-                    </button>
-                </div>
-            ) : (
-              <div className="space-y-16">
-                
-                {/* VIDEOS PRINCIPALES */}
-                <div>
-                   <div className="text-center md:text-left mb-10">
-                      <h3 className="text-3xl md:text-4xl font-black italic text-amber-500 uppercase tracking-tighter drop-shadow-md">El Core BII-Vintage</h3>
-                      <p className="text-zinc-400 font-medium text-sm md:text-base mt-2">Aporte visual para la calibración del Big 5.</p>
-                   </div>
-                   
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                     {mainLifts.map(lift => (
-                        <div key={lift.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-amber-500/30 transition-colors group">
-                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
-                              <h3 className="text-2xl font-black italic text-white uppercase tracking-tight">{lift.label}</h3>
-                              {order[`video_${lift.id}`] 
-                                  ? <span className="bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-amber-500/30 shadow-inner w-full sm:w-auto text-center">Evidencia Cargada</span> 
-                                  : <span className="bg-[#050505] border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">En Espera</span>
-                              }
-                           </div>
-
-                           <div className="mb-8 bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
-                              <div>
-                                 <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Serie Efectiva</p>
-                                 <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                 <div className="bg-amber-950/20 border border-amber-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
+                                    <h4 className="flex items-center gap-3 text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
+                                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Auditoría del Coach
+                                    </h4>
+                                    {order[`feedback_${lift.id}`] ? (
+                                      <p className="text-amber-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
+                                    ) : (
+                                      <p className="text-amber-500/40 text-xs md:text-sm italic font-medium">Se requiere material visual para iniciar la evaluación técnica.</p>
+                                    )}
+                                 </div>
                               </div>
-                              <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 active:scale-95'}`}>
-                                 {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
-                                 <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
-                              </label>
-                           </div>
+                           ))}
+                         </div>
+                      </div>
 
-                           <div className="bg-amber-950/20 border border-amber-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
-                              <h4 className="flex items-center gap-3 text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
-                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Auditoría del Coach
-                              </h4>
-                              {order[`feedback_${lift.id}`] ? (
-                                <p className="text-amber-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
-                              ) : (
-                                <p className="text-amber-500/40 text-xs md:text-sm italic font-medium">Se requiere material visual para iniciar la evaluación técnica.</p>
-                              )}
-                           </div>
-                        </div>
-                     ))}
-                   </div>
-                </div>
+                      {/* VIDEOS EXTRAS */}
+                      <div className="pt-10 border-t border-white/5">
+                         <div className="text-center md:text-left mb-10">
+                            <h3 className="text-3xl md:text-4xl font-black italic text-zinc-400 uppercase tracking-tighter drop-shadow-md">Módulo de Accesorios</h3>
+                            <p className="text-zinc-500 font-medium text-sm md:text-base mt-2">Aporte visual para variantes y máquinas.</p>
+                         </div>
+                         
+                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
+                           {extraLifts.map(lift => (
+                              <div key={lift.id} className="bg-black border border-dashed border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-blue-500/30 transition-colors">
+                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
+                                    <input 
+                                       type="text"
+                                       placeholder="Nomenclatura (Ej: Hack Squat)..."
+                                       value={order[`name_${lift.id}`] || ''}
+                                       onChange={(e) => handleUpdateExtraName(lift.id, e.target.value)}
+                                       className="bg-transparent text-xl md:text-2xl font-black italic text-white uppercase outline-none placeholder:text-zinc-700 w-full sm:w-2/3 focus:text-blue-400 transition-colors"
+                                    />
+                                    {order[`video_${lift.id}`] 
+                                        ? <span className="bg-blue-500/20 text-blue-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-blue-500/30 shadow-inner w-full sm:w-auto text-center mt-4 sm:mt-0">Evidencia Cargada</span> 
+                                        : <span className="bg-zinc-900 border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center mt-4 sm:mt-0">En Espera</span>
+                                    }
+                                 </div>
 
-                {/* VIDEOS EXTRAS */}
-                <div className="pt-10 border-t border-white/5">
-                   <div className="text-center md:text-left mb-10">
-                      <h3 className="text-3xl md:text-4xl font-black italic text-zinc-400 uppercase tracking-tighter drop-shadow-md">Módulo de Accesorios</h3>
-                      <p className="text-zinc-500 font-medium text-sm md:text-base mt-2">Aporte visual para variantes y máquinas.</p>
-                   </div>
-                   
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                     {extraLifts.map(lift => (
-                        <div key={lift.id} className="bg-black border border-dashed border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-blue-500/30 transition-colors">
-                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
-                              <input 
-                                 type="text"
-                                 placeholder="Nomenclatura (Ej: Hack Squat)..."
-                                 value={order[`name_${lift.id}`] || ''}
-                                 onChange={(e) => handleUpdateExtraName(lift.id, e.target.value)}
-                                 className="bg-transparent text-xl md:text-2xl font-black italic text-white uppercase outline-none placeholder:text-zinc-700 w-full sm:w-2/3 focus:text-blue-400 transition-colors"
-                              />
-                              {order[`video_${lift.id}`] 
-                                  ? <span className="bg-blue-500/20 text-blue-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-blue-500/30 shadow-inner w-full sm:w-auto text-center mt-4 sm:mt-0">Evidencia Cargada</span> 
-                                  : <span className="bg-zinc-900 border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center mt-4 sm:mt-0">En Espera</span>
-                              }
-                           </div>
+                                 <div className="mb-8 bg-zinc-900/40 border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
+                                    <div>
+                                       <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
+                                       <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                    </div>
+                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-105 active:scale-95'}`}>
+                                       {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
+                                       <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
+                                    </label>
+                                 </div>
 
-                           <div className="mb-8 bg-zinc-900/40 border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
-                              <div>
-                                 <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
-                                 <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                 <div className="bg-blue-950/20 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
+                                    <h4 className="flex items-center gap-3 text-blue-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
+                                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Auditoría del Coach
+                                    </h4>
+                                    {order[`feedback_${lift.id}`] ? (
+                                      <p className="text-blue-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
+                                    ) : (
+                                      <p className="text-blue-500/40 text-xs md:text-sm italic font-medium">Complete la nomenclatura y aporte el material para obtener asistencia.</p>
+                                    )}
+                                 </div>
                               </div>
-                              <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-105 active:scale-95'}`}>
-                                 {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
-                                 <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
-                              </label>
-                           </div>
+                           ))}
+                         </div>
+                      </div>
 
-                           <div className="bg-blue-950/20 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
-                              <h4 className="flex items-center gap-3 text-blue-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
-                                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Auditoría del Coach
-                              </h4>
-                              {order[`feedback_${lift.id}`] ? (
-                                <p className="text-blue-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
-                              ) : (
-                                <p className="text-blue-500/40 text-xs md:text-sm italic font-medium">Complete la nomenclatura y aporte el material para obtener asistencia.</p>
-                              )}
-                           </div>
-                        </div>
-                     ))}
                    </div>
                 </div>
-
-              </div>
-            )}
-          </div>
+             )}
+           </>
         )}
 
 {/* ─── PESTAÑA RM Y TROFEOS ÉPICOS ─── */}
-        {activeTab === "rm" && !isStaticPlan && (
-          <div className="max-w-7xl mx-auto space-y-12 md:space-y-16 animate-in fade-in duration-500">
-            
-            {/* PANEL DE REGISTRO DE RM */}
-            <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 sm:p-10 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
-               <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
-               
-               <h2 className="text-4xl md:text-6xl font-black italic text-center mb-10 md:mb-16 text-white relative z-10 tracking-tighter drop-shadow-md">
-                  MÉTRICAS BASE DE <span className="text-amber-500 block sm:inline">1RM</span>
-               </h2>
-               
-               {/* 🎮 SISTEMA DE NIVELES Y GAMIFICACIÓN */}
-               <div className="relative z-10 bg-[#050505] border border-zinc-800 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 mb-12 md:mb-16 shadow-inner">
-                   <div className="flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-6">
-                       <div className="text-center md:text-left">
-                           <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-amber-500 mb-2">Rango Actual</p>
-                           <h3 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">{levelInfo.current}</h3>
-                       </div>
-                       <div className="text-center md:text-right">
-                           <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-500 mb-2">Próximo Rango</p>
-                           <p className="text-2xl md:text-3xl font-black italic text-zinc-300 uppercase tracking-tighter">{levelInfo.next}</p>
-                       </div>
-                   </div>
+        {activeTab === "rm" && (
+           <>
+             {!canViewRMs ? (
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">📈</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El seguimiento biométrico de tus Marcas (RMs) y la red neuronal de análisis de proporciones pertenecen al sistema Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                         POSTULARME A MENTORÍA ÉLITE 🚀
+                     </a>
+                 </div>
+             ) : (
+                <div className="max-w-7xl mx-auto space-y-12 md:space-y-16 animate-in fade-in duration-500">
+                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 sm:p-10 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
+                      <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
+                      
+                      <h2 className="text-4xl md:text-6xl font-black italic text-center mb-10 md:mb-16 text-white relative z-10 tracking-tighter drop-shadow-md">
+                        MÉTRICAS BASE DE <span className="text-amber-500 block sm:inline">1RM</span>
+                      </h2>
+                      
+                      <div className="relative z-10 bg-[#050505] border border-zinc-800 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 mb-12 md:mb-16 shadow-inner">
+                          <div className="flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-6">
+                              <div className="text-center md:text-left">
+                                  <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-amber-500 mb-2">Rango Actual</p>
+                                  <h3 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">{levelInfo.current}</h3>
+                              </div>
+                              <div className="text-center md:text-right">
+                                  <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-500 mb-2">Próximo Rango</p>
+                                  <p className="text-2xl md:text-3xl font-black italic text-zinc-300 uppercase tracking-tighter">{levelInfo.next}</p>
+                              </div>
+                          </div>
 
-                   <div className="w-full bg-zinc-900 rounded-full h-4 md:h-6 mb-6 border border-zinc-800 relative overflow-hidden shadow-inner">
-                       <div 
-                          className="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full transition-all duration-1000 ease-out relative"
-                          style={{ width: `${progressPercent}%` }}
-                       >
-                          <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
-                       </div>
-                   </div>
+                          <div className="w-full bg-zinc-900 rounded-full h-4 md:h-6 mb-6 border border-zinc-800 relative overflow-hidden shadow-inner">
+                              <div 
+                                 className="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full transition-all duration-1000 ease-out relative"
+                                 style={{ width: `${progressPercent}%` }}
+                              >
+                                 <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
+                              </div>
+                          </div>
 
-                   <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] md:text-xs font-black uppercase tracking-widest gap-4">
-                       <span className="text-zinc-400 bg-black/50 px-4 py-2 rounded-xl border border-zinc-800">{totalAbsoluto} KG Totales Absolutos</span>
-                       {kgLeft > 0 ? (
-                           <span className="text-amber-400 bg-amber-500/10 px-5 py-2.5 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]">Faltan {kgLeft} KG para ascender</span>
-                       ) : (
-                           <span className="text-yellow-400 bg-yellow-500/10 px-5 py-2.5 rounded-xl border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]">Nivel Máximo Desbloqueado 👑</span>
-                       )}
-                   </div>
-               </div>
+                          <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] md:text-xs font-black uppercase tracking-widest gap-4">
+                              <span className="text-zinc-400 bg-black/50 px-4 py-2 rounded-xl border border-zinc-800">{totalAbsoluto} KG Totales Absolutos</span>
+                              {kgLeft > 0 ? (
+                                  <span className="text-amber-400 bg-amber-500/10 px-5 py-2.5 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]">Faltan {kgLeft} KG para ascender</span>
+                              ) : (
+                                  <span className="text-yellow-400 bg-yellow-500/10 px-5 py-2.5 rounded-xl border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]">Nivel Máximo Desbloqueado 👑</span>
+                              )}
+                          </div>
+                      </div>
 
-               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6 mb-12 md:mb-16 relative z-10">
-                  {['squat', 'bench', 'deadlift', 'dips', 'military'].map(lift => {
-                      const liftName = lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Press Banca' : lift === 'deadlift' ? 'Peso Muerto' : lift === 'dips' ? 'Fondos' : 'Militar';
-                      return (
-                         <div key={lift} className="bg-black/60 p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-zinc-800 text-center relative focus-within:border-amber-500/50 transition-all hover:bg-zinc-900/40 shadow-inner group">
-                             <p className="text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-4 md:mb-6 group-hover:text-amber-500/80 transition-colors">{liftName}</p>
-                             <div className="relative inline-block w-full">
-                                <input 
-                                   type="number"
-                                   inputMode="numeric"
-                                   value={rms[lift as keyof typeof rms] || ""} 
-                                   onChange={e => setRms(prev => ({...prev, [lift]: e.target.value}))}
-                                   className="bg-transparent text-center text-4xl md:text-5xl lg:text-6xl font-black text-white w-full outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
-                                   placeholder="0"
-                                />
-                                <span className="absolute top-1/2 -translate-y-1/2 right-0 md:-right-2 text-zinc-700 text-[10px] md:text-sm font-black">KG</span>
-                             </div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6 mb-12 md:mb-16 relative z-10">
+                         {['squat', 'bench', 'deadlift', 'dips', 'military'].map(lift => {
+                             const liftName = lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Press Banca' : lift === 'deadlift' ? 'Peso Muerto' : lift === 'dips' ? 'Fondos' : 'Militar';
+                             return (
+                                <div key={lift} className="bg-black/60 p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-zinc-800 text-center relative focus-within:border-amber-500/50 transition-all hover:bg-zinc-900/40 shadow-inner group">
+                                    <p className="text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-4 md:mb-6 group-hover:text-amber-500/80 transition-colors">{liftName}</p>
+                                    <div className="relative inline-block w-full">
+                                       <input 
+                                          type="number"
+                                          inputMode="numeric"
+                                          value={rms[lift as keyof typeof rms] || ""} 
+                                          onChange={e => setRms(prev => ({...prev, [lift]: e.target.value}))}
+                                          className="bg-transparent text-center text-4xl md:text-5xl lg:text-6xl font-black text-white w-full outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
+                                          placeholder="0"
+                                       />
+                                       <span className="absolute top-1/2 -translate-y-1/2 right-0 md:-right-2 text-zinc-700 text-[10px] md:text-sm font-black">KG</span>
+                                    </div>
+                                </div>
+                             );
+                         })}
+                      </div>
+
+                      <button 
+                        onClick={saveRMs}
+                        disabled={savingRm}
+                        className="relative z-10 w-full bg-gradient-to-r from-amber-500 to-amber-400 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:from-amber-400 hover:to-amber-300 hover:scale-[1.02] transition-all disabled:opacity-50 shadow-[0_10px_40px_rgba(245,158,11,0.3)] active:scale-95 border border-amber-200"
+                      >
+                        {savingRm ? 'SINCRONIZANDO CON BASE DE DATOS...' : 'CONFIRMAR NUEVAS MÉTRICAS ⚡'}
+                      </button>
+
+                      <div className="bg-gradient-to-r from-blue-950/40 to-[#0a0a0c] border border-blue-900/50 p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] relative overflow-hidden mt-12 md:mt-16 shadow-xl">
+                         <div className="absolute top-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+                         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+                            <div>
+                               <h3 className="text-2xl md:text-3xl font-black italic text-white uppercase flex items-center gap-3 tracking-tight mb-2">
+                                  <span className="text-3xl md:text-4xl drop-shadow-md">🤖</span> Análisis Estructural <span className="text-blue-500">Tujague AI</span>
+                               </h3>
+                               <p className="text-zinc-400 text-sm md:text-base font-medium max-w-xl">Detectá desbalances biomecánicos y puntos de estancamiento evaluando las proporciones de tus levantamientos actuales.</p>
+                            </div>
+                            <button
+                               onClick={handleAnalyzeRMs}
+                               disabled={rmAiLoading}
+                               className="bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] disabled:opacity-50 flex-shrink-0 w-full sm:w-auto hover:scale-105 active:scale-95"
+                            >
+                               {rmAiLoading ? 'PROCESANDO RED NEURAL...' : 'AUDITAR MARCAS'}
+                            </button>
                          </div>
-                      );
-                  })}
-               </div>
+                         
+                         {rmAiFeedback && (
+                            <div className="mt-8 bg-black/60 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] animate-in slide-in-from-top-4 shadow-inner">
+                               <p className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest mb-4 flex items-center gap-3 border-b border-blue-500/20 pb-3">
+                                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> Reporte Biomecánico
+                               </p>
+                               <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{rmAiFeedback}</p>
+                            </div>
+                         )}
+                      </div>
 
-               <button 
-                 onClick={saveRMs}
-                 disabled={savingRm}
-                 className="relative z-10 w-full bg-gradient-to-r from-amber-500 to-amber-400 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:from-amber-400 hover:to-amber-300 hover:scale-[1.02] transition-all disabled:opacity-50 shadow-[0_10px_40px_rgba(245,158,11,0.3)] active:scale-95 border border-amber-200"
-               >
-                 {savingRm ? 'SINCRONIZANDO CON BASE DE DATOS...' : 'CONFIRMAR NUEVAS MÉTRICAS ⚡'}
-               </button>
-
-               {/* 🔥 IA DE RM - ANÁLISIS DE PROPORCIONES (Se mantiene en Azul Tecnológico) 🔥 */}
-               <div className="bg-gradient-to-r from-blue-950/40 to-[#0a0a0c] border border-blue-900/50 p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] relative overflow-hidden mt-12 md:mt-16 shadow-xl">
-                  <div className="absolute top-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-                     <div>
-                        <h3 className="text-2xl md:text-3xl font-black italic text-white uppercase flex items-center gap-3 tracking-tight mb-2">
-                           <span className="text-3xl md:text-4xl drop-shadow-md">🤖</span> Análisis Estructural <span className="text-blue-500">Tujague AI</span>
-                        </h3>
-                        <p className="text-zinc-400 text-sm md:text-base font-medium max-w-xl">Detectá desbalances biomecánicos y puntos de estancamiento evaluando las proporciones de tus levantamientos actuales.</p>
-                     </div>
-                     <button
-                        onClick={handleAnalyzeRMs}
-                        disabled={rmAiLoading}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] disabled:opacity-50 flex-shrink-0 w-full sm:w-auto hover:scale-105 active:scale-95"
-                     >
-                        {rmAiLoading ? 'PROCESANDO RED NEURAL...' : 'AUDITAR MARCAS'}
-                     </button>
-                  </div>
-                  
-                  {rmAiFeedback && (
-                     <div className="mt-8 bg-black/60 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] animate-in slide-in-from-top-4 shadow-inner">
-                        <p className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest mb-4 flex items-center gap-3 border-b border-blue-500/20 pb-3">
-                           <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> Reporte Biomecánico
-                        </p>
-                        <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{rmAiFeedback}</p>
-                     </div>
-                  )}
-               </div>
-
-            </div>
-
-{/* MURO DE TROFEOS HARDCORE (Oro/Negro) */}
-            <div className="bg-[#0a0a0c] border border-amber-900/40 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl transform-gpu">
-               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.05)_0%,transparent_70%)] pointer-events-none -translate-y-1/2 transform-gpu"></div>
-               
-               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 md:mb-20 gap-8 text-left relative z-10">
-                   <div>
-                       <h3 className="text-4xl md:text-6xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Inventario de Logros <span className="text-amber-500 block sm:inline">Élite</span></h3>
-                       <p className="text-zinc-400 text-xs md:text-sm mt-4 font-medium tracking-wide">Acumulado del trabajo de fuerza a largo plazo. TOTAL ABSOLUTO: <span className="text-amber-400 font-black text-xl md:text-2xl ml-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">{totalAbsoluto} KG</span></p>
                    </div>
-                   <button 
-                       onClick={shareTrophies}
-                       className="bg-[#050505] hover:bg-amber-500 hover:text-black text-white border border-zinc-700 hover:border-amber-500 px-8 md:px-10 py-4 md:py-5 rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 w-full sm:w-auto"
-                   >
-                       <span>Compartir Legado</span>
-                       <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.067 3.204.146 4.833 1.79 4.98 5.01.054 1.266.066 1.645.066 4.849 0 3.205-.012 3.584-.066 4.85-.147 3.22-1.776 4.864-4.98 5.01-1.266.054-1.646.066-4.85.066-3.204 0-3.584-.012-4.85-.066-3.204-.146-4.833-1.79-4.98-5.01-.054-1.266-.066-1.645-.066-4.85 0-3.205.012-3.584.066-4.85.147-3.22 1.776-4.864 4.98-5.01 1.266-.054 1.646-.066 4.85-.066m0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 1.848-6.98 6.208-.058 1.28-.072 1.688-.072 4.948s.014 3.668.072 4.948c.2 4.358 2.618 6.008 6.98 6.208 1.281.058 1.689.072 4.947.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-1.848 6.979-6.208.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.004-6.979-6.209C15.668.014 15.259 0 12 0zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                   </button>
-               </div>
 
-               <div className="space-y-16 md:space-y-24 relative z-10">
-                  {Object.entries(groupedTrophies).map(([category, items], index) => (
-                     <div key={index} className="animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${index * 50}ms` }}>
-                        <h4 className="text-amber-500 font-black tracking-[0.2em] text-xs md:text-sm uppercase mb-6 md:mb-8 border-b border-zinc-800/80 pb-4">
-                           {category}
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 md:gap-6">
-                           {items.map(trophy => (
-                               <div key={trophy.id} className={`p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all duration-500 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden ${trophy.unlocked ? 'bg-gradient-to-br from-amber-950/40 to-black border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] scale-[1.02] hover:scale-105' : 'bg-black/40 border-zinc-800/80 opacity-60 grayscale'}`}>
-                                   
-                                   {trophy.unlocked && <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full blur-[25px] pointer-events-none"></div>}
-                                   
-                                   <div className="flex justify-between items-start mb-4 md:mb-6 relative z-10">
-                                      <span className={`text-4xl md:text-5xl drop-shadow-md ${trophy.unlocked ? 'animate-pulse' : ''}`}>{trophy.icon}</span>
-                                      {trophy.unlocked ? (
-                                         <span className="text-black font-black text-[10px] md:text-xs bg-amber-500 px-2.5 py-1 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.6)]">✓</span>
-                                      ) : (
-                                         <span className="text-zinc-600 text-[10px] md:text-xs bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">🔒</span>
-                                      )}
-                                   </div>
-                                   <div className="relative z-10">
-                                      <h4 className={`font-black italic uppercase text-[11px] md:text-[13px] tracking-tight leading-tight mb-1 md:mb-1.5 ${trophy.unlocked ? 'text-white' : 'text-zinc-500'}`}>{trophy.title}</h4>
-                                      <p className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${trophy.unlocked ? 'text-amber-400' : 'text-zinc-600'}`}>{trophy.desc}</p>
-                                   </div>
+                   <div className="bg-[#0a0a0c] border border-amber-900/40 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl transform-gpu">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.05)_0%,transparent_70%)] pointer-events-none -translate-y-1/2 transform-gpu"></div>
+                      
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 md:mb-20 gap-8 text-left relative z-10">
+                          <div>
+                              <h3 className="text-4xl md:text-6xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Inventario de Logros <span className="text-amber-500 block sm:inline">Élite</span></h3>
+                              <p className="text-zinc-400 text-xs md:text-sm mt-4 font-medium tracking-wide">Acumulado del trabajo de fuerza a largo plazo. TOTAL ABSOLUTO: <span className="text-amber-400 font-black text-xl md:text-2xl ml-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">{totalAbsoluto} KG</span></p>
+                          </div>
+                          <button 
+                              onClick={shareTrophies}
+                              className="bg-[#050505] hover:bg-amber-500 hover:text-black text-white border border-zinc-700 hover:border-amber-500 px-8 md:px-10 py-4 md:py-5 rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 w-full sm:w-auto"
+                          >
+                              <span>Compartir Legado</span>
+                              <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.067 3.204.146 4.833 1.79 4.98 5.01.054 1.266.066 1.645.066 4.849 0 3.205-.012 3.584-.066 4.85-.147 3.22-1.776 4.864-4.98 5.01-1.266.054-1.646.066-4.85.066-3.204 0-3.584-.012-4.85-.066-3.204-.146-4.833-1.79-4.98-5.01-.054-1.266-.066-1.645-.066-4.85 0-3.205.012-3.584.066-4.85.147-3.22 1.776-4.864 4.98-5.01 1.266-.054 1.646-.066 4.85-.066m0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 1.848-6.98 6.208-.058 1.28-.072 1.688-.072 4.948s.014 3.668.072 4.948c.2 4.358 2.618 6.008 6.98 6.208 1.281.058 1.689.072 4.947.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-1.848 6.979-6.208.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.004-6.979-6.209C15.668.014 15.259 0 12 0zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                          </button>
+                      </div>
+
+                      <div className="space-y-16 md:space-y-24 relative z-10">
+                         {Object.entries(groupedTrophies).map(([category, items], index) => (
+                            <div key={index} className="animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${index * 50}ms` }}>
+                               <h4 className="text-amber-500 font-black tracking-[0.2em] text-xs md:text-sm uppercase mb-6 md:mb-8 border-b border-zinc-800/80 pb-4">
+                                  {category}
+                               </h4>
+                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 md:gap-6">
+                                  {items.map(trophy => (
+                                      <div key={trophy.id} className={`p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all duration-500 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden ${trophy.unlocked ? 'bg-gradient-to-br from-amber-950/40 to-black border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] scale-[1.02] hover:scale-105' : 'bg-black/40 border-zinc-800/80 opacity-60 grayscale'}`}>
+                                          
+                                          {trophy.unlocked && <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full blur-[25px] pointer-events-none"></div>}
+                                          
+                                          <div className="flex justify-between items-start mb-4 md:mb-6 relative z-10">
+                                             <span className={`text-4xl md:text-5xl drop-shadow-md ${trophy.unlocked ? 'animate-pulse' : ''}`}>{trophy.icon}</span>
+                                             {trophy.unlocked ? (
+                                                <span className="text-black font-black text-[10px] md:text-xs bg-amber-500 px-2.5 py-1 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.6)]">✓</span>
+                                             ) : (
+                                                <span className="text-zinc-600 text-[10px] md:text-xs bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">🔒</span>
+                                             )}
+                                          </div>
+                                          <div className="relative z-10">
+                                             <h4 className={`font-black italic uppercase text-[11px] md:text-[13px] tracking-tight leading-tight mb-1 md:mb-1.5 ${trophy.unlocked ? 'text-white' : 'text-zinc-500'}`}>{trophy.title}</h4>
+                                             <p className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${trophy.unlocked ? 'text-amber-400' : 'text-zinc-600'}`}>{trophy.desc}</p>
+                                          </div>
+                                      </div>
+                                  ))}
                                </div>
-                           ))}
-                        </div>
-                     </div>
-                  ))}
-               </div>
-            </div>
+                            </div>
+                         ))}
+                      </div>
+                   </div>
 
-            <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-12 lg:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-               <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">TRAYECTORIA DE <span className="text-amber-500 block sm:inline">FUERZA PROYECTADA</span></h3>
-               <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <LineChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                     <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                     <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
-                     <Tooltip 
-                        contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', fontSize: '12px', fontWeight: 'bold', padding: '12px' }}
-                        itemStyle={{ color: '#fff' }}
-                     />
-                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
-                     <Line type="monotone" dataKey="Sentadilla" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                     <Line type="monotone" dataKey="Banca" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                     <Line type="monotone" dataKey="PesoMuerto" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                     <Line type="monotone" dataKey="Fondos" stroke="#10b981" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                   </LineChart>
-                 </ResponsiveContainer>
-               </div>
-            </div>
-          </div>
+                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-12 lg:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                      <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">TRAYECTORIA DE <span className="text-amber-500 block sm:inline">FUERZA PROYECTADA</span></h3>
+                      <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                            <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                            <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
+                            <Tooltip 
+                               contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', fontSize: '12px', fontWeight: 'bold', padding: '12px' }}
+                               itemStyle={{ color: '#fff' }}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
+                            <Line type="monotone" dataKey="Sentadilla" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                            <Line type="monotone" dataKey="Banca" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                            <Line type="monotone" dataKey="PesoMuerto" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                            <Line type="monotone" dataKey="Fondos" stroke="#10b981" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                   </div>
+                </div>
+             )}
+           </>
         )}
 
-        {/* ─── PESTAÑA CHECKIN ─── */}
-        {activeTab === "checkin" && !isStaticPlan && (
-           <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
-             
-              <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
-                 <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
-                 
-                 <div className="text-center mb-10 md:mb-14 relative z-10">
-                    <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
-                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-white tracking-tighter uppercase mb-4 drop-shadow-md">AUDITORÍA DE <span className="text-amber-500 block sm:inline">RECUPERACIÓN</span></h2>
-                    <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
+{/* ─── PESTAÑA CHECKIN ─── */}
+        {activeTab === "checkin" && (
+           <>
+             {!canViewSNC ? (
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">⚡</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El análisis de fatiga sistémica (SNC) y la comunicación diaria de variables biológicas están habilitadas únicamente para la Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                         POSTULARME A MENTORÍA ÉLITE 🚀
+                     </a>
                  </div>
+             ) : (
+                <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
+                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
+                      <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
+                      
+                      <div className="text-center mb-10 md:mb-14 relative z-10">
+                         <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
+                         <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-white tracking-tighter uppercase mb-4 drop-shadow-md">AUDITORÍA DE <span className="text-amber-500 block sm:inline">RECUPERACIÓN</span></h2>
+                         <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
+                      </div>
 
-                 <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto">
-                    
-                    {/* PILAR 1: BIO-MARCADORES */}
-                    <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
-                       <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-amber-500/50 transition-colors">
-                              <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Peso Corporal (KG)</label>
-                              <input 
-                                 type="number" step="0.1" required
-                                 value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
-                                 className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
-                                 placeholder="Ej: 80.5"
-                              />
-                           </div>
-                           <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-blue-500/50 transition-colors">
-                              <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Sueño Efectivo (Horas)</label>
-                              <input 
-                                 type="number" step="0.5" required
-                                 value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
-                                 className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-blue-400 transition-colors placeholder:text-zinc-800"
-                                 placeholder="Ej: 7.5"
-                              />
-                           </div>
-                       </div>
-                    </div>
+                      <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto">
+                         
+                         {/* PILAR 1: BIO-MARCADORES */}
+                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
+                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-amber-500/50 transition-colors">
+                                   <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Peso Corporal (KG)</label>
+                                   <input 
+                                      type="number" step="0.1" required
+                                      value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
+                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
+                                      placeholder="Ej: 80.5"
+                                   />
+                                </div>
+                                <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-blue-500/50 transition-colors">
+                                   <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Sueño Efectivo (Horas)</label>
+                                   <input 
+                                      type="number" step="0.5" required
+                                      value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
+                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-blue-400 transition-colors placeholder:text-zinc-800"
+                                      placeholder="Ej: 7.5"
+                                   />
+                                </div>
+                            </div>
+                         </div>
 
-                    {/* PILAR 2: METABOLISMO Y NUTRICIÓN (Mantiene los detalles naranjas) */}
-                    <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-orange-500/30 transition-colors">
-                       <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
-                       
-                       <div className="space-y-8">
-                           <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
-                               <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
-                                 <span>Adherencia Nutricional (Semana)</span>
-                                 <span className="text-orange-500 text-xl md:text-2xl font-black italic bg-orange-500/10 px-3 py-1 rounded-xl border border-orange-500/20">{checkin.adherence}%</span>
-                               </div>
-                               <input 
-                                  type="range" min="0" max="100" step="5" required
-                                  value={checkin.adherence} onChange={e => setCheckin({...checkin, adherence: e.target.value})}
-                                  className="w-full accent-orange-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800"
+                         {/* PILAR 2: METABOLISMO Y NUTRICIÓN */}
+                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-orange-500/30 transition-colors">
+                            <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
+                            
+                            <div className="space-y-8">
+                                <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
+                                    <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                      <span>Adherencia Nutricional (Semana)</span>
+                                      <span className="text-orange-500 text-xl md:text-2xl font-black italic bg-orange-500/10 px-3 py-1 rounded-xl border border-orange-500/20">{checkin.adherence}%</span>
+                                    </div>
+                                    <input 
+                                       type="range" min="0" max="100" step="5" required
+                                       value={checkin.adherence} onChange={e => setCheckin({...checkin, adherence: e.target.value})}
+                                       className="w-full accent-orange-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800"
+                                    />
+                                    <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest">
+                                      <span>0% (Desastre)</span>
+                                      <span>100% (Perfecto)</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                          <span>Nivel de Hambre</span>
+                                          <span className="text-white font-black">{checkin.hunger}/10</span>
+                                        </div>
+                                        <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-white h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
+                                    </div>
+                                    
+                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                          <span>Energía General</span>
+                                          <span className="text-yellow-400 font-black">{checkin.energy}/10</span>
+                                        </div>
+                                        <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-yellow-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+
+                         {/* PILAR 3: RENDIMIENTO Y FATIGA */}
+                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-red-500/30 transition-colors">
+                            <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
+                            
+                            <div className="space-y-8">
+                                <div className="bg-zinc-900/50 border border-red-900/30 p-6 rounded-2xl hover:border-red-500/50 transition-all">
+                                    <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                      <span>Estrés Sistémico General</span>
+                                      <span className="text-red-500 text-xl md:text-2xl font-black italic bg-red-500/10 px-3 py-1 rounded-xl border border-red-500/20">{checkin.stress}/10</span>
+                                    </div>
+                                    <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800" />
+                                    <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                          <span>Recuperación Muscular</span>
+                                          <span className="text-blue-400 font-black">{checkin.recovery}/10</span>
+                                        </div>
+                                        <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
+                                    </div>
+
+                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
+                                        <label className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
+                                        <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-xs text-white outline-none focus:border-red-500 transition-colors">
+                                            <option value="ninguno">Ninguno (Todo OK)</option>
+                                            <option value="rodillas">Rodilla / Tendón Rotuliano</option>
+                                            <option value="lumbares">Espalda Baja / Lumbares</option>
+                                            <option value="hombros">Hombro / Manguito Rotador</option>
+                                            <option value="codos">Codos / Tendinitis</option>
+                                            <option value="muñecas">Muñecas</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                         </div>
+
+                         {/* PILAR 4: EJECUCIÓN */}
+                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
+                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
+                            
+                            <div className="bg-zinc-900/80 border border-zinc-700 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                <div>
+                                    <p className="text-sm md:text-base font-black text-white uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
+                                    <p className="text-[10px] md:text-xs text-zinc-400 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
+                                </div>
+                                
+                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" checked={checkin.hit_failure} onChange={(e) => setCheckin({...checkin, hit_failure: e.target.checked})} className="sr-only peer" />
+                                    <div className="w-16 h-8 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
+                                    <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-amber-500' : 'text-zinc-500'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
+                                </label>
+                            </div>
+
+                            <div className="mt-6 bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl focus-within:border-amber-500/50 transition-colors">
+                               <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
+                               <textarea 
+                                  value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
+                                  placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana', 'Tuve mucho trabajo y comí mal un día'..."
+                                  className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm md:text-base font-medium text-zinc-300 outline-none resize-none h-24 md:h-32 placeholder:text-zinc-700 custom-scrollbar shadow-inner focus:border-amber-500"
                                />
-                               <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest">
-                                 <span>0% (Desastre)</span>
-                                 <span>100% (Perfecto)</span>
-                               </div>
-                           </div>
+                            </div>
+                         </div>
 
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
-                                     <span>Nivel de Hambre</span>
-                                     <span className="text-white font-black">{checkin.hunger}/10</span>
-                                   </div>
-                                   <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-white h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
-                               </div>
+                         <div className="pt-4 md:pt-6 pb-20">
+                             <button 
+                                type="submit"
+                                disabled={savingCheckin}
+                                className="w-full bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_rgba(245,158,11,0.3)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 border border-amber-200"
+                             >
+                                {savingCheckin ? 'COMUNICANDO DATOS AL SISTEMA...' : 'ENVIAR REPORTE AL HEAD COACH 🚀'}
+                             </button>
+                         </div>
+
+                         {/* 🔥 NUEVO: VEREDICTO DEL COACH EN TIEMPO REAL 🔥 */}
+                         {(analyzingFatigue || fatigueVerdict) && (
+                             <div className="mt-8 mb-4 bg-gradient-to-r from-amber-950/40 to-black border border-amber-500/30 p-6 md:p-8 rounded-[2rem] shadow-inner animate-in slide-in-from-top-4">
+                                 <p className="text-[10px] md:text-xs font-black text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                     {analyzingFatigue ? (
+                                         <><span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></span> El Coach IA está auditando tu SNC...</>
+                                     ) : (
+                                         <><span className="text-xl">⚡</span> Dictamen de Entrenamiento (Tujague AI)</>
+                                     )}
+                                 </p>
+                                 {fatigueVerdict && (
+                                     <p className="text-sm md:text-base text-amber-50 font-medium leading-relaxed whitespace-pre-wrap">
+                                         {fatigueVerdict}
+                                     </p>
+                                 )}
+                             </div>
+                         )}
+                         
+                      </form>
+                   </div>
+
+                   {checkinHistory.length > 0 && (
+                      <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-500 backdrop-blur-xl mb-24">
+                         <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">Gráfico de <span className="text-amber-500 block sm:inline">Fatiga Semanal</span></h3>
+                         
+                         <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
+                           <ResponsiveContainer width="100%" height="100%">
+                             <LineChart data={checkinHistory} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                               <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                               <YAxis yAxisId="left" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} dx={-10} />
+                               <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} dx={10} />
                                
-                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
-                                     <span>Energía General</span>
-                                     <span className="text-yellow-400 font-black">{checkin.energy}/10</span>
-                                   </div>
-                                   <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-yellow-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
-                               </div>
-                           </div>
-                       </div>
-                    </div>
-
-                    {/* PILAR 3: RENDIMIENTO Y FATIGA (Rojo/Azul) */}
-                    <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-red-500/30 transition-colors">
-                       <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
-                       
-                       <div className="space-y-8">
-                           <div className="bg-zinc-900/50 border border-red-900/30 p-6 rounded-2xl hover:border-red-500/50 transition-all">
-                               <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
-                                 <span>Estrés Sistémico General</span>
-                                 <span className="text-red-500 text-xl md:text-2xl font-black italic bg-red-500/10 px-3 py-1 rounded-xl border border-red-500/20">{checkin.stress}/10</span>
-                               </div>
-                               <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800" />
-                               <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
-                           </div>
-
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                   <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
-                                     <span>Recuperación Muscular</span>
-                                     <span className="text-blue-400 font-black">{checkin.recovery}/10</span>
-                                   </div>
-                                   <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                   <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
-                               </div>
-
-                               <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                   <label className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
-                                   <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-xs text-white outline-none focus:border-red-500 transition-colors">
-                                       <option value="ninguno">Ninguno (Todo OK)</option>
-                                       <option value="rodillas">Rodilla / Tendón Rotuliano</option>
-                                       <option value="lumbares">Espalda Baja / Lumbares</option>
-                                       <option value="hombros">Hombro / Manguito Rotador</option>
-                                       <option value="codos">Codos / Tendinitis</option>
-                                       <option value="muñecas">Muñecas</option>
-                                   </select>
-                               </div>
-                           </div>
-                       </div>
-                    </div>
-
-                    {/* PILAR 4: EJECUCIÓN (RIR 0) - Actualizado a Gold */}
-                    <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
-                       <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
-                       
-                       <div className="bg-zinc-900/80 border border-zinc-700 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                           <div>
-                               <p className="text-sm md:text-base font-black text-white uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
-                               <p className="text-[10px] md:text-xs text-zinc-400 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
-                           </div>
-                           
-                           {/* iOS Toggle Switch actualizado a Amber */}
-                           <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                               <input type="checkbox" checked={checkin.hit_failure} onChange={(e) => setCheckin({...checkin, hit_failure: e.target.checked})} className="sr-only peer" />
-                               <div className="w-16 h-8 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
-                               <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-amber-500' : 'text-zinc-500'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
-                           </label>
-                       </div>
-
-                       <div className="mt-6 bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl focus-within:border-amber-500/50 transition-colors">
-                          <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
-                          <textarea 
-                             value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
-                             placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana', 'Tuve mucho trabajo y comí mal un día'..."
-                             className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm md:text-base font-medium text-zinc-300 outline-none resize-none h-24 md:h-32 placeholder:text-zinc-700 custom-scrollbar shadow-inner focus:border-amber-500"
-                          />
-                       </div>
-                    </div>
-
-                    <div className="pt-4 md:pt-6 pb-20">
-                        <button 
-                           type="submit"
-                           disabled={savingCheckin}
-                           className="w-full bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_rgba(245,158,11,0.3)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 border border-amber-200"
-                        >
-                           {savingCheckin ? 'COMUNICANDO DATOS AL SISTEMA...' : 'ENVIAR REPORTE AL HEAD COACH 🚀'}
-                        </button>
-                    </div>
-                 </form>
-              </div>
-
-              {checkinHistory.length > 0 && (
-                 <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-500 backdrop-blur-xl mb-24">
-                    <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">Gráfico de <span className="text-amber-500 block sm:inline">Fatiga Semanal</span></h3>
-                    
-                    <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={checkinHistory} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                          <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                          <YAxis yAxisId="left" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} dx={-10} />
-                          <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} dx={10} />
-                          
-                          <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', padding: '12px' }} itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }} />
-                          <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
-                          
-                          <Line yAxisId="left" type="monotone" dataKey="weight" name="Peso Corporal (kg)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                          <Line yAxisId="right" type="monotone" dataKey="stress" name="Nivel de Estrés (1-10)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                          <Line yAxisId="right" type="monotone" dataKey="sleep" name="Horas de Sueño" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                 </div>
-              )}
-
-           </div>
+                               <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', padding: '12px' }} itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }} />
+                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
+                               
+                               <Line yAxisId="left" type="monotone" dataKey="weight" name="Peso Corporal (kg)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
+                               <Line yAxisId="right" type="monotone" dataKey="stress" name="Nivel de Estrés (1-10)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
+                               <Line yAxisId="right" type="monotone" dataKey="sleep" name="Horas de Sueño" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
+                             </LineChart>
+                           </ResponsiveContainer>
+                         </div>
+                      </div>
+                   )}
+                </div>
+             )}
+           </>
         )}
 
       </div>
@@ -2696,7 +2644,6 @@ const handleDownloadSecureMeso = async () => {
         
         .whitespace-pre-wrap { white-space: pre-wrap !important; }
 
-        /* Ajuste específico para esconder la scrollbar nativa en las pestañas móviles pero permitir scroll */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -2717,7 +2664,6 @@ const handleDownloadSecureMeso = async () => {
             background: #fff;
         }
 
-        /* Colores específicos para cada slider */
         input[type="range"].accent-orange-500::-webkit-slider-thumb { background: #f97316; box-shadow: 0 0 15px rgba(249,115,22,0.8); }
         input[type="range"].accent-white::-webkit-slider-thumb { background: #ffffff; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
         input[type="range"].accent-yellow-400::-webkit-slider-thumb { background: #facc15; box-shadow: 0 0 15px rgba(250,204,21,0.8); }

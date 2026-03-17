@@ -1,10 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+// 🔥 NUEVO: Color de la barra de estado del celular para que parezca App nativa
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
 
 export const metadata: Metadata = {
   title: "Tujague Strength | Programación de Fuerza & Hipertrofia",
   description: "Programación de fuerza e hipertrofia 100% individual. Análisis de video, gestión de cargas y seguimiento real para elevar tus marcas en SBD.",
   keywords: ["powerlifting", "hipertrofia", "fuerza", "coach", "online", "entrenamiento", "argentina", "biomecanica"],
+  
+  // 🔥 NUEVO: El DNI de tu Aplicación (PWA)
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Tujague",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+
+  // Tu SEO original (¡Intacto!)
   openGraph: {
     title: "Tujague Strength | Elite Coaching",
     description: "Dejá de adivinar en el gimnasio. Accedé a una planificación profesional basada en biomecánica.",

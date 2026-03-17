@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getConversions } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 
 // ============================================================================
@@ -18,10 +17,19 @@ const MIS_CODIGOS_PROPIOS: Record<string, number> = {
   PROMO15: 15,
   TUJAGUE20: 20,
 };
+
+// 🔥 NUEVO: CEREBRO FINANCIERO (Cambialo si el dólar blue/cripto sube)
+const TIPO_CAMBIO_USD = 1450;
 // ============================================================================
 
 interface CheckoutClientProps {
-  selectedPlan: { id: string; title: string; subtitle: string; price: number };
+  selectedPlan: { 
+    id: string; 
+    title: string; 
+    subtitle: string; 
+    price: number;
+    currency?: "ARS" | "USD"; // <-- NUEVO: Recibe la moneda del PricingV2
+  };
   extraVideo: boolean;
   extraPrice: number;
 }
@@ -36,8 +44,7 @@ export default function CheckoutClient({
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("mercadopago");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mercadopago");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -62,18 +69,49 @@ export default function CheckoutClient({
 
   const abandonIdRef = useRef<string | null>(null);
 
-  // 🔥 CANDADO DE SEGURIDAD ACTUALIZADO PARA INCLUIR DEFINICIÓN Y BRAZOS 🔥
-const isStaticPlan = 
+  // 🔥 CANDADO DE SEGURIDAD (Separa los PDFs Crudos de los Servicios)
+  const isStaticPlan = 
     selectedPlan.id.startsWith("static") || 
-    selectedPlan.id === "mesociclo-definicion-4-semanas" ||
+    selectedPlan.id.startsWith("mesociclo-") ||
     selectedPlan.id === "especializacion-brazos-mutantes" ||
-    selectedPlan.id === "calculadora-volumen-basura"; // <--- JUNK VOLUME KILLER ACTIVO
+    selectedPlan.id === "calculadora-volumen-basura"; 
   
   const finalExtraVideo = isStaticPlan ? false : extraVideo;
 
-  // 🔥 NUEVO: ESTADO DEL ORDER BUMP 🔥
-  const ORDER_BUMP_PRICE = 10000;
+  // 🔥 ESTADO DEL ORDER BUMP
+  const ORDER_BUMP_PRICE_ARS = 10000;
+  const ORDER_BUMP_PRICE_USD = Math.round(10000 / TIPO_CAMBIO_USD);
   const [orderBump, setOrderBump] = useState(false);
+
+  // ============================================================================
+  // 🧠 MOTOR FINANCIERO UNIVERSAL (Detecta USD o ARS dinámicamente)
+  // ============================================================================
+  // Si no viene la moneda, inferimos por el precio para que no se rompa nada viejo
+  const planCurrency = selectedPlan.currency || (selectedPlan.price < 5000 ? "USD" : "ARS");
+  
+  // Normalizamos el precio base a ambas monedas según su origen
+  const basePriceARS = planCurrency === "USD" ? selectedPlan.price * TIPO_CAMBIO_USD : selectedPlan.price;
+  const basePriceUSD = planCurrency === "USD" ? selectedPlan.price : Math.round(selectedPlan.price / TIPO_CAMBIO_USD);
+
+  // Extras (Order Bump + Video)
+  const extrasARS = (orderBump ? ORDER_BUMP_PRICE_ARS : 0) + (finalExtraVideo ? extraPrice : 0);
+  const extrasUSD = (orderBump ? ORDER_BUMP_PRICE_USD : 0) + (finalExtraVideo ? Math.round(extraPrice / TIPO_CAMBIO_USD) : 0);
+
+  // Subtotales puros
+  const subtotalARS = basePriceARS + extrasARS;
+  const subtotalUSD = basePriceUSD + extrasUSD;
+
+  // Aplicar Descuentos
+  const discountMultiplier = discountApplied ? 1 - discountApplied.percentage / 100 : 1;
+  
+  // Totales Finales
+  const totalARS = Math.round(subtotalARS * discountMultiplier);
+  const totalUSD = Math.round(subtotalUSD * discountMultiplier);
+  
+  // Cotizaciones Crypto
+  const totalCrypto = totalUSD; // 1 USDT / USDC = 1 USD
+  const totalBTC = (totalUSD / 65000).toFixed(5); // Aprox BTC
+  // ============================================================================
 
   const captureAbandon = async () => {
     if (!formData.email && !formData.phone) return;
@@ -97,7 +135,7 @@ const isStaticPlan =
               email: formData.email,
               phone: formData.phone,
               plan_title: selectedPlan.title,
-              plan_price: selectedPlan.price,
+              plan_price: totalARS, // Guardamos en pesos localmente
             },
           ])
           .select()
@@ -112,7 +150,6 @@ const isStaticPlan =
     }
   };
 
-  // 🔥 SISTEMA ANTI-FRAUDE Y VALIDACIÓN DE CÓDIGOS 🔥
   const handleValidateCode = async () => {
     if (!referralCode.trim()) return;
     if (!formData.email.trim()) {
@@ -126,7 +163,6 @@ const isStaticPlan =
     const cleanEmailToTest = formData.email.trim().toLowerCase();
 
     try {
-      // 1. Verificar si es un código personal del Coach
       if (MIS_CODIGOS_PROPIOS[cleanCodeToTest]) {
         setDiscountApplied({
           code: cleanCodeToTest,
@@ -136,7 +172,6 @@ const isStaticPlan =
         return;
       }
 
-      // 2. Si no es del Coach, buscar en la Base de Datos a ver si es de un alumno
       const { data: atletaDueño } = await supabase
         .from("orders")
         .select("id, customer_name, customer_email")
@@ -144,11 +179,8 @@ const isStaticPlan =
         .single();
 
       if (atletaDueño) {
-        // BARRERA ANTI-TRAMPAS
         if (atletaDueño.customer_email.toLowerCase() === cleanEmailToTest) {
-          setCodeError(
-            "🚫 Fraude detectado: No puedes utilizar tu propio código de afiliado."
-          );
+          setCodeError("🚫 Fraude detectado: No puedes utilizar tu propio código.");
           setDiscountApplied(null);
         } else {
           setDiscountApplied({
@@ -167,24 +199,10 @@ const isStaticPlan =
     }
   };
 
-  // 🔥 ACTUALIZADO: Cálculo matemático del total sumando el ORDER BUMP 🔥
-  const subtotal = selectedPlan.price + (finalExtraVideo ? extraPrice : 0) + (orderBump ? ORDER_BUMP_PRICE : 0);
-  const discountMultiplier = discountApplied ? 1 - discountApplied.percentage / 100 : 1;
-  const totalAmount = Math.round(subtotal * discountMultiplier);
-
-  // 🔥 SALVAVIDAS PARA VERCEL
-  const originalConversions = (getConversions as any)(subtotal);
-  const conversions = (getConversions as any)(totalAmount);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.phone
-    ) {
+    if (!formData.name || !formData.email || !formData.password || !formData.phone) {
       alert("Por favor, completá todos los campos obligatorios (*)");
       return;
     }
@@ -199,8 +217,6 @@ const isStaticPlan =
     try {
       const cleanEmail = formData.email.trim().toLowerCase();
 
-// 1. Creación o inicio de sesión en Supabase Auth
-      // Preparamos los datos de la ficha clínica para inyectarlos en el perfil
       const userData = {
         full_name: formData.name.trim(),
         phone: formData.phone,
@@ -210,7 +226,7 @@ const isStaticPlan =
           goal: formData.goal,
           injuries: formData.injuries,
           equipment: formData.equipment,
-          onboarding_completed: true // 🚀 MAGIA: Le avisa al dashboard que no vuelva a preguntar
+          onboarding_completed: true 
         })
       };
 
@@ -221,7 +237,6 @@ const isStaticPlan =
       });
 
       if (authError && authError.message.toLowerCase().includes("already registered")) {
-        // Si ya tenía cuenta, iniciamos sesión
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: formData.password,
@@ -233,7 +248,6 @@ const isStaticPlan =
           return;
         }
         
-        // Como ya tenía cuenta, actualizamos su perfil con la nueva ficha clínica
         if (!isStaticPlan) {
             await supabase.auth.updateUser({ data: userData });
         }
@@ -242,7 +256,6 @@ const isStaticPlan =
         throw new Error("No pudimos crear tu cuenta de acceso: " + authError.message);
       }
 
-      // 2. Mapeo de métodos de pago
       const methodMapping = {
         mercadopago: "mercado_pago",
         transferencia: "transfer_ars",
@@ -250,18 +263,16 @@ const isStaticPlan =
         usd: "international_usd",
       };
 
-      // 🔥 ACÁ ESTÁ LA MAGIA: DECIDIMOS A QUÉ MOTOR MANDAR LA ORDEN 🔥
+      // Si paga en Crypto o USD, mandamos el total en dólares al backend
+      const finalApiPrice = (paymentMethod === "usd" || paymentMethod === "crypto") ? totalUSD : totalARS;
+
       if (isStaticPlan && paymentMethod === "mercadopago") {
-        // ----------------------------------------------------
-        // MOTOR NUEVO (PRODUCTOS DIGITALES - MESOCICLOS PDF)
-        // ----------------------------------------------------
         
-        // 1. Buscamos el ID real en la base de datos usando el slug ACTUALIZADO
         let productSlug = "";
         if (selectedPlan.id === "static-fuerza") productSlug = "mesociclo-fuerza-4-semanas";
         if (selectedPlan.id === "static-hipertrofia") productSlug = "mesociclo-hipertrofia-4-semanas";
         if (selectedPlan.id === "mesociclo-definicion-4-semanas") productSlug = "mesociclo-definicion-4-semanas";
-        if (selectedPlan.id === "especializacion-brazos-mutantes") productSlug = "especializacion-brazos-mutantes"; // <--- ESTO CONECTA CON LA BASE DE DATOS
+        if (selectedPlan.id === "especializacion-brazos-mutantes") productSlug = "especializacion-brazos-mutantes"; 
         if (selectedPlan.id === "calculadora-volumen-basura") productSlug = "calculadora-volumen-basura";
 
         const { data: dbProduct, error: productError } = await supabase
@@ -274,17 +285,15 @@ const isStaticPlan =
            throw new Error("No pudimos encontrar el producto en la base de datos. Avisá al Coach.");
         }
 
-        // 2. Generamos una llave de seguridad única (idempotency key)
         const idempotencyKey = `checkout_${cleanEmail}_${Date.now()}`;
 
-        // 3. ARMAMOS EL PAQUETE EXACTAMENTE COMO LO PIDE LA API Y LE MANDAMOS EL ORDER BUMP
         const response = await fetch('/api/commerce/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             productIds: [dbProduct.id],
             idempotencyKey: idempotencyKey,
-            hasOrderBump: orderBump // Le avisamos a la API si lo compró
+            hasOrderBump: orderBump 
           })
         });
 
@@ -296,14 +305,11 @@ const isStaticPlan =
           await supabase.from("abandoned_checkouts").delete().eq("id", abandonIdRef.current);
         }
 
-        if (data.initPoint) { // Nota: la API devuelve initPoint con P mayúscula, no init_point
+        if (data.initPoint) { 
           window.location.href = data.initPoint;
         }
 
       } else {
-        // ----------------------------------------------------
-        // MOTOR VIEJO (SUSCRIPCIONES Y COACHING)
-        // ----------------------------------------------------
         const response = await fetch("/api/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -315,9 +321,9 @@ const isStaticPlan =
             password: formData.password,
             customerRef: formData.instagram.trim() || null,
             extraVideo: finalExtraVideo,
-            hasOrderBump: orderBump, // Le avisamos a la API vieja si lo compró
+            hasOrderBump: orderBump, 
             referredBy: discountApplied?.code || null,
-            finalPrice: totalAmount,
+            finalPrice: finalApiPrice, 
             onboardingData: {
               age: formData.age,
               phone: formData.phone,
@@ -438,7 +444,7 @@ const isStaticPlan =
               </div>
             </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={labelClass}>
                   WhatsApp (Soporte) <span className="text-emerald-500">*</span>
@@ -482,7 +488,7 @@ const isStaticPlan =
               >
                 {isStaticPlan
                   ? "Obtendrás acceso automático al material al confirmar el pago."
-                  : "Al completar el pago accederás a tu panel para realizar la auditoría clínica."}
+                  : "Al completar el pago accederás a tu panel para tu evaluación clínica."}
               </p>
             </div>
           </div>
@@ -545,7 +551,7 @@ const isStaticPlan =
                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30"
               }`}
             >
-              Cripto (USDT/BTC)
+              Cripto (USDT/USDC/BTC)
             </button>
             <button
               type="button"
@@ -578,20 +584,19 @@ const isStaticPlan =
               <p className="text-sm font-medium text-zinc-300">
                 Generá tu pedido para ver las billeteras y enviar{" "}
                 <span className="font-mono text-emerald-400 font-bold">
-                  {conversions.usdt} USDT/USDC
+                  {totalCrypto} USDT/USDC
                 </span>{" "}
                 o{" "}
                 <span className="font-mono text-emerald-400 font-bold">
-                  {conversions.btc} BTC
-                </span>
-                .
+                  {totalBTC} BTC
+                </span>.
               </p>
             )}
             {paymentMethod === "usd" && (
               <p className="text-sm font-medium text-zinc-300">
                 Generá tu pedido para ver los datos bancarios y transferir{" "}
                 <span className="font-mono text-emerald-400 font-bold">
-                  U$D {conversions.usd}
+                  U$D {totalUSD}
                 </span>{" "}
                 (ACH o Local).
               </p>
@@ -607,9 +612,10 @@ const isStaticPlan =
                 Términos de Inscripción
               </strong>
               <p className="text-xs text-zinc-400 leading-relaxed font-medium">
-                Al continuar, aceptás que este es un servicio de pago único y
-                declarás estar apto físicamente. No se realizan reembolsos por
-                bajas anticipadas.
+                {selectedPlan.id === "bii-performance-mensual" 
+                  ? "Al continuar, aceptás suscribirte a este servicio. Podés cancelar tu suscripción en cualquier momento desde tu panel."
+                  : "Al continuar, aceptás que este es un servicio de pago único y declarás estar apto físicamente. No se realizan reembolsos por bajas anticipadas."
+                }
               </p>
             </div>
           </div>
@@ -663,10 +669,10 @@ const isStaticPlan =
                 </p>
                 <div className="flex items-center gap-3 mt-1 mb-2">
                   <span className="line-through text-zinc-500 text-xs sm:text-sm font-bold">
-                    $25.000
+                    {paymentMethod === "usd" || paymentMethod === "crypto" ? "U$D 25" : "$25.000"}
                   </span>
                   <span className="text-emerald-400 font-black text-sm sm:text-base tracking-widest">
-                    + $10.000 ARS
+                    + {paymentMethod === "usd" || paymentMethod === "crypto" ? `U$D ${ORDER_BUMP_PRICE_USD}` : `$${ORDER_BUMP_PRICE_ARS.toLocaleString()} ARS`}
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-medium">
@@ -687,32 +693,12 @@ const isStaticPlan =
                 Suscripción Base
               </span>
               <span className="text-white font-mono text-lg">
-                {paymentMethod === "usd"
-                  ? `U$D ${getConversions(selectedPlan.price).usd}`
-                  : paymentMethod === "crypto"
-                  ? `${getConversions(selectedPlan.price).usdt} USDT`
-                  : `$${selectedPlan.price.toLocaleString()}`}
+                {paymentMethod === "usd" || paymentMethod === "crypto"
+                  ? `U$D ${basePriceUSD}`
+                  : `$${basePriceARS.toLocaleString()}`}
               </span>
             </div>
-            {finalExtraVideo && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-emerald-400 font-medium flex items-center gap-2">
-                  <span className="bg-emerald-500/20 px-1.5 rounded font-black">
-                    +
-                  </span>
-                  Video Análisis
-                </span>
-                <span className="text-emerald-400 font-mono text-lg">
-                  {paymentMethod === "usd"
-                    ? `U$D ${getConversions(extraPrice).usd}`
-                    : paymentMethod === "crypto"
-                    ? `${getConversions(extraPrice).usdt} USDT`
-                    : `+$${extraPrice.toLocaleString()}`}
-                </span>
-              </div>
-            )}
             
-            {/* ITEM DEL ORDER BUMP EN EL RESUMEN */}
             {orderBump && (
               <div className="flex justify-between items-center text-sm">
                 <span className="text-emerald-400 font-medium flex items-center gap-2">
@@ -720,11 +706,9 @@ const isStaticPlan =
                   Kit Acelerador BII
                 </span>
                 <span className="text-emerald-400 font-mono text-lg">
-                  {paymentMethod === "usd"
-                    ? `U$D ${getConversions(ORDER_BUMP_PRICE).usd}`
-                    : paymentMethod === "crypto"
-                    ? `${getConversions(ORDER_BUMP_PRICE).usdt} USDT`
-                    : `+$${ORDER_BUMP_PRICE.toLocaleString()}`}
+                  {paymentMethod === "usd" || paymentMethod === "crypto"
+                    ? `+U$D ${ORDER_BUMP_PRICE_USD}`
+                    : `+$${ORDER_BUMP_PRICE_ARS.toLocaleString()}`}
                 </span>
               </div>
             )}
@@ -745,7 +729,7 @@ const isStaticPlan =
                 onChange={(e) =>
                   setReferralCode(e.target.value.toUpperCase())
                 }
-                placeholder="Ej: JUAN74 o TUJAGUE20"
+                placeholder="Ej: TUJAGUE15"
                 className="w-full sm:flex-1 bg-black border border-zinc-700 rounded-xl px-5 py-4 text-white font-bold text-sm outline-none focus:border-emerald-500 transition-all uppercase placeholder:text-zinc-600"
                 disabled={discountApplied !== null || validatingCode}
               />
@@ -795,11 +779,9 @@ const isStaticPlan =
             <div className="text-right">
               {discountApplied && (
                 <div className="text-sm font-bold text-zinc-600 line-through mb-1">
-                  {paymentMethod === "usd"
-                    ? `U$D ${originalConversions.usd}`
-                    : paymentMethod === "crypto"
-                    ? `${originalConversions.usdt} USDT`
-                    : `$${subtotal.toLocaleString()}`}
+                  {paymentMethod === "usd" || paymentMethod === "crypto"
+                    ? `U$D ${subtotalUSD}`
+                    : `$${subtotalARS.toLocaleString()}`}
                 </div>
               )}
               <div
@@ -809,15 +791,13 @@ const isStaticPlan =
                     : "text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400"
                 }`}
               >
-                {paymentMethod === "usd"
-                  ? `U$D ${conversions.usd}`
-                  : paymentMethod === "crypto"
-                  ? `${conversions.usdt}`
-                  : `$${totalAmount.toLocaleString()}`}
+                {paymentMethod === "usd" || paymentMethod === "crypto"
+                  ? `U$D ${totalUSD}`
+                  : `$${totalARS.toLocaleString()}`}
               </div>
               {paymentMethod === "crypto" && (
                 <div className="text-xs font-mono font-bold text-zinc-500 mt-2">
-                  o ₿ {conversions.btc} BTC
+                  o ₿ {totalBTC} BTC
                 </div>
               )}
             </div>

@@ -34,19 +34,21 @@ export default function AdminOrderPaymentPage() {
   // ESTADO PARA EL AUTOPILOT DE RUTINAS
   const [autopilotLoading, setAutopilotLoading] = useState(false);
 
+  // 🔥 EL SALVAVIDAS
   useEffect(() => {
+    if (!orderId) return;
     fetchOrder();
-  }, []);
+  }, [orderId]);
 
   async function fetchOrder() {
     const { data, error } = await supabase
       .from("orders")
       .select("*, plans(*)") 
-      .eq("order_id", orderId)
+      .eq("order_id", orderId) // <--- VUELTO A LA NORMALIDAD
       .single();
 
     if (error) {
-        console.error("Error:", error);
+        console.error("Error buscando orden:", error.message);
     }
     
     if (data) {
@@ -66,13 +68,12 @@ export default function AdminOrderPaymentPage() {
         const { error } = await supabase
             .from("orders")
             .update({ status: newStatus })
-            .eq("order_id", orderId);
+            .eq("order_id", orderId); // <--- VUELTO A LA NORMALIDAD
 
         if (error) throw error;
 
-        // INYECCIÓN DE CRÉDITOS AUTOMÁTICA Y DINÁMICA
+        // INYECCIÓN DE CRÉDITOS
         if (newStatus === 'paid' && order.referred_by) {
-            
             const montoPagado = Number(order.amount_ars) || 0;
             const COMISION_DINAMICA = Math.round(montoPagado * 0.10); 
             
@@ -109,7 +110,7 @@ export default function AdminOrderPaymentPage() {
 
   // --- FUNCIÓN: ELIMINAR ORDEN ---
   async function deleteOrder() {
-    const confirmDelete = confirm("⚠️ ¿ESTÁS SEGURO DE ELIMINAR ESTA ORDEN?\n\nEsta acción es irreversible. Se borrarán todos los datos, rutinas y pagos asociados.");
+    const confirmDelete = confirm("⚠️ ¿ESTÁS SEGURO DE ELIMINAR ESTA ORDEN?\n\nEsta acción es irreversible.");
     
     if (!confirmDelete) return;
 
@@ -117,7 +118,7 @@ export default function AdminOrderPaymentPage() {
     const { error } = await supabase
         .from("orders")
         .delete()
-        .eq("order_id", orderId);
+        .eq("order_id", orderId); // <--- VUELTO A LA NORMALIDAD
 
     if (error) {
         alert("❌ Error al eliminar: " + error.message);
@@ -142,7 +143,7 @@ export default function AdminOrderPaymentPage() {
           const { error } = await supabase
               .from("orders")
               .update({ referral_code: cleanCode })
-              .eq("order_id", orderId);
+              .eq("order_id", orderId); // <--- VUELTO A LA NORMALIDAD
 
           if (error) throw error;
 
@@ -150,13 +151,12 @@ export default function AdminOrderPaymentPage() {
           setIsEditingCode(false);
           alert("✅ Código de referido asignado con éxito.");
       } catch (err: any) {
-          alert("Error al guardar el código. ¿Quizás ya existe? Detalles: " + err.message);
+          alert("Error al guardar el código: " + err.message);
       } finally {
           setSavingCode(false);
       }
   }
 
-  // --- FUNCIÓN: AUTO-GENERAR CÓDIGO DE REFERIDO ---
   function autoGenerateCode() {
       if (!order?.customer_name) return;
       const firstName = order.customer_name.split(' ')[0].toUpperCase();
@@ -170,23 +170,16 @@ export default function AdminOrderPaymentPage() {
   };
 
   const getWhatsAppApprovalLink = () => {
-     if (!order?.onboarding_data?.phone) return "#";
-     
-     const rawPhone = order.onboarding_data.phone;
-     let cleanPhone = rawPhone.replace(/\D/g, ''); 
-     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-     if (!cleanPhone.startsWith('54')) cleanPhone = `549${cleanPhone}`; 
-
-     const clientName = order.customer_name.split(' ')[0];
-     const planName = order.plans?.name || 'su plan de entrenamiento';
+     const clientName = order?.customer_name ? order.customer_name.split(' ')[0] : 'Atleta';
+     const planName = order?.plans?.name || 'la Mentoría Élite';
      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tujague.com';
 
-     const message = `Estimado ${clientName},\n\nLe saluda el Head Coach Luciano Tujague.\n\nLe confirmo que su pago ha sido verificado con éxito y su acceso al programa *${planName}* se encuentra activo en nuestra base de datos.\n\nPor favor, ingrese a su Panel de Control y complete su Auditoría Clínica para que pueda iniciar el diseño de su estructura de entrenamiento:\n\n${siteUrl}/login\n\nQuedo a su disposición ante cualquier consulta técnica.`;
+     const message = `¡Fiera! ¿Cómo estás?\n\nSoy el Coach Luciano Tujague.\n\nTe confirmo que el sistema ya verificó tu transferencia para *${planName}*.\n\nTu "Bóveda de Atleta" ya está 100% desbloqueada. Entrá, completá la Ficha Clínica y avisame cuando lo tengas así me pongo a auditar tus palancas y armar la estructura.\n\nLink de ingreso directo: ${siteUrl}/login\n\n¡Vamos a mutar!`;
      
-     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   };
 
-  // 🔥 COPILOTO IA PARA AUDITORÍA TÉCNICA (CERO ASTERISCOS GARANTIZADO) 🔥
+  // 🔥 COPILOTO IA PARA AUDITORÍA TÉCNICA 🔥
   const handleGenerateFeedback = async (liftId: string, liftName: string) => {
       const notes = draftNotes[liftId];
       if (!notes) return alert("Debe ingresar apuntes en crudo para generar la devolución.");
@@ -204,7 +197,7 @@ export default function AdminOrderPaymentPage() {
                       Redacta una devolución formal y técnica para el alumno sobre su ejecución de ${liftName}.
                       Utiliza estas notas en crudo: "${notes}".
                       Mejora la redacción, usa vocabulario técnico y sé directo. No saludes.
-                      REGLA ESTRICTA E INQUEBRANTABLE: Escribe en texto plano y limpio. Está TERMINANTEMENTE PROHIBIDO usar asteriscos (**), negritas, hashtags (#) o cualquier formato Markdown.`
+                      REGLA ESTRICTA: Escribe en texto plano y limpio. PROHIBIDO usar asteriscos (**), negritas, hashtags (#) o Markdown.`
                   }] 
               })
           });
@@ -243,7 +236,7 @@ export default function AdminOrderPaymentPage() {
       }
   };
 
-  // 🔥 AUTOPILOT DE RUTINAS (MANDA EL MESOCICLO AL BUZÓN IA) 🔥
+  // 🔥 AUTOPILOT DE RUTINAS 🔥
   const handleGenerateAutopilot = async () => {
     setAutopilotLoading(true);
 
@@ -253,25 +246,19 @@ export default function AdminOrderPaymentPage() {
       const res = await fetch('/api/admin/autopilot', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          athleteData: order, 
-          days: daysToProgram 
-        })
+        body: JSON.stringify({ athleteData: order, days: daysToProgram })
       });
 
       const data = await res.json();
 
       if (data.result) {
         const mesocicloGenerado = data.result;
-        
-        // 1. Guardar en el BUZÓN DE IA (ai_draft_text) poniendo lo más nuevo arriba
         const fechaHoy = new Date().toLocaleDateString('es-AR');
         const bloqueMesociclo = `=================================\n🗓️ MESOCICLO CREADO POR IA: ${fechaHoy}\n=================================\n${mesocicloGenerado}\n\n`;
         
         const historialAnterior = order.ai_draft_text || "";
         const nuevoHistorial = bloqueMesociclo + historialAnterior;
 
-        // Guarda silenciosamente en Supabase
         const { error } = await supabase
             .from('orders')
             .update({ ai_draft_text: nuevoHistorial })
@@ -279,17 +266,13 @@ export default function AdminOrderPaymentPage() {
 
         if (error) throw error;
 
-        // Actualiza la vista local
         setOrder({ ...order, ai_draft_text: nuevoHistorial });
-
-        alert("✅ IA: Mesociclo de 4 Semanas generado con éxito.\n\nSe ha guardado en el 'Buzón IA'. Ve a la sección 'Gestión de Atletas' de este cliente para revisar el buzón, copiar las semanas y pegarlas en su planificador.");
+        alert("✅ IA: Mesociclo generado y guardado en el Buzón IA con éxito.");
 
       } else {
-        alert("❌ Error: La IA no pudo generar el Mesociclo. Revisa tu conexión o la API Key.");
+        alert("❌ Error: La IA no pudo generar el Mesociclo.");
       }
-
     } catch (err: any) {
-      console.error("Error en Autopilot:", err);
       alert("Error en Autopilot: " + err.message);
     } finally {
       setAutopilotLoading(false);
@@ -305,7 +288,7 @@ export default function AdminOrderPaymentPage() {
   ];
 
   if (loading) return <div className="min-h-screen bg-[#000000] flex items-center justify-center text-amber-500 font-black animate-pulse uppercase tracking-widest text-xs md:text-sm">Cargando Ficha del Atleta...</div>;
-  if (!order) return <div className="min-h-screen bg-[#000000] text-white flex items-center justify-center font-black text-xl">Orden no encontrada.</div>;
+  if (!order) return <div className="min-h-screen bg-[#000000] text-white flex items-center justify-center font-black text-xl">Orden no encontrada. Vuelve atrás y recarga la página.</div>;
 
   return (
     <div className="min-h-screen bg-[#000000] text-white font-sans pb-20 selection:bg-amber-500 selection:text-black relative">
@@ -452,7 +435,7 @@ export default function AdminOrderPaymentPage() {
                             
                             <div className="bg-[#050505] p-5 md:p-6 rounded-2xl border border-zinc-800 shadow-inner">
                                 <p className="text-[9px] md:text-[10px] text-zinc-500 uppercase font-black tracking-widest mb-2">Vino Referido Por</p>
-                                <p className="text-sm md:text-base font-mono font-bold text-orange-400">{order.referred_by || 'ORGÁNICO (Nadie)'}</p>
+                                <p className="text-sm md:text-base font-mono font-bold text-orange-400">{order.referred_by || 'ORGÁNICO'}</p>
                             </div>
                             
                             <div className="bg-amber-500/10 p-5 md:p-6 rounded-2xl border border-amber-500/30 shadow-inner flex flex-col justify-center">
@@ -481,7 +464,7 @@ export default function AdminOrderPaymentPage() {
                             </p>
                             {order.referred_by && (
                                <p className="text-[9px] text-orange-400 font-bold uppercase mt-3 bg-orange-500/10 px-3 py-1.5 rounded-md inline-block border border-orange-500/20">
-                                  Precio con descuento afiliado aplicado
+                                  Precio con descuento aplicado
                                </p>
                             )}
                         </div>
@@ -508,8 +491,7 @@ export default function AdminOrderPaymentPage() {
                             </button>
                         </div>
 
-                        {/* BOTÓN WHATSAPP APROBACIÓN */}
-                        {order.status === 'paid' && order.onboarding_data?.phone && (
+                        {order.status === 'paid' && (
                             <div className="border-t border-zinc-800/80 pt-6 mb-8 relative z-10">
                                 <a 
                                     href={getWhatsAppApprovalLink()}
@@ -517,7 +499,6 @@ export default function AdminOrderPaymentPage() {
                                     rel="noopener noreferrer"
                                     className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-black py-4 md:py-5 rounded-2xl font-black uppercase tracking-widest text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,211,102,0.3)] active:scale-95"
                                 >
-                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
                                     Avisar Aprobación (WhatsApp)
                                 </a>
                             </div>
@@ -561,7 +542,6 @@ export default function AdminOrderPaymentPage() {
                                 <div className="text-center p-6 opacity-40 flex flex-col items-center">
                                     <span className="text-5xl md:text-6xl mb-4 drop-shadow-md">📄</span>
                                     <p className="text-xs md:text-sm font-black text-zinc-400 uppercase tracking-widest">Sin comprobante</p>
-                                    <p className="text-[9px] text-zinc-600 mt-2 font-bold">El cliente aún no cargó el archivo.</p>
                                 </div>
                             )}
                         </div>
@@ -577,10 +557,10 @@ export default function AdminOrderPaymentPage() {
         {activeTab === 'coaching' && (
             <div className="grid lg:grid-cols-2 gap-6 md:gap-8 animate-in fade-in duration-500">
                 
-                {/* COLUMNA IZQUIERDA: LA FÁBRICA (SOLO FICHA Y GENERAR) */}
+                {/* COLUMNA IZQUIERDA: LA FÁBRICA */}
                 <div className="space-y-6 md:space-y-8">
                     
-                    {/* 📋 FICHA ESTRUCTURAL */}
+                    {/* FICHA ESTRUCTURAL */}
                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none"></div>
                         <h3 className="text-amber-500 text-[10px] md:text-xs font-black uppercase tracking-widest mb-6 md:mb-8 flex items-center gap-3 border-b border-zinc-800/80 pb-4 relative z-10">
@@ -592,22 +572,10 @@ export default function AdminOrderPaymentPage() {
                             <div className="space-y-6 md:space-y-8 relative z-10">
                                 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-[#050505] p-5 rounded-2xl border border-zinc-800/80 shadow-inner">
-                                    <div>
-                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Edad</p>
-                                        <p className="font-black text-white md:text-lg">{order.age || '-'} a</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Peso</p>
-                                        <p className="font-black text-white md:text-lg">{order.body_weight || '-'} kg</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Altura</p>
-                                        <p className="font-black text-white md:text-lg">{order.height || '-'} cm</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Sesiones</p>
-                                        <p className="font-black text-white md:text-lg">{order.training_days || '-'}/sem</p>
-                                    </div>
+                                    <div><p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Edad</p><p className="font-black text-white md:text-lg">{order.age || '-'} a</p></div>
+                                    <div><p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Peso</p><p className="font-black text-white md:text-lg">{order.body_weight || '-'} kg</p></div>
+                                    <div><p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Altura</p><p className="font-black text-white md:text-lg">{order.height || '-'} cm</p></div>
+                                    <div><p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Sesiones</p><p className="font-black text-white md:text-lg">{order.training_days || '-'}/sem</p></div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -620,19 +588,64 @@ export default function AdminOrderPaymentPage() {
                                         <p className="font-black text-white capitalize text-sm">{order.experience || '-'}</p>
                                     </div>
                                     <div className="bg-[#050505] p-4 rounded-xl border border-zinc-800/80 shadow-inner">
-                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Equipamiento</p>
+                                        <p className="text-[9px] text-zinc-500 font-black tracking-widest uppercase mb-1">Equipo</p>
                                         <p className="font-black text-white capitalize text-sm">{order.equipment?.replace('_', ' ') || '-'}</p>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <p className="text-[9px] md:text-[10px] text-red-500 font-black tracking-widest uppercase mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Lesiones Previas</p>
-                                    <div className="bg-[#050505] border border-zinc-800 p-5 rounded-2xl shadow-inner">
-                                        <p className="text-xs md:text-sm text-zinc-400 font-medium leading-relaxed">
-                                            {order.medical_history || 'Ninguna molestia declarada en el alta.'}
-                                        </p>
-                                    </div>
-                                </div>
+                                {/* ESCÁNER CLÍNICO */}
+                                {(() => {
+                                    const historyStr = order.medical_history || '';
+                                    const isBeginnerAlert = historyStr.includes('[ATLETA PRINCIPIANTE]');
+                                    let cleanHistory = historyStr.replace('[ATLETA PRINCIPIANTE] - ', '');
+                                    let joints: string[] = [];
+                                    let detailText = cleanHistory || 'Ninguna molestia declarada en el alta.';
+                                    
+                                    if (cleanHistory.includes('Lesiones: ') && cleanHistory.includes('| Detalle: ')) {
+                                        const parts = cleanHistory.split('| Detalle: ');
+                                        joints = parts[0].replace('Lesiones: ', '').split(', ').filter((j: string) => j.trim() !== '');
+                                        detailText = parts[1]?.trim() || 'Sin detalles adicionales.';
+                                    }
+
+                                    const hasInjuries = joints.length > 0 || (detailText !== 'Ninguna molestia declarada en el alta.' && detailText.length > 5);
+
+                                    return (
+                                        <div className="mt-6">
+                                            <p className={`text-[9px] md:text-[10px] font-black tracking-widest uppercase mb-3 flex items-center gap-2 ${hasInjuries ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${hasInjuries ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`}></span> 
+                                                Estado Articular
+                                            </p>
+                                            <div className={`bg-[#050505] border p-5 rounded-2xl shadow-inner ${hasInjuries ? 'border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.1)]' : 'border-zinc-800'}`}>
+                                                
+                                                {isBeginnerAlert && (
+                                                    <div className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-5 inline-flex items-center gap-2">
+                                                        <span>🛡️</span> ATENCIÓN: PRINCIPIANTE
+                                                    </div>
+                                                )}
+
+                                                {joints.length > 0 && (
+                                                    <div className="mb-5 border-b border-zinc-800/80 pb-4">
+                                                        <p className="text-[8px] md:text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-2.5">Zonas Mapeadas:</p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {joints.map((joint, idx) => (
+                                                                <span key={idx} className="bg-red-500/10 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
+                                                                    ⚠️ {joint}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                <div>
+                                                    <p className="text-[8px] md:text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1.5">Detalle Descriptivo:</p>
+                                                    <p className={`text-xs md:text-sm font-medium leading-relaxed ${hasInjuries ? 'text-red-100' : 'text-zinc-400'}`}>
+                                                        {detailText}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div>
                                     <p className="text-[9px] md:text-[10px] text-amber-500 font-black tracking-widest uppercase mb-3">RMs Base (Kilogramos)</p>
@@ -645,7 +658,84 @@ export default function AdminOrderPaymentPage() {
                                     </div>
                                 </div>
                                 
-                                {/* 🔥 BOTÓN MÁGICO DEL AUTOPILOT DE RUTINAS (PURA GENERACIÓN) 🔥 */}
+                                {/* 🔥 PANEL DE MACROS 🔥 */}
+                                <div className="mt-8 border-t border-zinc-800/80 pt-6">
+                                    <p className="text-[9px] md:text-[10px] text-orange-500 font-black tracking-widest uppercase mb-3 flex items-center gap-2">
+                                        <span className="text-sm">🥩</span> Asignar Macros Oficiales
+                                    </p>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                        <div className="bg-[#050505] border border-zinc-800 rounded-xl p-3">
+                                            <label className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 block">Calorías</label>
+                                            <input 
+                                                type="text" 
+                                                value={order.macro_calories || ""} 
+                                                onChange={(e) => setOrder({...order, macro_calories: e.target.value})}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('orders').update({ macro_calories: e.target.value }).eq('id', order.id);
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm md:text-base font-bold outline-none placeholder:text-zinc-700" 
+                                                placeholder="Ej: 3000" 
+                                            />
+                                        </div>
+                                        <div className="bg-[#050505] border border-zinc-800 rounded-xl p-3">
+                                            <label className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 block">Proteína (g)</label>
+                                            <input 
+                                                type="text" 
+                                                value={order.macro_protein || ""} 
+                                                onChange={(e) => setOrder({...order, macro_protein: e.target.value})}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('orders').update({ macro_protein: e.target.value }).eq('id', order.id);
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm md:text-base font-bold outline-none placeholder:text-zinc-700" 
+                                                placeholder="Ej: 180" 
+                                            />
+                                        </div>
+                                        <div className="bg-[#050505] border border-zinc-800 rounded-xl p-3">
+                                            <label className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 block">Carbs (g)</label>
+                                            <input 
+                                                type="text" 
+                                                value={order.macro_carbs || ""} 
+                                                onChange={(e) => setOrder({...order, macro_carbs: e.target.value})}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('orders').update({ macro_carbs: e.target.value }).eq('id', order.id);
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm md:text-base font-bold outline-none placeholder:text-zinc-700" 
+                                                placeholder="Ej: 350" 
+                                            />
+                                        </div>
+                                        <div className="bg-[#050505] border border-zinc-800 rounded-xl p-3">
+                                            <label className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 block">Grasas (g)</label>
+                                            <input 
+                                                type="text" 
+                                                value={order.macro_fats || ""} 
+                                                onChange={(e) => setOrder({...order, macro_fats: e.target.value})}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('orders').update({ macro_fats: e.target.value }).eq('id', order.id);
+                                                }}
+                                                className="w-full bg-transparent text-white font-mono text-sm md:text-base font-bold outline-none placeholder:text-zinc-700" 
+                                                placeholder="Ej: 70" 
+                                            />
+                                        </div>
+                                        <div className="bg-[#050505] border border-zinc-800 rounded-xl p-3 md:col-span-1 col-span-2">
+                                            <label className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 block">Agua (L)</label>
+                                            <input 
+                                                type="text" 
+                                                value={order.macro_water || ""} 
+                                                onChange={(e) => setOrder({...order, macro_water: e.target.value})}
+                                                onBlur={async (e) => {
+                                                    await supabase.from('orders').update({ macro_water: e.target.value }).eq('id', order.id);
+                                                }}
+                                                className="w-full bg-transparent text-blue-400 font-mono text-sm md:text-base font-bold outline-none placeholder:text-zinc-700" 
+                                                placeholder="Ej: 4.5" 
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[8px] text-zinc-500 uppercase font-bold tracking-widest mt-2">
+                                        💡 Se guardan al dejar de escribir. El alumno lo verá al instante.
+                                    </p>
+                                </div>
+                                
+                                {/* BOTON AUTOPILOT */}
                                 <div className="pt-6 border-t border-zinc-800/80">
                                     <button 
                                         onClick={handleGenerateAutopilot}
@@ -663,9 +753,6 @@ export default function AdminOrderPaymentPage() {
                                             </>
                                         )}
                                     </button>
-                                    <p className="text-[9px] text-zinc-500 text-center mt-3 uppercase tracking-widest font-bold">
-                                        La IA creará la rutina y la enviará al Buzón IA en la Gestión de Atletas. Entra a esa sección para revisarla, distribuirla y publicarla.
-                                    </p>
                                 </div>
 
                             </div>
@@ -678,14 +765,11 @@ export default function AdminOrderPaymentPage() {
                         )}
                     </div>
 
-                    {/* 🔥 VISOR DE LO QUE LLEGÓ AL BUZÓN IA (SÓLO LECTURA) 🔥 */}
+                    {/* BUZON IA */}
                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-xl">
                         <h3 className="text-zinc-300 text-[10px] md:text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-zinc-800/80 pb-4">
                             <span>📥</span> Estado del Buzón IA
                         </h3>
-                        <p className="text-[10px] text-zinc-500 mb-4 font-medium">
-                            Aquí puedes verificar lo que la IA acaba de enviar a la Gestión de Atletas.
-                        </p>
                         <div className="bg-[#050505] border border-zinc-800 rounded-2xl p-4 h-64 overflow-y-auto custom-scrollbar shadow-inner">
                             {order?.ai_draft_text ? (
                                 <pre className="text-[10px] md:text-xs text-zinc-400 font-mono whitespace-pre-wrap">
@@ -694,14 +778,14 @@ export default function AdminOrderPaymentPage() {
                             ) : (
                                 <div className="h-full flex flex-col items-center justify-center text-zinc-600 opacity-50">
                                     <span className="text-3xl mb-2">🗄️</span>
-                                    <p className="text-[10px] font-black uppercase tracking-widest">Aún no has generado nada.</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest">Vacío.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* COLUMNA DERECHA: ESTACIÓN DE AUDITORÍA IA (VIDEOS) */}
+                {/* COLUMNA DERECHA: AUDITORIA VIDEOS */}
                 <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl relative overflow-hidden h-fit">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none"></div>
                     <h3 className="text-amber-500 text-[10px] md:text-xs font-black uppercase tracking-widest mb-8 flex items-center gap-3 border-b border-zinc-800/80 pb-4 relative z-10">
@@ -735,40 +819,34 @@ export default function AdminOrderPaymentPage() {
                                     </div>
                                 )}
 
-                                {/* ✅ COPILOTO IA WORKSTATION - SIEMPRE VISIBLE ✅ */}
+                                {/* WORKSTATION IA */}
                                 <div className="flex flex-col gap-3 bg-[#0a0a0c] p-5 rounded-2xl border border-zinc-800 mb-6 shadow-inner focus-within:border-amber-500/50 transition-colors">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-zinc-300 flex items-center gap-2">
-                                            <span className="text-sm">✍️</span> 1. Apuntes Crudos (Para la IA)
-                                        </label>
-                                    </div>
-                                    <p className="text-[10px] text-zinc-500 font-medium mb-1">
-                                        Escribí palabras sueltas. Ej: "bajar más lento, codos abiertos". La IA redactará el texto plano, sin negritas ni formatos raros.
-                                    </p>
+                                    <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-zinc-300 flex items-center gap-2">
+                                        <span className="text-sm">✍️</span> 1. Apuntes Crudos
+                                    </label>
                                     <textarea 
                                         value={draftNotes[lift.id] || ""}
                                         onChange={(e) => setDraftNotes({...draftNotes, [lift.id]: e.target.value})}
-                                        placeholder="Tus notas rápidas..."
+                                        placeholder="Ej: Bajar más lento, codos..."
                                         className="w-full bg-[#050505] border border-zinc-700/80 rounded-xl p-3 text-xs md:text-sm text-zinc-300 outline-none resize-none h-20 focus:border-amber-500 transition-colors shadow-inner"
                                     />
                                     <button 
                                         onClick={() => handleGenerateFeedback(lift.id, lift.label)}
                                         disabled={aiLoading[lift.id]}
-                                        className="w-full bg-zinc-800 hover:bg-amber-500 hover:text-black text-white py-3 md:py-4 rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95 mt-2 border border-zinc-700 hover:border-amber-500"
+                                        className="w-full bg-zinc-800 hover:bg-amber-500 hover:text-black text-white py-3 md:py-4 rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all shadow-md disabled:opacity-50 mt-2 border border-zinc-700 hover:border-amber-500"
                                     >
-                                        {aiLoading[lift.id] ? 'PROCESANDO CON IA...' : '✨ 2. GENERAR DIAGNÓSTICO PROFESIONAL'}
+                                        {aiLoading[lift.id] ? 'PROCESANDO...' : '✨ 2. GENERAR DIAGNÓSTICO'}
                                     </button>
                                 </div>
 
                                 {/* TEXTAREA DE FEEDBACK FINAL */}
                                 <div className="mt-2 bg-[#0a0a0c] p-5 rounded-2xl border border-zinc-800">
                                     <label className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-3 flex items-center gap-2">
-                                        <span className="text-sm">📨</span> 3. Devolución Final (Revisar y Enviar)
+                                        <span className="text-sm">📨</span> 3. Devolución Final
                                     </label>
                                     <textarea 
                                         value={order[`feedback_${lift.id}`] || ""}
                                         onChange={(e) => setOrder({...order, [`feedback_${lift.id}`]: e.target.value})}
-                                        placeholder="El análisis detallado y profesional aparecerá aquí para que lo revise antes de guardarlo..."
                                         className="w-full bg-[#050505] border border-zinc-800 rounded-xl p-4 text-xs md:text-sm text-amber-50/90 outline-none focus:border-amber-500 transition-colors resize-none h-32 md:h-40 custom-scrollbar shadow-inner"
                                     />
                                     <button 
@@ -788,13 +866,6 @@ export default function AdminOrderPaymentPage() {
         )}
 
       </div>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.4); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.8); }
-      `}} />
     </div>
   );
 }

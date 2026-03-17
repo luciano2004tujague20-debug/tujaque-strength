@@ -77,16 +77,15 @@ export async function POST(req: Request) {
             Solicito un protocolo de sustitución biomecánica inmediata para no interrumpir la sesión.`;
             
         } else if (action === 'fatigue_analysis') {
-            // NUEVO MÓDULO AGREGADO: Ideal para evaluar si el cliente está sobreentrenando.
+            // 🔥 AQUÍ ESTÁ EL MÓDULO QUE CONECTAMOS RECIÉN 🔥
             systemPrompt = `Eres el auditor de recuperación del sistema BII-Vintage a cargo de Luciano Tujague.
-            El atleta está reportando sus marcadores de recuperación. Tu objetivo es evaluar su Sistema Nervioso Central (SNC) y ratio estímulo-fatiga.
+            El atleta está reportando sus marcadores de recuperación de hoy. Tu objetivo es evaluar su Sistema Nervioso Central (SNC) y su capacidad para entrenar hoy.
             
-            REGLA DE ORO: NO PUEDES CREAR RUTINAS. Solo auditas y modificas variables de la sesión de hoy o exiges descanso absoluto.
+            REGLA DE ORO: NO PUEDES CREAR RUTINAS. Solo auditas y exiges ajustes o descanso absoluto.
 
             ESTRUCTURA OBLIGATORIA (PROHIBIDO USAR ASTERISCOS, usa MAYÚSCULAS para los títulos):
-            1. ESTADO DEL SNC: (Evaluación contundente de su nivel de fatiga sistémica basado en sus datos).
-            2. VEREDICTO DE ENTRENAMIENTO: (Decisión binaria: Entrena hoy con ajustes, o descanso absoluto obligatorio).
-            3. AJUSTE DE VARIABLES: (Qué hacer con el RIR, las series o la selección de ejercicios hoy).`;
+            1. ESTADO DEL SNC: (Evaluación contundente de su nivel de fatiga sistémica basado en sus horas de sueño y estrés).
+            2. VEREDICTO DE ENTRENAMIENTO: (Decisión binaria: Entrena hoy con ajustes de volumen/RIR, o descanso absoluto obligatorio si durmió muy poco o está muy estresado).`;
 
             userPrompt = `Horas de sueño reportadas: ${data.sleep_hours || 'Desconocidas'}. 
             Nivel de estrés general (1-10): ${data.stress_level || 'Desconocido'}. 
@@ -94,7 +93,7 @@ export async function POST(req: Request) {
             Solicito una auditoría clínica de mi capacidad de entrenamiento para hoy.`;
             
         } else {
-            return NextResponse.json({ error: "Acción no reconocida por la matriz de control." }, { status: 400 });
+            return NextResponse.json({ error: "Acción no reconocida." }, { status: 400 });
         }
 
         formattedMessages = [
@@ -115,7 +114,7 @@ export async function POST(req: Request) {
 
     let replyContent = response.choices[0]?.message?.content || "";
     
-    // 🔥 EL ASESINO DE FORMATO MEJORADO (Elimina corchetes también para evitar inyecciones Markdown) 🔥
+    // 🔥 EL ASESINO DE FORMATO MEJORADO (Elimina corchetes y asteriscos) 🔥
     replyContent = replyContent.replace(/[*#_`~\[\]]/g, '');
 
     if (body.messages) {
@@ -125,7 +124,7 @@ export async function POST(req: Request) {
     }
 
   } catch (error: any) {
-    console.error("❌ ERROR EN ASISTENTE BIOMECÁNICO:", error.message || error);
-    return NextResponse.json({ error: "Fallo de conexión en los servidores centrales de análisis biomecánico." }, { status: 500 });
+    console.error("❌ ERROR EN ASISTENTE:", error.message || error);
+    return NextResponse.json({ error: "Fallo de conexión en los servidores centrales." }, { status: 500 });
   }
 }
