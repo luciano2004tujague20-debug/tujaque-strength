@@ -45,7 +45,6 @@ const FAQS = [
   { q: "¿Cómo funcionan los pagos en Pesos, Dólares o Cripto?", a: "El precio oficial está anclado en Dólares, pero podés pagar en Pesos Argentinos (ARS) a través de Mercado Pago (Tarjetas o Saldo) al tipo de cambio del día. También aceptamos pagos internacionales vía Stripe y transferencias directas en Criptomonedas (USDT/BTC)." }
 ];
 
-
 export default function Home() {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   
@@ -86,27 +85,23 @@ export default function Home() {
           if (timelineRef.current && timelineLineRef.current) {
             const rect = timelineRef.current.getBoundingClientRect();
             const windowHeight = window.innerHeight;
-            const startOffset = windowHeight / 2; // La línea "nace" en el medio de la pantalla
+            const startOffset = windowHeight / 2; 
             
             const pixelsScrolled = startOffset - rect.top;
             
-            // Calculamos el % solo para dibujar la línea
             let progress = (pixelsScrolled / rect.height) * 100;
             progress = Math.max(0, Math.min(100, progress));
             timelineLineRef.current.style.height = `${progress}%`;
 
-            // Verificamos colisión exacta con cada tarjeta
             let currentActive = -1;
             cardsRef.current.forEach((card, index) => {
               if (card) {
-                // Si la punta de la línea bajó más allá del círculo de la tarjeta
                 if (pixelsScrolled >= card.offsetTop + 20) {
                   currentActive = index;
                 }
               }
             });
             
-            // Solo actualizamos React si cambiamos de nivel para no dar lag
             if (currentActive !== activeCard) {
                 setActiveCard(currentActive);
             }
@@ -121,7 +116,7 @@ export default function Home() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [activeCard]); // Dependencia necesaria para que el if interno sepa el valor actual
+  }, [activeCard]); 
 
   const [botMessages, setBotMessages] = useState<{role: string, content: string}[]>([
       { role: "assistant", content: "¡Bienvenido! Soy el Asesor Experto de Tujague Strength. ¿Querés que te explique cómo funciona la plataforma web o qué incluye la Mentoría VIP?" }
@@ -130,19 +125,6 @@ export default function Home() {
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [pulseLive, setPulseLive] = useState(false);
   const botEndRef = useRef<HTMLDivElement>(null);
-
-  const [triageStep, setTriageStep] = useState(0);
-  const [eliteScore, setEliteScore] = useState(0);
-
-  const handleTriageAnswer = (isElite: boolean) => {
-    if (isElite) setEliteScore(prev => prev + 1);
-    setTriageStep(prev => prev + 1);
-  };
-
-  const resetTriage = () => {
-    setTriageStep(0);
-    setEliteScore(0);
-  };
 
   const fetchTopAthletes = async () => {
     try {
@@ -263,11 +245,6 @@ export default function Home() {
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hidden sm:flex text-zinc-400 hover:text-amber-400 text-[10px] uppercase font-black tracking-widest transition-colors items-center gap-1">
                <span className="text-sm">🏠</span> Inicio
             </button>
-            <Link href="/dashboard">
-              <button className="px-5 sm:px-6 py-2.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-[9px] sm:text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] active:scale-95">
-                Acceso Clientes
-              </button>
-            </Link>
           </div>
         </div>
       </nav>
@@ -407,7 +384,7 @@ export default function Home() {
       </RevealOnScroll>
 
       {/* ========================================================= */}
-      {/* 1.5 MURO DE LA FAMA (Datos Reales)                          */}
+      {/* 1.5 MURO DE LA FAMA (Datos Reales)                        */}
       {/* ========================================================= */}
       <section className="relative z-10 py-24 sm:py-32 bg-[#000000] border-b border-white/5 overflow-hidden transform-gpu">
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none transform-gpu"></div>
@@ -509,13 +486,13 @@ export default function Home() {
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-0 md:text-right md:pr-12 pt-4 md:pt-0">
                     <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 0 ? 'text-amber-500' : 'text-zinc-500'}`}>01. La Frustración</span>
-                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 0 ? 'text-white' : 'text-zinc-400'}`}>EL ERROR DE LAS 6 SEMANAS</h3>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 0 ? 'text-white' : 'text-zinc-400'}`}>EL INFIERNO DE LOS 6 AÑOS PERDIDOS</h3>
                  </div>
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-2 md:mt-0">
                     <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 0 ? 'border-amber-500/50 bg-zinc-900 shadow-[0_10px_30px_rgba(245,158,11,0.15)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
                        <p className={`text-sm leading-relaxed transition-colors duration-300 ${activeCard >= 0 ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                         Como el 99%, empecé creyendo que más era mejor. 6 días de gimnasio, 20 series por músculo, volumen basura y cero progreso real. Estaba agotado, pero mi físico no cambiaba.
+                         Empecé a los 15, flaco y sin rumbo. Creí que "más era mejor" y entrenaba 6 días a la semana, hasta 4 horas por día, comiendo cualquier cosa y sin técnica. Estuve 6 años estancado en el mismo físico, cansado e ignorante. Perdí mi juventud adivinando, hasta que casi toqué fondo.
                        </p>
                     </div>
                  </div>
@@ -527,13 +504,13 @@ export default function Home() {
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-12 pt-4 md:pt-0 text-left">
                     <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 1 ? 'text-amber-500' : 'text-zinc-500'}`}>02. El Hallazgo</span>
-                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 1 ? 'text-white' : 'text-zinc-400'}`}>MÉTODO BII-VINTAGE</h3>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 1 ? 'text-white' : 'text-zinc-400'}`}>EL DESPERTAR DEL HIGH INTENSITY</h3>
                  </div>
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-0 md:pr-12 mt-2 md:mt-0">
                     <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 1 ? 'border-amber-500/80 bg-gradient-to-br from-zinc-900 to-[#0a0a0c] shadow-[0_10px_40px_rgba(245,158,11,0.2)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
                        <p className={`text-sm leading-relaxed font-medium transition-colors duration-300 ${activeCard >= 1 ? 'text-amber-50' : 'text-zinc-500'}`}>
-                         Descubrí que la clave no era añadir, sino recortar. Intensidad absoluta, recuperación quirúrgica y un enfoque obsesivo en la biomecánica. Mis marcas empezaron a volar.
+                         Reflexioné: ¿Por qué entrenar como un culturista con química si yo soy natural y tengo que trabajar? Descubrí y adapté el Heavy Duty a la era moderna. Prioricé técnica, tempos quirúrgicos y llevé cada serie al RIR 0. El avance fue abismal: salté a <span className="font-bold text-amber-400">152kg en sentadilla</span> y <span className="font-bold text-amber-400">+60kg en fondos</span>. Descubrí el verdadero poder de la intensidad.
                        </p>
                     </div>
                  </div>
@@ -545,13 +522,13 @@ export default function Home() {
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-0 md:text-right md:pr-12 pt-4 md:pt-0">
                     <span className={`font-black text-xs uppercase tracking-widest block mb-2 transition-colors duration-300 ${activeCard >= 2 ? 'text-amber-500' : 'text-zinc-500'}`}>03. El Sistema</span>
-                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 2 ? 'text-white' : 'text-zinc-400'}`}>TUJAGUE STRENGTH</h3>
+                    <h3 className={`text-2xl font-black italic uppercase mb-4 transition-colors duration-300 ${activeCard >= 2 ? 'text-white' : 'text-zinc-400'}`}>RESULTADOS GARANTIZADOS</h3>
                  </div>
                  
                  <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-2 md:mt-0">
                     <div className={`border p-6 sm:p-8 rounded-[2rem] transition-all duration-500 ${activeCard >= 2 ? 'border-amber-500/50 bg-zinc-900 shadow-[0_10px_30px_rgba(245,158,11,0.15)] scale-[1.02]' : 'bg-[#0a0a0c] border-zinc-800 shadow-sm'}`}>
                        <p className={`text-sm leading-relaxed transition-colors duration-300 ${activeCard >= 2 ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                         Hoy no solo entreno, diseño evolución. He volcado mi metodología en un ecosistema digital que utiliza IA y monitoreo del SNC para que dejes de adivinar y empieces a mutar.
+                         Creé Tujague Strength para salvarte de años de perder el tiempo con rutinas inútiles. Te enseño a priorizar la conexión mente-músculo y la técnica sobre la carga. En mis entrenamientos vas a sufrir dolor verdadero, pero te garantizo que va a valer la pena. Dejá de adivinar y empezá a mutar.
                        </p>
                     </div>
                  </div>
@@ -563,7 +540,6 @@ export default function Home() {
                    <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${activeCard >= 3 ? 'bg-amber-400 animate-pulse' : 'bg-zinc-700'}`}></div>
                  </div>
                  
-                 {/* IZQUIERDA: FOTO DEL COACH */}
                  <div className="w-full md:w-5/12 pl-16 md:pl-0 md:pr-12 pt-4 md:pt-0 flex justify-center md:justify-end">
                     <div className={`relative w-[280px] h-[380px] sm:w-[350px] sm:h-[450px] flex-shrink-0 transition-all duration-700 ${activeCard >= 3 ? 'scale-[1.02]' : 'scale-95 opacity-50 grayscale'}`}>
                       <div className={`absolute -inset-10 bg-[radial-gradient(circle,rgba(245,158,11,0.2)_0%,transparent_60%)] transition-opacity duration-700 transform-gpu ${activeCard >= 3 ? 'opacity-100' : 'opacity-0'}`}></div>
@@ -577,14 +553,13 @@ export default function Home() {
                     </div>
                  </div>
                  
-                 {/* DERECHA: FILOSOFÍA Y TUS MARCAS */}
                  <div className="w-full md:w-5/12 pl-16 md:pl-12 mt-8 md:mt-0">
                     <div className={`text-left min-w-0 max-w-full transition-all duration-700 ${activeCard >= 3 ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-8'}`}>
                       <span className="text-amber-500 font-black tracking-[0.2em] text-[10px] sm:text-xs mb-4 inline-block uppercase border-b border-amber-500/30 pb-2">Resultados Innegables</span>
                       
                       <h2 className="text-4xl sm:text-5xl font-black mb-6 italic tracking-tighter text-white leading-[0.9] drop-shadow-md">
-                          SOPORTA EL<br/>
-                          <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-700 block mt-2">DOLOR.</span>
+                         SOPORTA EL<br/>
+                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-700 block mt-2">DOLOR.</span>
                       </h2>
                       
                       <p className="text-zinc-400 text-sm sm:text-base leading-relaxed font-medium mb-8">
@@ -595,7 +570,7 @@ export default function Home() {
                         {[
                           { v: "+152 KG", l: "Squat" },
                           { v: "+110 KG", l: "Banca" },
-                          { v: "+110 KG", l: "Deadlift" },
+                          { v: "+100 KG", l: "Deadlift" },
                           { v: "+60 KG", l: "Militar" }
                         ].map((stat, i) => (
                           <div key={i} className={`p-4 rounded-2xl border transition-all duration-500 shadow-sm ${activeCard >= 3 ? 'bg-[#0a0a0c] border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#050505] border-zinc-800'}`}>
@@ -605,7 +580,7 @@ export default function Home() {
                         ))}
                         <div className={`p-4 rounded-2xl border transition-all duration-500 shadow-sm col-span-2 text-center ${activeCard >= 3 ? 'bg-[#0a0a0c] border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-[#050505] border-zinc-800'}`}>
                            <p className={`font-black text-2xl italic leading-none drop-shadow-md transition-colors duration-500 ${activeCard >= 3 ? 'text-amber-500' : 'text-zinc-600'}`}>+60 KG</p>
-                           <p className="text-[9px] text-zinc-500 font-black tracking-widest mt-1 uppercase">Fondos</p>
+                           <p className="text-[9px] text-zinc-500 font-black tracking-widest mt-1 uppercase">Fondos (Rumbo a 100kg)</p>
                         </div>
                       </div>
                     </div>
@@ -616,81 +591,6 @@ export default function Home() {
 
           </div>
         </RevealOnScroll>
-      </section>
-
-{/* ========================================================= */}
-      {/* 4. EL MANIFIESTO (FILTRO DE IDENTIDAD)                      */}
-      {/* ========================================================= */}
-      <section className="relative z-10 py-24 sm:py-32 bg-[#000000] border-b border-white/5 overflow-hidden">
-         <RevealOnScroll>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-               <div className="text-center mb-16 sm:mb-24">
-                  <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-                     Filtro de Admisión
-                  </span>
-                  <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic mb-6 sm:mb-8 text-white tracking-tighter drop-shadow-lg">
-                     EL MANIFIESTO <span className="text-amber-500">BII</span>
-                  </h2>
-                  <p className="text-zinc-400 max-w-2xl mx-auto text-sm sm:text-lg font-medium leading-relaxed">
-                     No acepto a cualquiera en la Mentoría Élite. Mi tiempo y la capacidad de mis servidores están reservados exclusivamente para atletas que entienden de qué se trata este juego.
-                  </p>
-               </div>
-               
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
-                  
-                  {/* LOS RECHAZADOS (Izquierda) */}
-                  <div className="bg-[#050505] border border-red-900/30 p-8 sm:p-10 rounded-[2.5rem] relative overflow-hidden group hover:border-red-500/50 transition-all duration-500 shadow-[0_0_30px_rgba(239,68,68,0.02)] hover:shadow-[0_0_40px_rgba(239,68,68,0.05)]">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
-                     <div className="text-red-500 text-4xl mb-6">✕</div>
-                     <h3 className="text-2xl font-black italic text-white uppercase tracking-tight mb-6">ESTO <span className="text-red-500">NO ES</span> PARA VOS SI:</h3>
-                     <ul className="space-y-4">
-                        <li className="flex items-start gap-3">
-                           <span className="text-red-500 mt-1">▪</span>
-                           <span className="text-zinc-400 text-sm font-medium">Buscás "entretenerte" en el gimnasio saltando de máquina en máquina sin una estructura fija.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-red-500 mt-1">▪</span>
-                           <span className="text-zinc-400 text-sm font-medium">Creés que entrenar 6 días a la semana te hace "más disciplinado" (solo te hace propenso a lesiones y pérdida de tiempo).</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-red-500 mt-1">▪</span>
-                           <span className="text-zinc-400 text-sm font-medium">No estás dispuesto a grabarte para que audite tu técnica. El ego no te deja desarmar tu sentadilla para volver a aprender.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-red-500 mt-1">▪</span>
-                           <span className="text-zinc-400 text-sm font-medium">Buscás atajos mágicos en 2 semanas sin registrar tu fatiga, RPE o Sistema Nervioso Central.</span>
-                        </li>
-                     </ul>
-                  </div>
-
-                  {/* LOS MUTANTES (Derecha) */}
-                  <div className="bg-gradient-to-b from-[#0a0a0c] to-[#050505] border border-amber-500/30 p-8 sm:p-10 rounded-[2.5rem] relative overflow-hidden group hover:border-amber-500/80 transition-all duration-500 shadow-[0_10px_40px_rgba(245,158,11,0.1)] hover:shadow-[0_10px_50px_rgba(245,158,11,0.2)] md:-translate-y-4">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
-                     <div className="text-amber-500 text-4xl mb-6">✓</div>
-                     <h3 className="text-2xl font-black italic text-white uppercase tracking-tight mb-6">ESTO ES <span className="text-amber-500">EXACTAMENTE</span> PARA VOS SI:</h3>
-                     <ul className="space-y-4">
-                        <li className="flex items-start gap-3">
-                           <span className="text-amber-500 mt-1">▪</span>
-                           <span className="text-zinc-300 text-sm font-medium">Estás estancado en tus marcas y entendiste que la fuerza real viene de la optimización del torque y la biomecánica.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-amber-500 mt-1">▪</span>
-                           <span className="text-zinc-300 text-sm font-medium">Valorás tu tiempo. Preferís ir 3/4 días con intensidad absoluta y dejar que la recuperación haga la magia de la hipertrofia.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-amber-500 mt-1">▪</span>
-                           <span className="text-zinc-300 text-sm font-medium">Querés dejar de ser tu propio experimento y usar una estructura probada, auditada por un Coach y respaldada por IA.</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                           <span className="text-amber-500 mt-1">▪</span>
-                           <span className="text-zinc-300 text-sm font-medium">Sos calculador: estás dispuesto a reportar tu fatiga y calidad de sueño para que el sistema calibre tu volumen exacto.</span>
-                        </li>
-                     </ul>
-                  </div>
-
-               </div>
-            </div>
-         </RevealOnScroll>
       </section>
 
       {/* ========================================================= */}
@@ -770,148 +670,102 @@ export default function Home() {
          </RevealOnScroll>
       </section>
 
+{/* ========================================================= */}
+      {/* 4. EL MANIFIESTO Y LA APP ÉLITE (ZOOM ÉLITE SHARK)        */}
       {/* ========================================================= */}
-      {/* 6. SISTEMA DE TRIAGE (TEST PREDICTIVO)                      */}
-      {/* ========================================================= */}
-      <section className="relative z-20 py-24 sm:py-32 px-4 sm:px-6 bg-[#000000] border-b border-white/5 overflow-hidden transform-gpu">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-[radial-gradient(circle,rgba(245,158,11,0.05)_0%,transparent_60%)] pointer-events-none transform-gpu"></div>
-        <RevealOnScroll>
-            <div className="max-w-4xl mx-auto text-center relative z-10">
-              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-5 py-2 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-6 sm:mb-8 inline-block animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                 Diagnóstico Predictivo
-              </span>
-              <h2 className="text-4xl sm:text-6xl md:text-7xl font-black italic tracking-tighter text-white mb-6 drop-shadow-lg">
-                 SISTEMA DE <span className="text-amber-500 block sm:inline">TRIAGE</span>
-              </h2>
-              <p className="text-zinc-400 font-medium mb-10 sm:mb-14 max-w-xl mx-auto text-sm sm:text-base px-4">
-                 No todos califican para la Mentoría Élite. Respondé con honestidad para que el algoritmo determine tu ruta óptima de entrenamiento BII.
-              </p>
+      <RevealOnScroll>
+        <section className="bg-[#000000] py-24 sm:py-32 relative overflow-hidden border-b border-white/5">
+            {/* Fondo resplandor naranja */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] md:w-[700px] lg:w-[1000px] xl:w-[1200px] h-[400px] md:h-[700px] lg:h-[1000px] xl:h-[1200px] bg-amber-600/10 rounded-full blur-[120px] pointer-events-none transform-gpu z-0"></div>
 
-              <div className="bg-[#0a0a0c] border border-zinc-800 p-6 sm:p-10 md:p-14 rounded-[2.5rem] sm:rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-xl relative min-h-[350px] sm:min-h-[400px] flex flex-col justify-center text-left">
-                 
-                 {/* PANTALLA DE INICIO */}
-                 {triageStep === 0 && (
-                    <div className="animate-in fade-in zoom-in duration-300 text-center">
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#050505] border border-zinc-800 rounded-3xl flex items-center justify-center text-4xl sm:text-5xl mx-auto mb-8 shadow-inner">
-                           🎯
+            <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center text-center">
+                
+                {/* 🔥 4.A EL MANIFIESTO ÉLITE (AUTORIDAD) 🔥 */}
+                <div className="border border-amber-500/20 bg-gradient-to-b from-amber-900/20 to-[#0a0a0c] p-8 md:p-12 rounded-[2.5rem] text-center relative overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.05)] backdrop-blur-sm mb-20 max-w-4xl w-full">
+                    <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.8)]"></div>
+                    <h3 className="text-2xl md:text-4xl font-black italic text-white uppercase tracking-tighter mb-4 mt-2 drop-shadow-lg text-balance leading-[0.95]">
+                        ¿Por qué no hay planes de <span className="text-amber-500">1 MES?</span>
+                    </h3>
+                    <p className="text-zinc-300 font-medium text-sm md:text-base leading-relaxed max-w-2xl mx-auto mt-6 text-balance">
+                        Porque en 30 días no vas a lograr una transformación real. Esto no es para "probar". Es para quienes decidieron que no hay vuelta atrás. Si buscás un cambio verdadero para tu vida y tu físico, este es el lugar.
+                    </p>
+                </div>
+
+                {/* 🔥 4.B LA VISUALIZACIÓN VISUAÉLITE 3D (ZOOM SHARK) 🔥 */}
+                <div className="relative w-full mb-32 flex justify-center py-20 lg:py-32 z-10 overflow-visible">
+                    
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#f59e0b08_1px,transparent_1px),linear-gradient(to_bottom,#f59e0b08_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_40%,transparent_100%)] z-0 transform-gpu"></div>
+                    
+                    {/* CONTENEDOR DEL CELULAR (ZOOM MASIVO APROBADO: w-[300px] Mobile / lg:w-[70vw] PC) */}
+                    <div className="relative z-10 w-[300px] md:w-[350px] lg:w-[70vw] lg:max-w-[1200px] mx-auto transform-gpu" style={{ animation: 'floatPhone 6s ease-in-out infinite' }}>
+                        
+                        <img 
+                            src="/dashboard-analysis.png" 
+                            alt="App BII-VINTAGE™" 
+                            className="w-full h-auto object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative z-20" 
+                        />
+
+                        {/* ESTEROIDE 2: Widgets Flotantes YA RECEPTIVOS Y SEPARADOS */}
+
+                        {/* Widget 1: Tracking RMs (Arriba Izquierda) */}
+                        {/* 👇 Mobile: top-[10%] -left-8 (SEPARADO) / PC: lg:top-[15%] lg:-left-24 (COSTADO) 👇 */}
+                        <div className="absolute top-[10%] lg:top-[15%] -left-8 md:-left-16 lg:-left-24 z-30 bg-black/60 backdrop-blur-md border border-amber-500/30 p-1.5 md:p-4 rounded-xl lg:rounded-2xl shadow-[0_10px_30px_rgba(245,158,11,0.15)] w-max transform-gpu origin-top-right scale-[0.7] md:scale-90 lg:scale-100" style={{ animation: 'floatWidget1 5s ease-in-out infinite 0.2s' }}>
+                            <div className="flex items-center gap-2 lg:gap-3">
+                                <div className="w-6 h-6 md:w-10 md:h-10 xl:w-11 xl:h-11 rounded-full bg-amber-500/15 border border-amber-500/50 flex items-center justify-center text-amber-500 text-xs md:text-lg shrink-0">⚡</div>
+                                <div className="min-w-0 text-left">
+                                    <p className="text-[9px] md:text-[11px] lg:text-sm font-black text-amber-400 uppercase tracking-widest leading-none mb-1 lg:mb-2 truncate">Cálculo Preciso</p>
+                                    <p className="text-white text-[9px] md:text-sm lg:text-xl font-bold leading-none truncate italic uppercase">Tracking de RMs</p>
+                                </div>
+                            </div>
                         </div>
-                        <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight mb-4 sm:mb-6">¿Qué protocolo necesitás?</h3>
-                        <p className="text-zinc-400 mb-8 max-w-md mx-auto text-sm md:text-base">Evaluaremos tu contexto biomecánico y logístico en 3 simples preguntas.</p>
-                        <button 
-                            onClick={() => setTriageStep(1)}
-                            className="bg-amber-500 hover:bg-amber-400 text-black px-10 sm:px-14 py-5 sm:py-6 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95 w-full sm:w-auto"
-                        >
-                            Comenzar Diagnóstico ⚡
-                        </button>
+
+                        {/* Widget 2: IA Integrada (Medio Derecha) */}
+                        {/* 👇 Mobile: top-[40%] -right-8 (SEPARADO) / PC: lg:top-[45%] lg:-right-32 (COSTADO) 👇 */}
+                        <div className="absolute top-[40%] lg:top-[45%] -right-8 md:-right-16 lg:-right-32 z-30 bg-black/60 backdrop-blur-md border border-zinc-700 p-1.5 md:p-4 rounded-xl lg:rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] w-max transform-gpu origin-top-right scale-[0.7] md:scale-90 lg:scale-100" style={{ animation: 'floatWidget2 7s ease-in-out infinite 0.5s' }}>
+                            <div className="flex items-center gap-2 lg:gap-3 text-right">
+                                <div className="min-w-0">
+                                    <p className="text-[9px] md:text-[11px] lg:text-sm font-black text-zinc-400 uppercase tracking-widest leading-none mb-1 lg:mb-2">Tujague AI v2.1</p>
+                                    <p className="text-white text-[9px] md:text-sm lg:text-xl font-bold leading-none truncate italic uppercase">IA Integrada 24/7</p>
+                                </div>
+                                <div className="w-6 h-6 md:w-10 md:h-10 xl:w-11 xl:h-11 rounded-full bg-zinc-800 border border-zinc-700 text-white text-xs md:text-lg shrink-0">🧠</div>
+                            </div>
+                        </div>
+
+                        {/* Widget 3: Live Sync (Abajo Izquierda) */}
+                        {/* 👇 Mobile: -bottom-[5%] -left-4 (SEPARADO) / PC: lg:bottom-[20%] lg:-left-20 (COSTADO) 👇 */}
+                        <div className="absolute -bottom-[5%] lg:bottom-[20%] -left-4 md:-left-8 lg:-left-20 z-30 bg-black/80 backdrop-blur-md border border-emerald-500/30 p-1.5 lg:p-3 rounded-xl lg:rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.1)] w-max scale-[0.75] md:scale-90 lg:scale-100 transform-gpu" style={{ animation: 'floatWidget3 6s ease-in-out infinite 1s' }}>
+                            <div className="flex items-center gap-2 lg:gap-3">
+                                <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500"></span>
+                                </span>
+                                <p className="text-white text-[9px] md:text-sm font-black uppercase tracking-widest leading-none mt-0.5 lg:mt-1 truncate">SINCRONIZADO</p>
+                            </div>
+                        </div>
+
                     </div>
-                 )}
+                </div>
 
-                 {/* PREGUNTA 1 */}
-                 {triageStep === 1 && (
-                    <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 1 de 3</p>
-                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">1. ¿Cuál es tu mayor obstáculo actual bajo la barra?</h3>
-                        <div className="space-y-3">
-                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Estoy estancado en mis marcas.</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Siento dolores crónicos y la fatiga me está pasando factura hace meses.</p>
-                            </button>
-                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Avanzo bien, me falta estructura.</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">No tengo dolores graves, solo necesito un plan claro para progresar.</p>
-                            </button>
-                        </div>
+                {/* 🔥 4.C TÍTULOS Y DESCRIPCIÓN 📝 */}
+                <div className="relative z-20 flex flex-col items-center w-full px-2">
+                    <div className="border border-zinc-700/80 rounded-[2rem] px-8 md:px-16 py-3 mb-6 md:mb-8 bg-black/60 backdrop-blur-sm">
+                        <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                            TODO EN UNA SOLA <span className="text-white">APLICACIÓN</span>
+                        </span>
                     </div>
-                 )}
 
-                 {/* PREGUNTA 2 */}
-                 {triageStep === 2 && (
-                    <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 2 de 3</p>
-                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">2. ¿Qué nivel de precisión técnica buscás?</h3>
-                        <div className="space-y-3">
-                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Auditoría Quirúrgica (Video).</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Necesito que corrijas mis videos, ajustes mis palancas y sigas mi recuperación.</p>
-                            </button>
-                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Do It Yourself (Independiente).</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Tengo técnica decente, solo decime el volumen y la intensidad. Yo lo ejecuto solo.</p>
-                            </button>
-                        </div>
-                    </div>
-                 )}
+                    <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-white mb-6 tracking-tighter drop-shadow-lg text-balance leading-[0.95]">
+                        Suscripción a la <span className="text-amber-500 block sm:inline">APP BII-VINTAGE™</span>
+                    </h2>
+                    
+                    <p className="text-zinc-400 max-w-3xl text-sm md:text-base font-medium leading-relaxed text-balance">
+                        BII-Vintage™ es mucho más que un simple plan de entrenamiento. Es un sistema de transformación total que combina entrenamiento físico, nutrición aplicada y mentalidad de alto rendimiento.
+                    </p>
+                </div>
 
-                 {/* PREGUNTA 3 */}
-                 {triageStep === 3 && (
-                    <div className="animate-in slide-in-from-right-8 duration-300 w-full">
-                        <p className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4">Fase 3 de 3</p>
-                        <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tight mb-8">3. ¿Cuál es tu compromiso con este proceso?</h3>
-                        <div className="space-y-3">
-                            <button onClick={() => handleTriageAnswer(true)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Voy a por todo. (High-Ticket)</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Quiero acceso total a la IA, al Dashboard privado y a la Mentoría Premium.</p>
-                            </button>
-                            <button onClick={() => handleTriageAnswer(false)} className="w-full text-left bg-[#050505] border border-zinc-800 hover:border-amber-500 p-5 rounded-2xl transition-all group hover:bg-zinc-900 shadow-sm hover:-translate-y-1">
-                                <p className="text-white font-black text-sm md:text-base uppercase tracking-widest mb-1 group-hover:text-amber-400">Presupuesto Inicial. (Low-Ticket)</p>
-                                <p className="text-zinc-400 text-xs sm:text-sm font-medium">Quiero probar un mesociclo estandarizado económico antes de dar el salto.</p>
-                            </button>
-                        </div>
-                    </div>
-                 )}
-
-                 {/* RESULTADO FINAL */}
-                 {triageStep === 4 && (
-                    <div className="animate-in zoom-in duration-500 w-full text-left">
-                        <div className="text-center mb-8">
-                           <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-[0_0_40px_rgba(245,158,11,0.2)] bg-zinc-900 border-2 border-amber-500">
-                             {eliteScore >= 2 ? '👑' : '📄'}
-                           </div>
-                           <h3 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight">
-                             {eliteScore >= 2 ? 'Tu camino es la Mentoría Élite' : 'Tu camino es un Plan Estático'}
-                           </h3>
-                        </div>
-
-                        <div className="bg-[#050505] border border-amber-500/30 rounded-2xl p-6 md:p-8 mb-8 relative shadow-inner">
-                            <div className="absolute top-0 left-0 w-2 h-full bg-amber-500 rounded-l-2xl"></div>
-                            <p className="text-zinc-300 text-sm md:text-base leading-relaxed font-medium">
-                                {eliteScore >= 2 
-                                  ? "Tus respuestas indican que necesitás atención personalizada, corrección de palancas y seguimiento de fatiga. La Mentoría High-Ticket es la única forma de garantizar tus resultados sin lesionarte."
-                                  : "Tus respuestas indican que sos independiente y tenés un presupuesto ajustado. Un PDF estandarizado con la estructura BII-Vintage es exactamente lo que necesitás hoy para destrabar tus marcas."
-                                }
-                            </p>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row justify-center gap-4 w-full">
-                            {eliteScore >= 2 ? (
-                                <button 
-                                   onClick={() => { document.getElementById('cajas-nuevas')?.scrollIntoView({ behavior: 'smooth' }); }}
-                                   className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(245,158,11,0.3)] active:scale-95"
-                                >
-                                   VER MENTORÍA ÉLITE 🚀
-                                </button>
-                            ) : (
-                                <button 
-                                   onClick={() => { document.getElementById('cajas-nuevas')?.scrollIntoView({ behavior: 'smooth' }); }}
-                                   className="w-full sm:w-auto bg-zinc-100 hover:bg-white text-black px-8 py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-95"
-                                >
-                                   VER PLANES ESTÁTICOS 📄
-                                </button>
-                            )}
-                            <button 
-                               onClick={resetTriage}
-                               className="w-full sm:w-auto bg-transparent border border-zinc-700 hover:border-zinc-500 text-zinc-400 px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
-                            >
-                               Rehacer Test
-                            </button>
-                        </div>
-                    </div>
-                 )}
-
-              </div>
             </div>
-        </RevealOnScroll>
-      </section>
+        </section>
+      </RevealOnScroll>
 
       {/* ========================================================= */}
       {/* 7. LA NUEVA OFERTA (PRECIOS UNIFICADOS)                   */}
@@ -1043,7 +897,7 @@ export default function Home() {
 
           <div className="flex flex-col gap-4 lg:gap-6 items-center md:items-start">
              <h4 className="text-amber-500 font-black tracking-[0.2em] text-[10px] lg:text-xs border-b border-amber-500/20 pb-2 lg:pb-3 uppercase">
-               Enlaces Legales
+                Enlaces Legales
              </h4>
              <div className="flex flex-col gap-3 lg:gap-4 text-[9px] lg:text-[10px] font-black tracking-widest text-zinc-500">
                 <Link href="/legal" className="hover:text-white transition-colors uppercase">Términos y Condiciones</Link>
@@ -1063,6 +917,12 @@ export default function Home() {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.8); }
+        
+        /* 🔥 KEYFRAMES DE LEVITACIÓN ASINCRÓNICA 🔥 */
+        @keyframes floatPhone { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+        @keyframes floatWidget1 { 0%, 100% { transform: translateY(0px) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(1deg); } }
+        @keyframes floatWidget2 { 0%, 100% { transform: translateY(0px) rotate(2deg); } 50% { transform: translateY(-15px) rotate(-1deg); } }
+        @keyframes floatWidget3 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
       `}} />
     </main>
   );

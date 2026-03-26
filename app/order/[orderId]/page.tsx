@@ -84,13 +84,12 @@ export default function OrderStatusPage() {
   };
 
   // GENERADOR DEL MENSAJE FORMAL PARA EL CLIENTE HACIA EL COACH
-  const getClientWhatsAppLink = () => {
+const getClientWhatsAppLink = () => {
       if (!order) return "#";
       const clientName = order.customer_name ? order.customer_name.split(' ')[0] : 'Atleta';
       const planName = order.plans?.name || 'su programa de entrenamiento';
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://tujague.com';
       
-      const message = `Estimado Coach Luciano.\n\nLe saluda ${clientName}.\nAcabo de finalizar la transferencia para el ingreso a ${planName} (ID de Orden: ${order.order_id}).\n\nMi correo de acceso a la plataforma es: ${order.customer_email}\n\nAguardaré la verificación administrativa para completar mi Auditoría Clínica en ${siteUrl}/login y dar inicio al protocolo.\n\nQuedo a su disposición.`;
+      const message = `Estimado Coach Luciano.\n\nLe saluda ${clientName}.\nAcabo de finalizar la transferencia para el ingreso a ${planName} (ID de Orden: ${order.order_id}).\n\nMi correo de acceso a la plataforma es: ${order.customer_email}\n\nVoy a descargar la App Oficial para aguardar la verificación administrativa y dar inicio al protocolo.\n\nQuedo a su disposición.`;
       
       return `https://wa.me/5491123021760?text=${encodeURIComponent(message)}`;
   };
@@ -240,11 +239,11 @@ export default function OrderStatusPage() {
                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
                    NOTIFICAR PAGO AL COACH
                 </a>
-                <button 
-                   onClick={() => router.push('/login')} 
+<button 
+                   onClick={() => router.push('/exito')} 
                    className="w-full bg-zinc-900 border border-zinc-700 hover:border-emerald-500 text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest transition-all"
                 >
-                   Ir al Portal de Ingreso
+                   Continuar para Descargar la App ➔
                 </button>
             </div>
           </div>

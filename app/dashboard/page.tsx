@@ -1,10 +1,13 @@
 "use client";
 
+import AthleteMacroPlanner from '@/components/AthleteMacroPlanner';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'; // 🔥 Línea 3 unificada y limpia
+import React from 'react';
+// ... el resto de las importaciones siguen igual ...
 import { resolvePlan } from '@/lib/permissions';
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Link from "next/link";
 import { PDFDocument, rgb } from 'pdf-lib';
 
@@ -13,10 +16,38 @@ export default function DashboardAtleta() {
   const supabase = createClient();
   
   const [activeTab, setActiveTab] = useState("rutina");
+  const [showAssistant, setShowAssistant] = useState(false); // 🔥 NUEVA LLAVE
+  const [showNotifications, setShowNotifications] = useState(false); // 🔥 LLAVE DE LA CAMPANA
+  const [dbNotifications, setDbNotifications] = useState<any[]>([]); // 🔥 GUARDA LOS MENSAJES DE SUPABASE
+  const [hiddenNotifs, setHiddenNotifs] = useState<string[]>([]); // 🔥 GUARDA QUÉ ALERTAS OCULTÓ EL ATLETA
+  
+  // 🚀 MAGIA ÉLITE: MEMORIA PERMANENTE PARA NOTIFICACIONES BORRADAS 🚀
+  useEffect(() => {
+      // Al abrir la app, busca si Franco ya había borrado notificaciones antes
+      const savedHidden = localStorage.getItem('tujague_hidden_notifs');
+      if (savedHidden) {
+          setHiddenNotifs(JSON.parse(savedHidden));
+      }
+  }, []);
+
+  useEffect(() => {
+      // Cada vez que Franco borra una nueva, la guardamos en el disco duro del celu
+      if (hiddenNotifs.length > 0) {
+          localStorage.setItem('tujague_hidden_notifs', JSON.stringify(hiddenNotifs));
+      }
+  }, [hiddenNotifs]);
+
   const [user, setUser] = useState<any>(null);
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [myProducts, setMyProducts] = useState<string[]>([]);
+
+// --- NUEVO: ESTADO DE RUTINAS BII ---
+  const [hasNewBiiRoutine, setHasNewBiiRoutine] = useState(false);
+  const [activeBiiProgram, setActiveBiiProgram] = useState<any>(null); // El programa actual de HOY
+  const [allBiiPrograms, setAllBiiPrograms] = useState<any[]>([]); // 🔥 Guarda todas las semanas del atleta
+  const [viewingBiiProgram, setViewingBiiProgram] = useState<any>(null); // 🔥 La semana que elige ver en el menú
+  const [routineLoading, setRoutineLoading] = useState(true);
   
   const [uploading, setUploading] = useState<string | null>(null);
   const [savingRm, setSavingRm] = useState(false);
@@ -117,18 +148,37 @@ export default function DashboardAtleta() {
   const [rmAiLoading, setRmAiLoading] = useState(false);
   const [rmAiFeedback, setRmAiFeedback] = useState("");
 
+  // 🔥 DISEÑO PREMIUM PARA LAS ETIQUETAS DE LAS BARRAS 🔥
+  const renderCustomBarLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    // Si el valor es 0 o no existe, no dibuja nada (Mantiene el gráfico limpio)
+    if (!value || value === 0) return null; 
+    
+    return (
+      <text 
+        x={x + width / 2} 
+        y={y - 8} 
+        fill="#1f2937" 
+        textAnchor="middle" 
+        dominantBaseline="middle" 
+        fontSize="11" 
+        fontWeight="900"
+      >
+        {value}kg
+      </text>
+    );
+  };
+
 // 🔥 CEREBRO DE PERMISOS BII-VINTAGE 3.0 (HIGH-TICKET) 🔥
   const safePlanId = (order?.plan_id || "").toLowerCase();
 
   // 1. Identificamos qué plan compró el usuario
-  // Ahora la Mentoría Élite abarca 90 días, 180 días y el plan "Leyenda" de 365 días.
   const isElitePlan = safePlanId.includes('elite') || safePlanId.includes('leyenda') || safePlanId.includes('vip');
   
   // 2. Si no es Élite/Leyenda, por descarte es un plan Estático (Bóveda de PDFs)
   const isStaticPlan = !isElitePlan;
 
   // 3. Matriz de Accesos de Alta Gama
-  // El Plan Estático SOLO accede a la Bóveda de PDFs (Rutina). Todo lo demás está bloqueado.
   const canViewRoutine = true; 
   const canViewVideos = isElitePlan;
   const canViewSNC = isElitePlan;
@@ -315,8 +365,46 @@ export default function DashboardAtleta() {
            }
         }
       }
+
+      // --- NUEVO: BUSCAR SI TIENE RUTINA BII ASIGNADA (BLINDADO MULTI-ID) ---
+      const possibleIds: string[] = [user.id];
+      
+      if (oldOrders && oldOrders.length > 0) {
+          if (oldOrders[0].id) possibleIds.push(oldOrders[0].id);
+          if (oldOrders[0].user_id) possibleIds.push(oldOrders[0].user_id);
+      }
+
+      // 🔥 Traemos TODAS las semanas asignadas al atleta 🔥
+      const { data: allPrograms } = await supabase
+          .from('assigned_programs')
+          .select('*')
+          .in('user_id', possibleIds)
+          .order('created_at', { ascending: false });
+
+      if (allPrograms && allPrograms.length > 0) {
+          setHasNewBiiRoutine(true);
+          setAllBiiPrograms(allPrograms);
+          
+          // Buscamos cuál es la activa de esta semana para ponerla por defecto
+          const active = allPrograms.find(p => p.is_active) || allPrograms[0];
+          setActiveBiiProgram(active.program_data);
+          setViewingBiiProgram(active.program_data); // Esta es la que se ve en la agenda
+      }
+
+      // 🔥 BUSCAR NOTIFICACIONES DEL COACH (GLOBALES O PRIVADAS) 🔥
+      const { data: fetchNotifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10); // Traemos las últimas 10
+
+      if (fetchNotifs) {
+          setDbNotifications(fetchNotifs);
+      }
+      
+      setRoutineLoading(false);
       setLoading(false);
-    };
+    }; 
 
     fetchDashboardData();
   }, [router]);
@@ -330,7 +418,7 @@ export default function DashboardAtleta() {
     router.push("/login");
   };
 
-const handleSaveOnboarding = async (e: React.FormEvent) => {
+  const handleSaveOnboarding = async (e: React.FormEvent) => {
       e.preventDefault();
       setSavingOnboarding(true);
       try {
@@ -340,7 +428,6 @@ const handleSaveOnboarding = async (e: React.FormEvent) => {
           const finalDips = isBeginner ? "0" : onboardingData.rm_dips;
           const finalMilitary = isBeginner ? "0" : onboardingData.rm_military;
           
-          // 🔥 Acá inyectamos los botones de dolor articular al historial médico
           const finalMedical = isBeginner 
               ? `[ATLETA PRINCIPIANTE] - Lesiones: ${jointIssues.join(", ")} | Detalle: ${onboardingData.medical_history}` 
               : `Lesiones: ${jointIssues.join(", ")} | Detalle: ${onboardingData.medical_history}`;
@@ -348,7 +435,7 @@ const handleSaveOnboarding = async (e: React.FormEvent) => {
           const { error } = await supabase
               .from('orders')
               .update({
-                  is_onboarded: true, // Lo marcamos como completado
+                  is_onboarded: true,
                   age: onboardingData.age,
                   body_weight: onboardingData.body_weight,
                   height: onboardingData.height,
@@ -369,7 +456,6 @@ const handleSaveOnboarding = async (e: React.FormEvent) => {
           
           setRms({ squat: finalSquat, bench: finalBench, deadlift: finalDeadlift, dips: finalDips, military: finalMilitary });
           
-          // 🔥 En vez de cerrar el modal de golpe, lo mandamos al paso 5 (El puente de WhatsApp)
           setOnboardingStep(5); 
           
       } catch (error: any) {
@@ -479,10 +565,10 @@ const handleSaveOnboarding = async (e: React.FormEvent) => {
     }
   };
 
-const handleSaveCheckin = async (e: React.FormEvent) => {
+  const handleSaveCheckin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingCheckin(true);
-    setFatigueVerdict(""); // Limpiamos el veredicto anterior si lo hubiera
+    setFatigueVerdict(""); 
     
     const newEntry = {
         date: new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
@@ -527,7 +613,7 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                    data: {
                        sleep_hours: Number(checkin.sleep),
                        stress_level: Number(checkin.stress),
-                       lethargy: Number(checkin.energy) <= 4 // Si la energía es 4 o menos, consideramos letargo
+                       lethargy: Number(checkin.energy) <= 4 
                    }
                })
            });
@@ -574,13 +660,12 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
         setLoadingRenewal(false);
     }
   };
-
-  const downloadPDF = async () => {
+const downloadPDF = async () => {
       setGeneratingPDF(true);
 
       try {
           const response = await fetch('/plantilla-blanco.pdf');
-          if (!response.ok) throw new Error("No se encontró plantilla-blanco.pdf");
+          if (!response.ok) throw new Error("No se pudo cargar la plantilla PDF del servidor.");
           const existingPdfBytes = await response.arrayBuffer();
 
           const pdfDoc = await PDFDocument.load(existingPdfBytes);
@@ -590,37 +675,107 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
           const cleanText = (str: string | undefined | null) => {
               if (!str) return "";
               let s = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, "-").replace(/[\u2026]/g, "...");
-              return s.replace(/[^\x00-\xFF]/g, ""); 
+              return s.replace(/[^\x20-\x7E\xA0-\xFF]/g, ""); 
           };
 
-          firstPage.drawText(cleanText(order?.customer_name) || 'Atleta', { x: 150, y: 550, size: 12, color: rgb(0, 0, 0) });
-          firstPage.drawText(cleanText(checkin.weight || order?.body_weight) || '-', { x: 150, y: 520, size: 12, color: rgb(0, 0, 0) });
-          firstPage.drawText(cleanText(order?.goal) || 'Fuerza / Hipertrofia', { x: 400, y: 550, size: 12, color: rgb(0, 0, 0) });
+          const macro = order?.macrocycle || '1';
+          const meso = viewingBiiProgram?.mesocycle || order?.mesocycle || '1';
+          const week = viewingBiiProgram?.week || order?.microcycle || '1';
 
-          const textOptions = { x: 50, y: 650, size: 10, maxWidth: 500, lineHeight: 14, color: rgb(0, 0, 0) };
+          // ─── HOJA 1: PORTADA ───
+          const nameText = cleanText(order?.customer_name) || 'ATLETA TUJAGUE';
+          firstPage.drawText(nameText.toUpperCase(), { x: 120, y: 665, size: 10, color: rgb(0, 0, 0) });
           
-          if (pages[2] && order?.routine_d1) pages[2].drawText(cleanText(order.routine_d1), textOptions);
-          if (pages[3] && order?.routine_d2) pages[3].drawText(cleanText(order.routine_d2), textOptions);
-          if (pages[4] && order?.routine_d3) pages[4].drawText(cleanText(order.routine_d3), textOptions);
-          if (pages[5] && order?.routine_d4) pages[5].drawText(cleanText(order.routine_d4), textOptions);
-          if (pages[6] && order?.routine_d5) pages[6].drawText(cleanText(order.routine_d5), textOptions);
-          if (pages[7] && order?.routine_d6) pages[7].drawText(cleanText(order.routine_d6), textOptions);
-          if (pages[8] && order?.routine_d7) pages[8].drawText(cleanText(order.routine_d7), textOptions);
+          const weightText = cleanText(checkin?.weight || order?.body_weight) || '-';
+          firstPage.drawText(weightText, { x: 420, y: 665, size: 10, color: rgb(0, 0, 0) });
+
+          const goalText = cleanText(order?.goal) || 'FUERZA / HIPERTROFIA';
+          firstPage.drawText(goalText.toUpperCase(), { x: 120, y: 635, size: 10, color: rgb(0, 0, 0) });
+          
+          firstPage.drawText(`Macro: ${macro} | Meso: ${meso} | Semana: ${week}`, { x: 380, y: 635, size: 10, color: rgb(0, 0, 0) });
+
+          // ─── HOJAS DE RUTINA (2 a 8) ───
+          const drawDayData = (pageIdx: number, dayIndex: number) => {
+              const page = pages[pageIdx];
+              if (!page) return;
+
+              const dayData = viewingBiiProgram?.days?.[dayIndex];
+
+              if (!dayData || dayData.isRestDay || !dayData.exercises || dayData.exercises.length === 0) {
+                  page.drawText("DESCANSO / RECUPERACION", { x: 65, y: 720, size: 12, color: rgb(0, 0, 0) });
+                  return;
+              }
+
+              // 1. ZONA GRIS (Arriba): LA PIZARRA DEL COACH
+              let summaryY = 720; 
+              page.drawText(`FOCO DEL DÍA: ${cleanText(dayData.title?.toUpperCase() || 'ENTRENAMIENTO')}`, { x: 60, y: summaryY, size: 11, color: rgb(0, 0, 0) });
+              summaryY -= 25; // Espacio bajo el título
+
+              dayData.exercises.forEach((ex: any, i: number) => {
+                  const exName = cleanText(ex.name?.toUpperCase() || 'EJERCICIO');
+                  const setsCount = Array.isArray(ex?.sets) ? ex.sets.length : (ex?.sets || '-');
+                  // Buscamos el objetivo de reps de la primera serie como referencia
+                  const targetReps = Array.isArray(ex?.sets) ? (ex.sets[0]?.targetReps || '-') : '-';
+                  
+                  // Nombre del Ejercicio
+                  page.drawText(`${i + 1}. ${exName}`, { x: 60, y: summaryY, size: 10, color: rgb(0, 0, 0) });
+                  summaryY -= 14;
+                  
+                  // Detalles técnicos
+                  page.drawText(`    > Series: ${setsCount}  |  Reps Obj: ${targetReps}  |  RPE: ${ex?.rpe || '-'}  |  Descanso: ${ex?.rest || '-'}`, { x: 60, y: summaryY, size: 9, color: rgb(0.2, 0.2, 0.2) });
+                  summaryY -= 14;
+
+                  // Notas (si existen)
+                  if (ex.notes || ex.technique) {
+                      page.drawText(`    - Notas: ${cleanText(ex.notes || ex.technique)}`, { x: 60, y: summaryY, size: 8, color: rgb(0.4, 0.4, 0.4) });
+                      summaryY -= 14;
+                  }
+                  summaryY -= 10; // Espacio entre ejercicios
+              });
+
+              // 2. TABLA INFERIOR (Abajo): LA HOJA DE TRABAJO DEL ATLETA
+              let tableStartY = 398; // 🎯 Bajamos un pelín para que el texto se apoye justo en la línea
+              const rowHeight = 22.5; 
+              
+              dayData.exercises.forEach((ex: any, i: number) => {
+                  if (i > 7) return; // Tu tabla tiene maximo 8 renglones
+
+                  const exName = cleanText(ex.name?.toUpperCase() || 'EJERCICIO');
+                  
+                  // 🎯 IMPRIMIMOS SOLO EL NOMBRE EN LA COLUMNA 1. TODO LO DEMÁS QUEDA EN BLANCO PARA LA LAPICERA.
+                  page.drawText(`${i+1}. ${exName}`, { x: 65, y: tableStartY, size: 8, color: rgb(0, 0, 0) });
+
+                  tableStartY -= rowHeight; 
+              });
+          };
+
+          drawDayData(2, 0); 
+          drawDayData(3, 1);
+          drawDayData(4, 2); 
+          drawDayData(5, 3); 
+          drawDayData(6, 4); 
+          drawDayData(7, 5); 
+          drawDayData(8, 6); 
 
           const pdfBytes = await pdfDoc.save();
           const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
           const link = document.createElement('a');
           link.href = window.URL.createObjectURL(blob);
-          link.download = `Tujague_Strength_${cleanText(order?.customer_name)?.replace(/\s+/g, '_') || 'Plan'}.pdf`;
+          
+          const safeName = cleanText(order?.customer_name)?.replace(/\s+/g, '_') || 'Plan';
+          link.download = `Tujague_Strength_${safeName}_Semana_${week}.pdf`;
+          
+          document.body.appendChild(link);
           link.click();
-      } catch (error) {
+          document.body.removeChild(link);
+
+      } catch (error: any) {
           console.error("Error generando PDF:", error);
-          alert("Ocurrió un error al generar el documento. Verifica que plantilla-blanco.pdf esté en tu carpeta public.");
+          alert(`❌ Ocurrió un error al generar el PDF:\n${error.message}`);
       } finally {
           setGeneratingPDF(false);
       }
   };
-
   const handleDownloadKit = () => {
       const link = document.createElement('a');
       link.href = '/kit_acelerador_bii_vintage.pdf'; 
@@ -1018,14 +1173,61 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
       adherenceLabel = "Riesgo de Estancamiento";
   }
 
-  // ESQUELETO DE CARGA
+// 🔥 CEREBRO DE NOTIFICACIONES INTELIGENTES + MENSAJES DEL COACH 🔥
+  const unreadNotifications = useMemo(() => {
+      const notifs = [];
+      
+      // 1. Alertas Automáticas del Sistema
+      if (daysLeft !== null && daysLeft <= 7) {
+          notifs.push({ id: 'exp', title: 'Mentoría por Vencer', desc: `Te quedan ${daysLeft} días de acceso a la plataforma.`, icon: '⚠️' });
+      }
+      if (totalAbsoluto === 0 && !isStaticPlan) {
+          notifs.push({ id: 'rm', title: 'Falta Calibración', desc: 'Ingresá tus 1RM en la pestaña Evolución para calibrar la IA.', icon: '⚖️' });
+      }
+      if (hasNewBiiRoutine) {
+          notifs.push({ id: 'rutina', title: 'Nueva Rutina Activa', desc: 'El Coach actualizó tu hoja de ruta.', icon: '⚡' });
+      }
+      if (checkinHistory.length === 0 && !isStaticPlan) {
+          notifs.push({ id: 'snc', title: 'Auditoría SNC', desc: 'Completá tu primer Check-in diario en Inicio.', icon: '🧬' });
+      }
+
+      // 2. Mensajes Reales desde Supabase (Los que vos mandás)
+      dbNotifications.forEach(msg => {
+          notifs.push({ 
+              id: msg.id, 
+              title: msg.title, 
+              desc: msg.message, 
+              icon: msg.is_global ? '📢' : '💬' 
+          });
+      });
+
+      // 🔥 3. FILTRAMOS LAS QUE EL ATLETA YA "OCULTÓ" (Tachito de basura) 🔥
+      const visibleNotifs = notifs.filter(n => !hiddenNotifs.includes(n.id));
+      
+      // 4. Si después de limpiar quedó vacío, mostramos el "Todo OK"
+      if(visibleNotifs.length === 0) {
+          visibleNotifs.push({ id: 'ok', title: 'Todo al día', desc: 'No tienes tareas pendientes ni mensajes nuevos. ¡A la barra!', icon: '✅' });
+      }
+      
+      return visibleNotifs;
+  }, [daysLeft, totalAbsoluto, isStaticPlan, hasNewBiiRoutine, checkinHistory, dbNotifications, hiddenNotifs]);
+
+// ─── ESQUELETO DE CARGA (CORREGIDO PARA MODO CLEAN) ───
   if (loading) return (
-    <div className="min-h-screen bg-[#000000] p-4 md:p-12 flex flex-col gap-6 md:gap-8">
-      <div className="w-full h-32 md:h-40 bg-[#0a0a0c] rounded-[2rem] animate-pulse border border-zinc-800/50 shadow-lg"></div>
-      <div className="w-full h-16 md:h-20 bg-[#0a0a0c] rounded-2xl animate-pulse border border-zinc-800/50"></div>
+    <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-12 flex flex-col gap-6 md:gap-8 animate-pulse font-sans">
+      
+      {/* 🔥 ACÁ AGREGAMOS EL TEXTO QUE PEDISTE 🔥 */}
+      <div className="text-center py-4">
+          <p className="text-gray-400 font-black uppercase tracking-[0.2em] text-xs">Sincronizando Bitácora Neural...</p>
+      </div>
+
+      {/* Barritas de carga: cambiamos de negro a gris ultra-claro */}
+      <div className="w-full h-32 md:h-40 bg-white border border-gray-100 rounded-[2rem] shadow-sm"></div>
+      <div className="w-full h-16 md:h-20 bg-gray-50 border border-gray-100 rounded-2xl shadow-inner"></div>
+      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="w-full h-[60vh] bg-[#0a0a0c] rounded-[2.5rem] animate-pulse border border-zinc-800/50 shadow-xl md:col-span-2"></div>
-        <div className="w-full h-[60vh] bg-[#0a0a0c] rounded-[2.5rem] animate-pulse border border-zinc-800/50 shadow-xl"></div>
+        <div className="w-full h-[60vh] bg-white rounded-[2.5rem] border border-gray-100 shadow-sm md:col-span-2"></div>
+        <div className="w-full h-[60vh] bg-gray-50 rounded-[2.5rem] border border-gray-100 shadow-inner"></div>
       </div>
     </div>
   );
@@ -1121,7 +1323,7 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
            )}
 
            <form onSubmit={handleSaveOnboarding} className="relative z-10">
-              
+             
               {/* PASO 1: BIOMETRÍA */}
               {onboardingStep === 1 && (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-500">
@@ -1329,48 +1531,96 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
   const affiliateProgress = Math.min(100, (balance / precioPlanAtleta) * 100);
   const isFreeMonthSecured = balance >= precioPlanAtleta;
 
-  return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans selection:bg-emerald-500 selection:text-black">
-      
-      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 md:mb-12 gap-6 bg-[#0a0a0c] p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
-        <div className="w-full lg:w-auto">
-          <div className="flex justify-between items-center w-full mb-4">
-            <Link href="/" className="flex items-center gap-2 text-amber-500 bg-amber-500/10 hover:bg-amber-500 hover:text-black px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all border border-amber-500/20 shadow-md">
-               <span className="text-sm">🏠</span> Volver a la Web
-            </Link>
-            <button onClick={handleLogout} className="text-[10px] font-black tracking-widest uppercase text-zinc-500 hover:text-white transition-colors lg:hidden">
-              Cerrar Sesión
-            </button>
-          </div>
-      
-          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase drop-shadow-md mt-2">
-            PANEL DE <span className="text-amber-500">MANDO</span>
-          </h1>
-          <div className="flex flex-wrap items-center gap-3 mt-3">
-             <p className="text-xs md:text-sm text-zinc-400 uppercase tracking-widest font-medium">ID Atleta: <span className="text-white font-bold">{order.customer_name}</span></p>
-             {daysLeft !== null && daysLeft > 3 && (<span className="bg-zinc-800/80 border border-zinc-700 text-zinc-300 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Acceso: {daysLeft} Días</span>)}
-             {daysLeft !== null && daysLeft <= 3 && daysLeft >= 0 && (<span className="bg-red-500/20 border border-red-500/50 text-red-400 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> CADUCA EN {daysLeft} DÍAS</span>)}
-          </div>
+ return (
+<div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] p-4 pt-8 pb-28 md:p-12 font-sans selection:bg-emerald-500 selection:text-white">     
+<header className="flex flex-col mb-6 gap-4 pt-2">
+{/* Barra superior: Botones a la derecha */}
+        <div className="flex justify-between items-center w-full">
+           <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={handleLogout} title="Cerrar Sesión">
+             {/* Acá pusimos el CERRAR SESIÓN (Provisionalmente en la foto de perfil) */}
+             <span className="text-xs">👋</span>
+           </div>
+           <div className="flex gap-3">
+              {/* BOTÓN ASISTENTE (TUJAGUE IA) */}
+              <button onClick={() => setShowAssistant(true)} className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-black transition-colors active:scale-95">
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.373 5.48.432.415.545 1.05.295 1.583a8.966 8.966 0 01-1.393 2.164 11.236 11.236 0 002.83-.872c.45-.205.975-.121 1.343.208C9.52 19.866 10.725 20.25 12 20.25z" /></svg>
+              </button>
+              
+{/* 🔥 CENTRO DE ALERTAS PREMIUM (CAMPANA INTERACTIVA) 🔥 */}
+              <div className="relative">
+                <button onClick={() => setShowNotifications(!showNotifications)} className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-amber-500 transition-colors relative active:scale-95">
+                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+                   {/* Puntito rojo real: Solo se muestra si hay notificaciones que no sean "Todo OK" */}
+                   {unreadNotifications.filter(n => n.id !== 'ok').length > 0 && (
+                     <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white"></span>
+                   )}
+                </button>
+
+{/* PANEL DESPLEGABLE (CLEAN ÉLITE - BLINDADO PARA TEXTOS LARGOS) */}
+                {showNotifications && (
+                  <>
+                    <div className="fixed inset-0 z-[60] bg-black/5 md:bg-transparent" onClick={() => setShowNotifications(false)}></div>
+                    <div className="absolute top-12 right-0 w-[300px] md:w-80 bg-white border border-gray-100 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] z-[70] overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                      
+                      <div className="p-4 border-b border-gray-50 bg-gray-50 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                           <h4 className="font-black italic uppercase text-black tracking-tight">Centro de <span className="text-amber-500">Alertas</span></h4>
+                           {/* Solo mostramos el badge si hay algo que no sea el "ok" */}
+                           {unreadNotifications.filter(n => n.id !== 'ok').length > 0 && (
+                               <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-widest border border-amber-200">
+                                   {unreadNotifications.filter(n => n.id !== 'ok').length} Nuevas
+                               </span>
+                           )}
+                        </div>
+                        
+                        {/* 🔥 BOTÓN LIMPIAR ALERTAS 🔥 */}
+                        {unreadNotifications.filter(n => n.id !== 'ok').length > 0 && (
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Evita que se cierre el panel
+                                    // Guardamos TODOS los IDs actuales en la lista de "Ocultos"
+                                    setHiddenNotifs([...hiddenNotifs, ...unreadNotifications.map(n => n.id)]);
+                                }}
+                                className="text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center p-1 bg-white border border-gray-200 rounded-md shadow-sm active:scale-95"
+                                title="Marcar todas como leídas"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                            </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                        {unreadNotifications.map(notif => (
+                          <div key={notif.id} className="p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-3 items-start cursor-default">
+                            <div className="text-2xl mt-1 shrink-0">{notif.icon}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] md:text-xs font-bold text-black uppercase tracking-widest mb-1">{notif.title}</p>
+                              <p className="text-[10px] md:text-xs text-gray-500 font-medium leading-relaxed break-words overflow-wrap-break-word whitespace-pre-line hyphens-auto">
+                                {notif.desc}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-           <div className={`flex items-center gap-4 px-5 py-3 rounded-2xl border border-white/5 ${adherenceBg} w-full sm:w-auto shadow-inner`}>
-               <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                       <path className="stroke-black/50" strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                       <path className={`${adherenceStroke} transition-all duration-1000 ease-out`} strokeDasharray={`${adherenceScore}, 100`} strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                   </svg>
-                   <span className={`absolute text-[11px] font-black ${adherenceColor}`}>{adherenceScore}%</span>
-               </div>
-               <div>
-                   <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest mb-1">Adherencia</p>
-                   <p className={`text-xs md:text-sm font-black uppercase tracking-tight ${adherenceColor}`}>{adherenceLabel}</p>
-               </div>
+        {/* LOGO CENTRAL */}
+        <div className="flex justify-center my-2">
+           <div className="text-7xl font-black italic text-black tracking-tighter drop-shadow-sm">
+              T
            </div>
+        </div>
 
-           <button onClick={handleLogout} className="text-[10px] font-black tracking-widest uppercase text-zinc-400 hover:text-white transition-colors border border-white/10 px-6 py-4 rounded-2xl bg-zinc-900/50 hover:bg-zinc-800 shrink-0 w-full sm:w-auto hidden lg:block">
-             CERRAR SESIÓN
-           </button>
+        {/* SALUDO (Buenos días, Nombre) */}
+        <div className="mt-4">
+          <h1 className="text-2xl font-medium text-gray-600">
+            Buenos días, <span className="font-bold text-black">{order?.customer_name?.split(" ")[0] || "Atleta"}</span>
+          </h1>
         </div>
       </header>
 
@@ -1407,14 +1657,14 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                               </button>
                           </div>
                           
-                          <a 
+<a 
                               href={`https://wa.me/?text=${encodeURIComponent(`¡Fiera! Estoy entrenando con la app de Tujague Strength y las marcas suben solas. Sumate al equipo usando mi código VIP: *${order.referral_code}* al momento del pago y te hacen un 15% de descuento en tu inscripción. Entrá acá: ${process.env.NEXT_PUBLIC_SITE_URL || 'https://tujague.com'}`)}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="mt-4 w-full bg-[#25D366] hover:bg-[#20bd5a] text-black py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)]"
+                              className="mt-4 w-full bg-[#25D366] hover:bg-[#20bd5a] text-black py-3 md:py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)] active:scale-95"
                           >
-                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
-                              Bombardear Contactos por WhatsApp
+                              <svg className="w-4 h-4 md:w-5 md:h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 0C5.385 0 .001 5.383.001 12.029c0 2.124.553 4.195 1.603 6.012L.002 24l6.108-1.601c1.745.952 3.738 1.454 5.92 1.454 6.645 0 12.028-5.383 12.028-12.029C24.059 5.383 18.677 0 12.031 0zm0 20.31c-1.801 0-3.56-.484-5.11-1.401l-.367-.217-3.793.995.998-3.7-.238-.378c-.99-1.583-1.514-3.418-1.514-5.313 0-5.46 4.444-9.905 9.904-9.905 5.46 0 9.906 4.445 9.906 9.905s-4.445 9.905-9.906 9.905zm5.438-7.44c-.298-.15-1.765-.87-2.038-.97-.273-.1-.473-.15-.67.15-.199.298-.771.97-.946 1.17-.174.199-.348.225-.646.075-2.025-.97-3.488-2.613-4.048-3.585-.175-.298-.019-.46.13-.609.135-.135.298-.348.448-.523.15-.175.199-.298.298-.498.1-.199.05-.373-.025-.523-.075-.15-.67-1.611-.918-2.206-.241-.58-.487-.502-.67-.51-.174-.008-.373-.008-.572-.008-.199 0-.523.075-.796.374-.273.298-1.045 1.02-1.045 2.488s1.07 2.886 1.22 3.086c.15.199 2.1 3.208 5.093 4.49 1.831.785 2.493.856 3.468.72 1.05-.148 2.378-.97 2.713-1.91.336-.94.336-1.745.236-1.91-.099-.165-.373-.264-.67-.413z"/></svg>
+                              <span className="hidden sm:inline">Bombardear Contactos por WhatsApp</span><span className="sm:hidden">Invitar por WhatsApp</span>
                           </a>
                       </div>
                   </div>
@@ -1482,645 +1732,528 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
          </div>
       )}
 
-      {/* 🔥 TABS (TODOS LAS VEN, PERO SI ES ESTATICO SE BLOQUEAN POR DENTRO) 🔥 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl border-t border-zinc-800/80 p-3 md:relative md:bg-transparent md:border-none md:p-0 md:mb-10 md:flex md:overflow-x-auto md:gap-4 md:border-b md:border-zinc-800 md:pb-4 md:custom-scrollbar md:whitespace-nowrap">
-        <div className="flex justify-around md:justify-start items-center w-full max-w-7xl mx-auto gap-1">
+{/* 🔥 FASE 1: BOTTOM NAVIGATION BAR ESTILO APP NATIVA 🔥 */}
+      <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white border-t border-zinc-200 pb-5 pt-2 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:relative md:bg-transparent md:border-none md:shadow-none md:pb-10 md:pt-0">
+        <div className="flex justify-around items-center h-[60px] px-2 max-w-md mx-auto md:max-w-full md:justify-start md:gap-6">
           
-          <button onClick={() => setActiveTab("rutina")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "rutina" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-            <span className="text-2xl md:text-lg">📋</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Plan</span>
+          {/* 1. INICIO (Mapeado a Checkin/SNC) */}
+          <button onClick={() => setActiveTab("checkin")} className="flex flex-col items-center justify-center w-16 gap-1 transition-all active:scale-95">
+            <svg className={`w-6 h-6 transition-colors ${activeTab === 'checkin' ? 'text-black' : 'text-zinc-400'}`} fill={activeTab === 'checkin' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={activeTab === 'checkin' ? 0 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className={`text-[10px] tracking-wide ${activeTab === 'checkin' ? 'text-black font-bold' : 'text-zinc-400 font-medium'}`}>Inicio</span>
           </button>
-          
-          <button onClick={() => setActiveTab("videos")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "videos" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-            <span className="text-2xl md:text-lg">📹</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Video {!canViewVideos && "🔒"}</span>
+
+          {/* 2. AGENDA (Mapeado a Rutina) */}
+          <button onClick={() => setActiveTab("rutina")} className="flex flex-col items-center justify-center w-16 gap-1 transition-all active:scale-95 relative">
+            {hasNewBiiRoutine && <span className="absolute top-0 right-3 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></span>}
+            <svg className={`w-6 h-6 transition-colors ${activeTab === 'rutina' ? 'text-black' : 'text-zinc-400'}`} fill={activeTab === 'rutina' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={activeTab === 'rutina' ? 0 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className={`text-[10px] tracking-wide ${activeTab === 'rutina' ? 'text-black font-bold' : 'text-zinc-400 font-medium'}`}>Agenda</span>
           </button>
-          
-          <button onClick={() => setActiveTab("boveda")} className={`hidden md:flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "boveda" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-            <span className="text-2xl md:text-lg">🏛️</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">Bóveda {!isElitePlan && "🔒"}</span>
+
+          {/* 3. VIDEOS (Unificamos Videos y Bóveda) */}
+          <button onClick={() => setActiveTab("videos")} className="flex flex-col items-center justify-center w-16 gap-1 transition-all active:scale-95 relative">
+            {!canViewVideos && <span className="absolute top-0 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>}
+            <svg className={`w-6 h-6 transition-colors ${activeTab === 'videos' ? 'text-black' : 'text-zinc-400'}`} fill={activeTab === 'videos' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={activeTab === 'videos' ? 0 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span className={`text-[10px] tracking-wide ${activeTab === 'videos' ? 'text-black font-bold' : 'text-zinc-400 font-medium'}`}>Vídeos</span>
           </button>
-          
-          <button onClick={() => setActiveTab("rm")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "rm" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-            <span className="text-2xl md:text-lg">📈</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">RMs {!canViewRMs && "🔒"}</span>
+
+          {/* 4. EVOLUCIÓN (Mapeado a RM / Progression) */}
+          <button onClick={() => setActiveTab("rm")} className="flex flex-col items-center justify-center w-16 gap-1 transition-all active:scale-95 relative">
+            <svg className={`w-6 h-6 transition-colors ${activeTab === 'rm' ? 'text-black' : 'text-zinc-400'}`} fill={activeTab === 'rm' ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={activeTab === 'rm' ? 0 : 2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+            <span className={`text-[10px] tracking-wide ${activeTab === 'rm' ? 'text-black font-bold' : 'text-zinc-400 font-medium'}`}>Evolución</span>
           </button>
-          
-          <button onClick={() => setActiveTab("checkin")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "checkin" ? "text-amber-400 md:bg-amber-500 md:text-black md:shadow-[0_0_30px_rgba(245,158,11,0.3)]" : "text-zinc-500 hover:text-zinc-300 md:bg-zinc-900/50 md:border md:border-zinc-800"}`}>
-            <span className="text-2xl md:text-lg">⚡</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">SNC {!canViewSNC && "🔒"}</span>
-          </button>
-          
-          <div className="hidden lg:block flex-1"></div>
-          
-          <button onClick={() => setActiveTab("asistente")} className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-3 p-2 md:px-8 md:py-4 rounded-2xl md:rounded-[1.5rem] transition-all flex-1 md:flex-none ${activeTab === "asistente" ? "text-blue-400 md:bg-blue-600 md:text-white md:shadow-[0_0_30px_rgba(37,99,235,0.4)] md:border-blue-500" : "text-blue-500/50 hover:text-blue-400 md:bg-blue-900/10 md:border md:border-blue-900/30"}`}>
-            <span className="text-2xl md:text-lg">🤖</span>
-            <span className="text-[9px] md:text-sm font-black uppercase tracking-widest">IA {!canViewAI && "🔒"}</span>
-          </button>
+
         </div>
       </div>
 
       <div className="animate-in fade-in duration-500">
         
-{/* ─── PANTALLA ASISTENTE IA ─── */}
-        {activeTab === "asistente" && (
-           <>
-             {!canViewAI ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-blue-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-blue-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">🤖</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">SISTEMA <span className="text-blue-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La tecnología de soporte biomecánico y análisis nutricional de Tujague AI es exclusiva para atletas en la Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(37,99,235,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
-                         POSTULARME A MENTORÍA ÉLITE 🚀
-                     </a>
+{/* ─── BOTTOM SHEET: ASISTENTE IA NATIVO ─── */}
+        {showAssistant && (
+           <div className="fixed inset-0 z-[70] flex flex-col justify-end animate-in fade-in duration-300">
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAssistant(false)}></div>
+              
+              <div className="relative bg-white w-full h-[85vh] rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
+                 
+                 <div className="flex justify-center pt-4 pb-2 relative shrink-0">
+                    <div className="w-12 h-1.5 bg-gray-200 rounded-full"></div>
+                    <button onClick={() => setShowAssistant(false)} className="absolute right-5 top-3 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-black transition-colors font-bold">✕</button>
                  </div>
-              ) : (
-                  <div className="max-w-5xl mx-auto flex flex-col h-[75vh] min-h-[600px] bg-[#0a0a0c] border border-zinc-800/80 rounded-[2rem] md:rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
-                     <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none -mr-20 -mt-20"></div>
-                     
-                     <div className="p-4 md:p-6 border-b border-zinc-800/80 flex flex-col md:flex-row items-start md:items-center justify-between bg-black/40 relative z-10 gap-4 shadow-sm">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center text-2xl md:text-3xl shadow-inner relative shrink-0">
-                               {aiMode === 'chef' ? '👨‍🍳' : '🤖'}
-                               <span className="absolute -bottom-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-emerald-500 border-2 border-black rounded-full"></span>
-                            </div>
-                            <div>
-                               <h3 className="text-xl md:text-2xl font-black italic text-white uppercase tracking-tight flex items-center gap-2">Tujague <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">AI System</span></h3>
-                               <p className="text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">
-                                  {aiMode === 'chef' ? 'Asesoría Nutricional Clínica' : 'Análisis Biomecánico & Técnico'}
-                               </p>
-                            </div>
-                        </div>
 
-                        <div className="flex bg-zinc-950 p-1 rounded-xl md:rounded-2xl border border-zinc-800 w-full md:w-auto">
-                           <button onClick={() => setAiMode('biomechanic')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${aiMode === 'biomechanic' ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-white'}`}>
-                              ⚙️ Biomecánica
-                           </button>
-                           <button onClick={() => setAiMode('chef')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${aiMode === 'chef' ? 'bg-orange-600 text-white shadow-[0_0_20px_rgba(234,88,12,0.4)]' : 'text-zinc-500 hover:text-white'}`}>
-                              👨‍🍳 Nutrición
-                           </button>
-                        </div>
+                 {!canViewAI ? (
+                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                         <div className="w-20 h-20 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-4xl mb-6 shadow-sm">🤖</div>
+                         <h3 className="text-2xl font-black tracking-tight text-black mb-2">Sistema Restringido</h3>
+                         <p className="text-gray-500 font-medium mb-8 text-sm">El análisis biomecánico de Tujague AI es exclusivo para la Mentoría Élite.</p>
+                         <a href={whatsappUpsellUrl} target="_blank" className="bg-black text-white px-8 py-4 rounded-xl font-bold text-xs uppercase tracking-widest w-full hover:scale-105 transition-transform active:scale-95 text-center">Postularme a Élite 🚀</a>
                      </div>
+                 ) : (
+                     <div className="flex flex-col h-full overflow-hidden">
+                        <div className="px-6 pb-4 border-b border-gray-100 flex flex-col gap-4 shrink-0">
+                            <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center text-xl shadow-md">🤖</div>
+                               <div>
+                                  <h3 className="font-bold text-black leading-none text-lg">Tujague AI</h3>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">{aiMode === 'chef' ? 'Asesor Nutricional' : 'Soporte Biomecánico'}</p>
+                               </div>
+                            </div>
+                            <div className="flex bg-gray-100 p-1 rounded-xl w-full">
+                               <button onClick={() => setAiMode('biomechanic')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${aiMode === 'biomechanic' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Biomecánica</button>
+                               <button onClick={() => setAiMode('chef')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${aiMode === 'chef' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Nutrición</button>
+                            </div>
+                        </div>
 
-                     {aiMode === 'chef' && (
-                         <div className="p-4 md:p-6 bg-gradient-to-b from-orange-950/20 to-transparent border-b border-zinc-800/50 relative z-20 overflow-y-auto max-h-[50vh]">
-                             
-                             {(order?.macro_calories || order?.macro_protein || order?.macro_carbs || order?.macro_fats) && (
-                                 <div className="mb-4 bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl md:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                     <div className="flex items-center gap-3">
-                                        <span className="text-2xl">🎯</span>
-                                        <div>
-                                            <p className="text-[9px] md:text-[10px] text-orange-400 font-black uppercase tracking-widest mb-1">Directrices del Coach Activas</p>
-                                            <p className="text-xs md:text-sm text-white font-bold">
-                                                {order.macro_calories || 'N/A'} Kcal | {order.macro_protein || 'N/A'} Prot | {order.macro_carbs || 'N/A'} Carbs | {order.macro_fats || 'N/A'} Grasas | {order.macro_water || 'N/A'}
-                                            </p>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50 custom-scrollbar">
+                           {aiMode === 'chef' && chefHistory.length <= 1 && (
+                                <div className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm mb-4">
+                                    <div className="flex justify-between items-center mb-3">
+                                       <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500">Calculadora Rápida</span>
+                                       <button onClick={() => setShowChefForm(!showChefForm)} className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-600 font-bold">{showChefForm ? 'Ocultar' : 'Configurar'}</button>
+                                    </div>
+                                    {showChefForm && (
+                                        <div className="space-y-3 mb-4 animate-in fade-in">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <select value={dietGoal} onChange={e=>setDietGoal(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs p-2 rounded-lg text-gray-600 outline-none">
+                                                    <option value="volumen">Superávit</option><option value="mantenimiento">Recomposición</option><option value="deficit">Déficit</option>
+                                                </select>
+                                                <select value={activityLevel} onChange={e=>setActivityLevel(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs p-2 rounded-lg text-gray-600 outline-none">
+                                                    <option value="sedentario">Sedentario</option><option value="ligero">Ligero</option><option value="moderado">Moderado</option><option value="intenso">Intenso</option>
+                                                </select>
+                                            </div>
+                                            <button onClick={handleCalculateMacros} className="w-full bg-orange-50 text-orange-600 py-2 rounded-lg text-[10px] font-bold uppercase border border-orange-100">Calcular (Base {checkin.weight || '0'}kg)</button>
+                                            {calculatedMacros && (
+                                                <div className="flex justify-between text-[10px] font-bold bg-gray-50 p-2 rounded-lg border border-gray-200 text-center">
+                                                    <div><span className="block text-gray-400">Kcal</span>{calculatedMacros.cals}</div>
+                                                    <div><span className="block text-gray-400">P</span>{calculatedMacros.prot}g</div>
+                                                    <div><span className="block text-gray-400">C</span>{calculatedMacros.carbs}g</div>
+                                                    <div><span className="block text-gray-400">G</span>{calculatedMacros.fats}g</div>
+                                                </div>
+                                            )}
                                         </div>
-                                     </div>
-                                 </div>
-                             )}
+                                    )}
+                                </div>
+                           )}
 
-                             <div className="flex justify-between items-center mb-4 bg-black/40 p-4 rounded-xl border border-zinc-800">
-                                <p className="text-orange-400 font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2">
-                                   <span className="text-base">⚡</span> Calculadora Metabólica
-                                </p>
-                                <button onClick={() => setShowChefForm(!showChefForm)} className="text-zinc-400 hover:text-white text-xs font-bold bg-zinc-900 px-4 py-2 rounded-lg transition-colors border border-zinc-700">
-                                   {showChefForm ? 'Ocultar Herramienta' : 'Configurar Manual'}
-                                </button>
-                             </div>
-                             
-                             {showChefForm && (
-                                 <div className="animate-in slide-in-from-top-2 space-y-4 bg-black/60 p-5 rounded-2xl border border-zinc-800 mb-6 shadow-inner">
-                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                         <div>
-                                            <label className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-2 block">Objetivo</label>
-                                            <select value={dietGoal} onChange={e=>setDietGoal(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 p-3 md:p-4 rounded-xl text-xs md:text-sm text-white outline-none focus:border-orange-500 transition-colors">
-                                                <option value="volumen">Superávit (Ganar Fuerza)</option>
-                                                <option value="mantenimiento">Mantenimiento (Recomposición)</option>
-                                                <option value="deficit">Déficit (Definición)</option>
-                                            </select>
-                                         </div>
-                                         <div>
-                                            <label className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-2 block">Actividad Diaria</label>
-                                            <select value={activityLevel} onChange={e=>setActivityLevel(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 p-3 md:p-4 rounded-xl text-xs md:text-sm text-white outline-none focus:border-orange-500 transition-colors">
-                                                <option value="sedentario">Sedentario (Trabajo de oficina)</option>
-                                                <option value="ligero">Ligero (10k pasos/día)</option>
-                                                <option value="moderado">Moderado (Entreno + Activo)</option>
-                                                <option value="intenso">Intenso (Trabajo Físico Pesado)</option>
-                                            </select>
-                                         </div>
-                                     </div>
-                                     
-                                     <button type="button" onClick={handleCalculateMacros} className="w-full bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all border border-orange-500/50">
-                                         Calcular Macros (Basado en {checkin.weight || '0'}kg)
-                                     </button>
-
-                                     {calculatedMacros && (
-                                         <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl grid grid-cols-5 text-center divide-x divide-orange-500/20 mt-4 shadow-inner">
-                                             <div><p className="text-[8px] md:text-[10px] text-orange-400 font-bold uppercase mb-1">Kcal</p><p className="font-mono font-black text-white text-xs md:text-base">{calculatedMacros.cals}</p></div>
-                                             <div><p className="text-[8px] md:text-[10px] text-orange-400 font-bold uppercase mb-1">Prot</p><p className="font-mono font-black text-white text-xs md:text-base">{calculatedMacros.prot}g</p></div>
-                                             <div><p className="text-[8px] md:text-[10px] text-orange-400 font-bold uppercase mb-1">Carbs</p><p className="font-mono font-black text-white text-xs md:text-base">{calculatedMacros.carbs}g</p></div>
-                                             <div><p className="text-[8px] md:text-[10px] text-orange-400 font-bold uppercase mb-1">Grasas</p><p className="font-mono font-black text-white text-xs md:text-base">{calculatedMacros.fats}g</p></div>
-                                             <div><p className="text-[8px] md:text-[10px] text-orange-400 font-bold uppercase mb-1">Agua</p><p className="font-mono font-black text-white text-xs md:text-base">{calculatedMacros.water}L</p></div>
-                                         </div>
-                                     )}
+                           {(aiMode === 'biomechanic' ? bioHistory : chefHistory).map((msg, index) => (
+                              <div key={index} className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
+                                 <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1 px-1">{msg.role === 'user' ? 'Atleta' : 'Tujague AI'}</span>
+                                 <div className={`p-4 rounded-2xl text-sm font-medium leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-black text-white rounded-tr-sm' : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100 whitespace-pre-wrap'}`}>
+                                    {msg.content}
                                  </div>
-                             )}
-
-                             <form onSubmit={handleQuickChefRequest} className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800">
-                                 <input type="text" value={chefIngredients} onChange={e=>setChefIngredients(e.target.value)} placeholder="Ej: Tengo Arroz, pollo, huevos y avena..." className="flex-1 bg-black border border-zinc-700 p-4 md:p-5 rounded-xl text-sm text-white outline-none focus:border-orange-500 transition-colors shadow-inner" />
-                                 <button type="submit" disabled={isTyping || !chefIngredients.trim()} className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 md:py-5 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(234,88,12,0.4)] disabled:opacity-50 shrink-0 flex items-center justify-center gap-2">
-                                     🥩 Generar Menú 
-                                 </button>
-                             </form>
-                         </div>
-                     )}
-
-                     <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 custom-scrollbar relative z-10 bg-black/20">
-                        {aiMode === 'biomechanic' ? (
-                           <>
-                              {bioHistory.map((msg, index) => (
-                                 <div key={index} className={`flex flex-col max-w-[90%] md:max-w-[80%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-2 ${msg.role === 'user' ? 'text-zinc-500' : 'text-emerald-500'}`}>{msg.role === 'user' ? 'Atleta' : 'Tujague AI'}</span>
-                                    <div className={`p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] text-sm md:text-base font-medium leading-relaxed shadow-lg ${msg.role === 'user' ? 'bg-zinc-800/90 text-white rounded-tr-sm border border-zinc-700/50' : 'bg-gradient-to-br from-blue-950/60 to-emerald-950/20 border border-blue-500/30 text-blue-50 rounded-tl-sm whitespace-pre-wrap'}`}>
-                                       {msg.content}
-                                    </div>
-                                 </div>
-                              ))}
-                           </>
-                        ) : (
-                           <>
-                              {chefHistory.map((msg, index) => (
-                                 <div key={index} className={`flex flex-col max-w-[90%] md:max-w-[80%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-2 ${msg.role === 'user' ? 'text-zinc-500' : 'text-orange-500'}`}>{msg.role === 'user' ? 'Atleta' : 'Asesor Culinario'}</span>
-                                    <div className={`p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] text-sm md:text-base font-medium leading-relaxed shadow-lg ${msg.role === 'user' ? 'bg-zinc-800/90 text-white rounded-tr-sm border border-zinc-700/50' : 'bg-gradient-to-br from-orange-950/60 to-[#0a0a0c] border border-orange-500/30 text-orange-50 rounded-tl-sm whitespace-pre-wrap'}`}>
-                                       {msg.content}
-                                    </div>
-                                 </div>
-                              ))}
-                           </>
-                        )}
-                        
-                        {isTyping && (
-                           <div className="mr-auto flex flex-col items-start max-w-[80%]">
-                              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-500">Procesando Base de Datos...</span>
-                              <div className="p-5 rounded-[1.5rem] bg-gradient-to-br from-blue-950/60 to-emerald-950/20 border border-blue-500/30 rounded-tl-sm flex items-center gap-2 shadow-lg">
-                                 <span className="w-2.5 h-2.5 md:w-3 md:h-3 bg-blue-500 rounded-full animate-bounce"></span>
-                                 <span className="w-2.5 h-2.5 md:w-3 md:h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.15s'}}></span>
-                                 <span className="w-2.5 h-2.5 md:w-3 md:h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.3s'}}></span>
                               </div>
-                           </div>
-                        )}
-                        <div ref={chatEndRef} />
-                     </div>
+                           ))}
+                           {isTyping && (
+                               <div className="mr-auto bg-white border border-gray-100 p-4 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-2 w-fit">
+                                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"></span>
+                                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{animationDelay: '0.15s'}}></span>
+                                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{animationDelay: '0.3s'}}></span>
+                               </div>
+                           )}
+                           <div ref={chatEndRef} />
+                        </div>
 
-                     <div className="p-4 md:p-6 border-t border-zinc-800/80 bg-zinc-950 relative z-10 backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-                        <form onSubmit={aiMode === 'chef' ? handleChefMessage : handleBioMessage} className="flex gap-3 md:gap-4 items-center">
-                           <input 
-                              type="text" 
-                              className="flex-1 bg-black border border-zinc-700/80 rounded-xl md:rounded-2xl px-5 py-4 md:py-5 text-sm md:text-base text-white font-medium outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-600 shadow-inner" 
-                              placeholder={aiMode === 'chef' ? "Haz una consulta nutricional libre..." : "Escribe tu consulta sobre técnica, programación o fatiga..."}
-                              value={aiMode === 'chef' ? chefInput : bioInput} 
-                              onChange={(e) => aiMode === 'chef' ? setChefInput(e.target.value) : setBioInput(e.target.value)} 
-                              disabled={isTyping}
-                           />
-                           <button type="submit" disabled={isTyping || (aiMode === 'chef' && !chefInput.trim()) || (aiMode === 'biomechanic' && !bioInput.trim())} className={`px-6 md:px-10 py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all disabled:opacity-50 text-white shrink-0 ${aiMode === 'chef' ? 'bg-orange-600 hover:bg-orange-500 shadow-[0_0_25px_rgba(234,88,12,0.4)]' : 'bg-blue-600 hover:bg-blue-500 shadow-[0_0_25px_rgba(37,99,235,0.4)]'}`}>
-                              ENVIAR
-                           </button>
-                        </form>
+                        <div className="p-4 bg-white border-t border-gray-100 shrink-0 pb-8">
+                            {aiMode === 'chef' && chefHistory.length <= 1 ? (
+                                <form onSubmit={handleQuickChefRequest} className="flex gap-2 relative">
+                                   <input type="text" className="flex-1 bg-gray-100 rounded-xl px-5 py-4 text-sm text-black font-medium outline-none focus:ring-2 focus:ring-orange-500/20 transition-all placeholder:text-gray-400" placeholder="Ingredientes (Ej: pollo, arroz)..." value={chefIngredients} onChange={(e) => setChefIngredients(e.target.value)} disabled={isTyping} />
+                                   <button type="submit" disabled={isTyping || !chefIngredients.trim()} className="bg-orange-500 text-white px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition-transform shadow-md">Menú</button>
+                                </form>
+                            ) : (
+                                <form onSubmit={aiMode === 'chef' ? handleChefMessage : handleBioMessage} className="flex gap-2 relative">
+                                   <input 
+                                      type="text" 
+                                      className="flex-1 bg-gray-100 rounded-xl px-5 py-4 text-sm text-black font-medium outline-none focus:ring-2 focus:ring-black/5 transition-all placeholder:text-gray-400" 
+                                      placeholder={aiMode === 'chef' ? "Consulta nutricional libre..." : "Consulta técnica..."} 
+                                      value={aiMode === 'chef' ? chefInput : bioInput} 
+                                      onChange={(e) => aiMode === 'chef' ? setChefInput(e.target.value) : setBioInput(e.target.value)} 
+                                      disabled={isTyping} 
+                                   />
+                                   <button type="submit" disabled={isTyping || (aiMode === 'chef' && !chefInput.trim()) || (aiMode === 'biomechanic' && !bioInput.trim())} className="bg-black text-white px-6 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 active:scale-95 transition-transform shadow-md">
+                                      Enviar
+                                   </button>
+                                </form>
+                            )}
+                        </div>
                      </div>
-                  </div>
-              )}
-           </>
+                 )}
+              </div>
+           </div>
         )}
 
-        {/* ─── PESTAÑA RUTINA + BOTÓN DE PÁNICO Y GENERADOR PDF PREMIUM ─── */}
+{/* ─── PESTAÑA AGENDA (VISOR DE MESOCICLO COMPLETO) ─── */}
         {activeTab === "rutina" && (
           <div className="relative pb-24 max-w-[100vw] overflow-x-hidden md:max-w-6xl mx-auto"> 
 
-            {/* 🔥 VISTA EXCLUSIVA PARA PLANES ESTÁTICOS / CALCULADORA 🔥 */}
             {isStaticPlan ? (
-                <div className="bg-[#0a0a0c] border border-emerald-500/30 p-10 md:p-20 rounded-[3rem] text-center shadow-[0_0_80px_rgba(16,185,129,0.1)] relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500">
+                <div className="bg-white border border-emerald-200 p-10 md:p-20 rounded-[3rem] text-center shadow-sm relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500">
                     <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
                     
                     {safePlanId.includes('calculadora') ? (
                         <>
-                            <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">JUNK VOLUME <span className="text-amber-500">KILLER</span></h2>
-                            <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Tu software de diagnóstico está listo. Ingresá a la herramienta interactiva para auditar tu rutina y descargar el Material de Rescate.</p>
+                            <h2 className="text-4xl md:text-6xl font-black italic text-black mb-6 tracking-tighter uppercase relative z-10">JUNK VOLUME <span className="text-amber-500">KILLER</span></h2>
+                            <p className="text-gray-500 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Tu software de diagnóstico está listo. Ingresá a la herramienta interactiva para auditar tu rutina y descargar el Material de Rescate.</p>
                             
-                            <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95">
+                            <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95">
                                 🧮 INICIAR SOFTWARE DE DIAGNÓSTICO
                             </Link>
                         </>
                     ) : (
                         <>
-                            <h2 className="text-4xl md:text-6xl font-black italic text-white mb-6 tracking-tighter uppercase relative z-10">TU ESTRUCTURA ESTÁ <span className="text-emerald-500">LISTA</span></h2>
-                            <p className="text-zinc-400 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa estático. El documento PDF oficial contiene toda la planificación y parámetros a seguir.</p>
+                            <h2 className="text-4xl md:text-6xl font-black italic text-black mb-6 tracking-tighter uppercase relative z-10">TU ESTRUCTURA ESTÁ <span className="text-emerald-500">LISTA</span></h2>
+                            <p className="text-gray-500 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa estático. El documento PDF oficial contiene toda la planificación y parámetros a seguir.</p>
                             
                             <button 
                                 onClick={handleDownloadSecureMeso}
                                 disabled={isDownloadingMeso}
-                                className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-[0_0_40px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50"
+                                className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-white px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 disabled:opacity-50"
                             >
                                 {isDownloadingMeso ? '🔐 ENCRIPTANDO DOCUMENTO...' : '📥 DESCARGAR PDF OFICIAL'}
                             </button>
                         </>
                     )}
-</div>
+                </div>
             ) : (
-            /* 🔥 VISTA DE RUTINA NORMAL PARA MENTORÍA ÉLITE 🔥 */
-                <>
-                  <div className="mb-8 bg-gradient-to-br from-amber-900/20 to-[#0a0a0c] p-8 md:p-10 rounded-[2.5rem] border border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.1)] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-                      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                          <div>
-                              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-amber-500 mb-2 flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Panel Activo
-                              </p>
-                              <h2 className="text-3xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">
-                                  Hoja de <span className="text-amber-500">Ruta</span>
-                              </h2>
-                              <p className="text-zinc-400 font-medium mt-2 max-w-lg text-sm md:text-base">Ejecución táctica programada. La intensidad no se negocia. Registrá tus marcas al terminar.</p>
-                          </div>
-                          
-                          <div className="flex flex-col w-full md:w-auto gap-3">
-                             <button 
-                                 onClick={downloadPDF}
-                                 disabled={generatingPDF || !hasRoutines}
-                                 className="w-full justify-center bg-black hover:bg-zinc-900 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-3 border border-zinc-700 hover:border-amber-500 transition-all disabled:opacity-50 shadow-md active:scale-95"
-                             >
-                                 {generatingPDF ? 'GENERANDO...' : '📄 EXPORTAR A PDF'}
-                             </button>
+                /* 🔥 VISOR DE AGENDA PARA MENTORÍA ÉLITE 🔥 */
+                <div className="animate-in fade-in duration-500 mt-6 space-y-12">
 
-                             {isElitePlan && (
-                                 <button 
-                                    onClick={() => setShowPanicModal(true)}
-                                    className="w-full justify-center bg-red-600/10 border border-red-500/30 hover:bg-red-600 hover:text-white text-red-500 px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-inner active:scale-95"
-                                 >
-                                    🚨 REPORTE DE EMERGENCIA
-                                 </button>
-                             )}
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* MODAL BOTON DE PANICO */}
-                  {showPanicModal && (
-                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-                         <div className="bg-[#0a0a0c] border border-red-900/50 p-8 md:p-10 rounded-[2.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(239,68,68,0.25)] relative overflow-hidden animate-in zoom-in duration-300">
-                             <div className="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
-                             <button onClick={() => setShowPanicModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white font-bold text-xl">✕</button>
-                             
-                             <h3 className="text-2xl md:text-3xl font-black italic text-red-500 uppercase tracking-tighter mb-2 flex items-center gap-3">🚨 Botón de Pánico</h3>
-                             <p className="text-zinc-400 text-xs md:text-sm mb-8 font-medium leading-relaxed">Informe de inmediato la alteración logística o fisiológica para que la IA recalibre la sesión respetando el patrón motor.</p>
-                             
-                             {!panicResponse ? (
-                                 <form onSubmit={handlePanicRequest} className="space-y-5 relative z-10">
-                                     <div>
-                                         <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Ejercicio a sustituir</label>
-                                         <input type="text" required value={panicExercise} onChange={e=>setPanicExercise(e.target.value)} placeholder="Ej: Prensa a 45 grados" className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
-                                     </div>
-                                     <div>
-                                         <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Motivo clínico o logístico</label>
-                                         <input type="text" required value={panicProblem} onChange={e=>setPanicProblem(e.target.value)} placeholder="Ej: Presento molestia aguda en el tendón rotuliano..." className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
-                                     </div>
-                                     <button type="submit" disabled={panicLoading} className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] mt-4 disabled:opacity-50 active:scale-95">
-                                         {panicLoading ? 'PROCESANDO ESTRUCTURA...' : 'SOLICITAR REEMPLAZO 🔄'}
-                                     </button>
-                                 </form>
-                             ) : (
-                                 <div className="space-y-6 animate-in zoom-in duration-300">
-                                     <div className="bg-red-950/20 border border-red-500/30 p-6 rounded-2xl shadow-inner">
-                                         <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Determinación del Sistema</p>
-                                         <p className="text-red-50 text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap">{panicResponse}</p>
-                                     </div>
-                                     <button onClick={() => {setShowPanicModal(false); setPanicResponse(""); setPanicExercise(""); setPanicProblem("");}} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Comprendido. Retomando entrenamiento.</button>
-                                 </div>
-                             )}
-                         </div>
-                     </div>
-                  )}
-
-{/* ─── HERRAMIENTAS DE PRECISIÓN (ÉLITE) ─── */}
-                  <div className="grid grid-cols-1 gap-6 md:gap-8 mb-8">
-                     
-                     {/* 🔥 THE JUNK VOLUME KILLER (HERRAMIENTA ÉLITE) 🔥 */}
-                     <div className="bg-gradient-to-r from-red-950/40 to-black border border-red-500/30 p-6 md:p-8 rounded-[2rem] shadow-[0_0_40px_rgba(239,68,68,0.15)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 group">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 blur-[80px] pointer-events-none group-hover:bg-red-500/20 transition-all duration-700"></div>
-                        <div className="flex items-center gap-5 relative z-10 w-full md:w-auto">
-                            <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner shrink-0 group-hover:scale-110 transition-transform">🧮</div>
-                            <div>
-                                <h3 className="text-2xl font-black italic text-white tracking-tighter uppercase mb-1">Junk Volume <span className="text-red-500">Killer</span></h3>
-                                <p className="text-zinc-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Auditoría Quirúrgica de Volumen</p>
-                            </div>
-                        </div>
-                        <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 w-full md:w-auto bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] active:scale-95 text-center flex items-center justify-center gap-2">
-                            <span>INICIAR SOFTWARE</span> <span className="text-lg">→</span>
-                        </Link>
-                     </div>
-
-                     {/* CALCULADORA DE CARGA */}
-                     <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col group hover:border-amber-500/30 transition-all">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-                           <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center text-3xl shadow-inner group-hover:scale-110 transition-transform">🧮</div>
-                              <div>
-                                 <h3 className="text-white font-black italic uppercase tracking-tighter text-xl md:text-2xl">Parámetros de Carga</h3>
-                                 <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Calculadora de Intensidad</p>
-                              </div>
-                           </div>
-                           {isElitePlan && (
-                               <button onClick={handleGenerateWarmup} disabled={generatingWarmup} className="bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 px-5 py-3 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.15)] w-full sm:w-auto justify-center mt-4 sm:mt-0">
-                                  {generatingWarmup ? 'Analizando...' : '🤖 Generar Warm-Up'}
-                               </button>
-                           )}
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                           <select value={calcLift} onChange={(e) => setCalcLift(e.target.value)} className="bg-[#050505] border border-zinc-800 text-zinc-300 text-sm md:text-base font-bold uppercase rounded-2xl px-5 py-5 outline-none focus:border-amber-500 flex-1 shadow-inner cursor-pointer appearance-none">
-                              <option value="squat">Sentadilla</option>
-                              <option value="bench">Press Banca</option>
-                              <option value="deadlift">Peso Muerto</option>
-                              <option value="dips">Fondos</option>
-                              <option value="military">Militar</option>
-                           </select>
-                           <div className="relative w-full sm:w-32">
-                              <input type="number" value={calcPercent} onChange={(e) => setCalcPercent(Number(e.target.value))} className="w-full h-full bg-[#050505] border border-zinc-800 text-white text-center text-2xl font-black rounded-2xl outline-none focus:border-amber-500 shadow-inner py-4 transition-colors" />
-                              <span className="absolute top-1/2 -translate-y-1/2 right-4 text-zinc-500 font-bold text-sm">%</span>
-                           </div>
-                        </div>
-                        
-                        <div className="bg-gradient-to-r from-amber-600 to-amber-400 text-black px-8 py-6 rounded-2xl flex justify-between items-center shadow-[0_0_30px_rgba(245,158,11,0.3)] mt-auto border border-amber-300 relative overflow-hidden">
-                           <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
-                           <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] relative z-10">Carga a utilizar:</span>
-                           <span className="text-4xl md:text-5xl font-black italic tracking-tighter relative z-10">{calculatedWeight} <span className="text-lg md:text-xl text-black/70 not-italic">KG</span></span>
-                        </div>
-                        
-                        {warmupPlan && (
-                            <div className="mt-8 p-6 bg-blue-950/40 border border-blue-500/30 rounded-2xl animate-in fade-in slide-in-from-top-4 shadow-xl">
-                                <span className="text-blue-400 font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-blue-500/20 pb-3">
-                                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                                   Protocolo de Aproximación
-                                </span>
-                                <p className="text-sm text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{warmupPlan}</p>
-                            </div>
-                        )}
-                     </div>
-                  </div>
-
-                  {/* 🔥 CICLOS (Macrociclos y Mesociclos) */}
-                  {(order.macrocycle || order.mesocycle || order.microcycle) && (
-                    <div className="mb-8 bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] flex flex-col lg:flex-row gap-6 justify-between items-stretch shadow-xl relative overflow-hidden">
-                      <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 relative z-10">
-                         {order.macrocycle && (
-                           <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner hover:border-amber-500/30 transition-colors">
-                              <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Macrociclo</p>
-                              <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.macrocycle}</p>
-                           </div>
-                         )}
-                         {order.mesocycle && (
-                           <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner hover:border-amber-500/30 transition-colors">
-                              <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Mesociclo</p>
-                              <p className="text-base md:text-lg font-bold text-white tracking-tight">{order.mesocycle}</p>
-                           </div>
-                         )}
-                         {order.microcycle && (
-                           <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.1)] relative overflow-hidden">
-                              <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 blur-[20px]"></div>
-                              <p className="text-[9px] md:text-[10px] text-amber-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-2 relative z-10">
-                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>Microciclo Activo
-                              </p>
-                              <p className="text-lg md:text-xl font-black text-amber-400 tracking-tight relative z-10">{order.microcycle}</p>
-                           </div>
-                         )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ✅ DIRECTRICES NUTRICIONALES */}
-                  {(order.macro_calories || order.macro_protein || order.macro_carbs || order.macro_fats || order.macro_water || calculatedMacros) && (
-                      <div className="mb-10 bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-10 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-                          <h3 className="text-[10px] md:text-xs font-black italic text-orange-500 uppercase tracking-widest mb-6 flex items-center gap-3 relative z-10">
-                              <span className="text-2xl bg-orange-500/10 p-2 rounded-xl border border-orange-500/20">🥩</span> 
-                              Directrices Nutricionales del Coach
-                          </h3>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-5 relative z-10">
-                              <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner">
-                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Calorías</p>
-                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_calories || (calculatedMacros?.cals ? calculatedMacros.cals + ' kcal' : '-')}</p>
-                              </div>
-                              <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner">
-                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Proteína</p>
-                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_protein || (calculatedMacros?.prot ? calculatedMacros.prot + 'g' : '-')}</p>
-                              </div>
-                              <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner">
-                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Carbohidratos</p>
-                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_carbs || (calculatedMacros?.carbs ? calculatedMacros.carbs + 'g' : '-')}</p>
-                              </div>
-                              <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl shadow-inner">
-                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Grasas</p>
-                                  <p className="text-xl md:text-2xl font-black text-white">{order.macro_fats || (calculatedMacros?.fats ? calculatedMacros.fats + 'g' : '-')}</p>
-                              </div>
-                              <div className="bg-[#050505] border border-white/5 p-5 rounded-2xl md:col-span-1 shadow-inner">
-                                  <p className="text-[9px] md:text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1.5">Agua</p>
-                                  <p className="text-xl md:text-2xl font-black text-blue-400 drop-shadow-md">{order.macro_water || (calculatedMacros?.water ? calculatedMacros.water + ' L' : '-')}</p>
-                              </div>
-                          </div>
-                      </div>
-                  )}
-
-                  {/* RUTINAS DIARIAS */}
-                  {!hasRoutines ? (
-                    <div className="bg-[#0a0a0c] border border-zinc-800/80 p-10 md:p-16 rounded-[3rem] text-center shadow-2xl relative overflow-hidden mb-8 animate-in fade-in duration-500">
-                        <h3 className="text-3xl md:text-5xl font-black italic text-white mb-12 tracking-tighter uppercase relative z-10">
-                            Estado del <span className="text-amber-500">Sistema</span>
-                        </h3>
-                        
-                        <div className="relative max-w-4xl mx-auto mb-16">
-                            <div className="hidden md:block absolute top-8 left-12 right-12 h-2 bg-[#050505] z-0 rounded-full shadow-inner border border-zinc-800"></div>
-                            <div className={`hidden md:block absolute top-8 left-12 h-2 z-0 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.6)] transition-all duration-1000 ${order.status === 'paid' ? 'w-[60%] bg-amber-500' : 'w-[20%] bg-amber-500'}`}></div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8 relative z-10">
-                                
-                                <div className="flex flex-col items-center gap-4">
-                                    {order.status === 'paid' ? (
-                                        <>
-                                           <div className="w-16 h-16 rounded-3xl bg-amber-500 text-black flex items-center justify-center font-black text-3xl shadow-[0_0_30px_rgba(245,158,11,0.5)]">✓</div>
-                                           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 mt-2">1. Pago Verificado</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                           <div className="w-16 h-16 rounded-3xl bg-zinc-950 border-2 border-amber-500 text-amber-500 flex items-center justify-center font-black text-3xl animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.2)]">⏳</div>
-                                           <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 mt-2">1. Validando Pago</p>
-                                        </>
-                                    )}
-                                </div>
-
-                                <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                                    <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-amber-500 text-black shadow-[0_0_30px_rgba(245,158,11,0.5)]' : 'bg-[#050505] border border-zinc-700 text-zinc-600'}`}>✓</div>
-                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-400 mt-2">2. Clínica Aprobada</p>
-                                </div>
-
-                                <div className={`flex flex-col items-center gap-4 ${order.status === 'paid' ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                                    <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-black text-3xl transition-all ${order.status === 'paid' ? 'bg-black border-2 border-amber-500 text-amber-500 animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.2)]' : 'bg-[#050505] border border-zinc-700 text-zinc-600'}`}>⚙️</div>
-                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-white mt-2">3. Diseño en Proceso</p>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-4 opacity-30">
-                                    <div className="w-16 h-16 rounded-3xl bg-[#050505] border-2 border-zinc-800 text-zinc-600 flex items-center justify-center font-black text-3xl">🚀</div>
-                                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500 mt-2">4. Plan Listo</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {order.status !== 'paid' && (
-                            <p className="text-amber-500 text-xs md:text-sm font-bold mt-8 animate-pulse bg-amber-500/10 p-4 rounded-xl inline-block border border-amber-500/20">
-                                El Coach está revisando tu transferencia. La Mentoría comenzará a diseñarse en breve.
+                    {/* 🔥 1. ENCABEZADO: HOJA DE RUTA Y BOTONES PREMIUM (PRIMERO) 🔥 */}
+                    <div className="max-w-4xl mx-auto bg-white border border-gray-100 p-8 md:p-10 rounded-[2.5rem] shadow-sm relative overflow-hidden flex flex-col items-start gap-8">
+                        <div>
+                            <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-amber-500 mb-2 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Panel Activo
                             </p>
-                        )}
-                    </div>
-                  ) : (
-                    <>
-                       {logFeedback && (
-                          <div className="mb-10 p-6 md:p-8 bg-gradient-to-r from-blue-950/60 to-[#0a0a0c] border-l-4 border-l-blue-500 border-y border-r border-zinc-800 rounded-r-3xl shadow-xl animate-in slide-in-from-left-4 relative overflow-hidden">
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] pointer-events-none"></div>
-                              <span className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest flex items-center gap-3 mb-3 relative z-10">
-                                 <span className="text-2xl">🤖</span> Auditoría de Bitácora (Tujague AI)
-                              </span>
-                              <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed italic relative z-10">"{logFeedback}"</p>
-                          </div>
-                       )}
+                            <h2 className="text-3xl md:text-5xl font-black italic text-black uppercase tracking-tighter">
+                                Hoja de <span className="text-amber-500">Ruta</span>
+                            </h2>
+                            <p className="text-gray-500 font-medium mt-2 text-sm md:text-base">Ejecución táctica programada. La intensidad no se negocia.</p>
+                        </div>
 
-                       <div className="w-full relative">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-32">
-                            {days.map(day => {
-                              if (!order[`routine_${day.id}`]) return null;
-                              return (
-                                <div key={day.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl flex flex-col hover:border-amber-500/30 transition-colors group">
-                                   <h3 className="text-2xl font-black italic text-amber-400 mb-6 uppercase tracking-tight drop-shadow-md group-hover:scale-105 transition-transform origin-left">{day.label}</h3>
-                                   
-                                   <div className="bg-[#050505] border border-zinc-800/80 rounded-2xl p-5 md:p-6 mb-8 shadow-inner flex-1">
-                                       <div 
-                                           className="text-zinc-200 font-medium text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words"
-                                           style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
-                                       >
-                                           {order[`routine_${day.id}`]}
+                        <div className="flex flex-wrap gap-2 w-full max-w-lg">
+                            <div className="bg-gray-50 border border-gray-200 px-4 py-2 rounded-xl flex-1">
+                                <p className="text-[8px] text-gray-500 font-black uppercase tracking-widest mb-0.5">Macrociclo</p>
+                                <p className="text-xs font-bold text-black uppercase tracking-tight truncate">{order?.macrocycle || '1'}</p>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-200 px-4 py-2 rounded-xl flex-1">
+                                <p className="text-[8px] text-gray-500 font-black uppercase tracking-widest mb-0.5">Mesociclo</p>
+                                <p className="text-xs font-bold text-black uppercase tracking-tight truncate">{viewingBiiProgram?.mesocycle || order?.mesocycle || '1'}</p>
+                            </div>
+                            <div className="bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl flex-1 shadow-sm w-full mt-2">
+                                <p className="text-[8px] text-amber-600 font-black uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
+                                    Fase Actual
+                                </p>
+                                <p className="text-xs font-black text-amber-600 uppercase tracking-tight">Semana {viewingBiiProgram?.week || '1'}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row w-full gap-3 relative z-10 mt-2">
+                            <button 
+                                onClick={downloadPDF}
+                                disabled={generatingPDF}
+                                className="w-full md:w-auto flex justify-center bg-black hover:bg-zinc-800 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest items-center gap-3 transition-all disabled:opacity-50 shadow-md active:scale-95"
+                            >
+                                {generatingPDF ? 'GENERANDO...' : '📄 EXPORTAR A PDF'}
+                            </button>
+
+                            {isElitePlan && (
+                                <button 
+                                    onClick={() => setShowPanicModal(true)}
+                                    className="w-full md:w-auto flex justify-center bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest items-center gap-3 transition-all shadow-sm active:scale-95"
+                                >
+                                    🚨 REPORTE DE EMERGENCIA
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 🔥 2. BOTÓN JUNK VOLUME KILLER (SEGUNDO) 🔥 */}
+                    {(safePlanId.includes('calculadora') || safePlanId.includes('junk') || myProducts.includes('calculadora-volumen-basura') || isElitePlan) && (
+                        <div className="max-w-4xl mx-auto">
+                            <Link 
+                                href="/dashboard/producto/calculadora-volumen-basura" 
+                                className="w-full flex justify-center bg-zinc-900 hover:bg-black text-white px-6 py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] items-center gap-3 transition-all shadow-lg active:scale-95 border border-zinc-800"
+                            >
+                                <span className="text-xl md:text-2xl">🧮</span> JUNK VOLUME KILLER - Auditoría Táctica
+                            </Link>
+                        </div>
+                    )}
+                    
+                    {/* 🚀 3. MAPA ANUAL DINÁMICO (TERCERO) 🚀 */}
+                    <div className="max-w-4xl mx-auto">
+                        {(() => {
+                            const combinedAnnualPlan = { ...(order?.annual_plan || {}) };
+                            if (viewingBiiProgram && viewingBiiProgram.week) {
+                                const wNum = Number(viewingBiiProgram.week);
+                                const newWeekObj: any = { phase: viewingBiiProgram.mesocycle || 'Fase BII', focus: viewingBiiProgram.focus || '' };
+                                if (viewingBiiProgram.days) {
+                                    viewingBiiProgram.days.forEach((day: any, i: number) => {
+                                        if (!day.isRestDay && day.exercises && day.exercises.length > 0) {
+                                            newWeekObj[`d${i+1}`] = day.exercises.map((ex:any, idx:number) => `${idx+1}. ${ex.name}\n${Array.isArray(ex.sets)?ex.sets.length:ex.sets} SERIES @ RPE ${ex.rpe}`).join('\n\n');
+                                        } else {
+                                            newWeekObj[`d${i+1}`] = "Descanso Activo / Recuperación";
+                                        }
+                                    });
+                                }
+                                combinedAnnualPlan[wNum] = newWeekObj;
+                            }
+                            const currentWeekNum = Number(viewingBiiProgram?.week) || parseInt(String(order?.microcycle || '1').match(/\d+/)?.[0] || '1');
+                            return (
+                               <AthleteMacroPlanner 
+                                  annualPlan={combinedAnnualPlan} 
+                                  currentWeek={currentWeekNum} 
+                                  onWeekSelect={(weekStr: string | number) => {
+                                      const prog = allBiiPrograms.find(p => String(p.program_data?.week) === String(weekStr));
+                                      if (prog) {
+                                          setViewingBiiProgram(prog.program_data);
+                                          window.scrollTo({ top: 800, behavior: 'smooth' });
+                                      } else {
+                                          alert("El Coach aún no ha diseñado la estructura táctica para la Semana " + weekStr + ".");
+                                      }
+                                  }}
+                               />
+                            );
+                        })()}
+                    </div>
+
+                    {/* 🔥 4. SELECTOR DE SEMANAS (CUARTO Y ÚLTIMO) 🔥 */}
+                    <div className="max-w-4xl mx-auto border-t border-gray-200 pt-12">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2 mb-8">
+                            <div>
+                                <h3 className="text-2xl md:text-3xl font-black italic text-black uppercase tracking-tighter">
+                                    Agenda de <span className="text-amber-500">Planificación</span>
+                                </h3>
+                                <p className="text-gray-500 text-sm font-medium mt-1">Navegá tu mesociclo completo.</p>
+                            </div>
+                            
+                            <select 
+                                className="w-full md:w-auto bg-white border border-gray-200 text-black font-black uppercase tracking-widest text-[10px] md:text-xs px-4 py-3 rounded-xl shadow-sm outline-none focus:border-amber-500 cursor-pointer appearance-none"
+                                value={viewingBiiProgram?.week || ''}
+                                onChange={(e) => {
+                                    const selectedWeek = e.target.value;
+                                    const prog = allBiiPrograms.find(p => String(p.program_data?.week) === String(selectedWeek));
+                                    if (prog) setViewingBiiProgram(prog.program_data);
+                                }}
+                            >
+                                {allBiiPrograms.length === 0 && <option value="">No hay semanas asignadas</option>}
+                                {allBiiPrograms.map((p, idx) => (
+                                    <option key={idx} value={p.program_data?.week}>
+                                        SEMANA {p.program_data?.week} {p.is_active ? '(ACTIVA HOY)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 🔥 VISOR DE SEMANAS JSON 🔥 */}
+                        {!viewingBiiProgram ? (
+                            <div className="bg-white border border-gray-200 p-10 md:p-16 rounded-[3rem] text-center shadow-sm relative overflow-hidden max-w-4xl mx-auto">
+                               <span className="text-5xl block opacity-50 mb-4 animate-bounce">⏳</span>
+                               <h3 className="text-xl md:text-2xl font-black text-black uppercase tracking-widest mb-3">Estructurando Mesociclo</h3>
+                               <p className="text-gray-500 font-medium max-w-md mx-auto">El Coach está diseñando tu próxima etapa de entrenamiento. Tu hoja de ruta aparecerá aquí pronto.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-8 max-w-4xl mx-auto">
+                               
+                               {/* 🔥 BOTÓN AMARILLO: LÓGICA INTELIGENTE 🔥 */}
+                               {activeBiiProgram?.week === viewingBiiProgram.week ? (
+                                   <div className="bg-white border border-gray-100 p-8 rounded-[2rem] shadow-sm mb-12 animate-in slide-in-from-bottom duration-500">
+                                       <div className="flex flex-col items-start gap-4">
+                                           <div>
+                                               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-amber-500 mb-1 flex items-center gap-1.5">
+                                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Panel Activo - Semana en Curso
+                                               </p>
+                                               <h3 className="text-2xl md:text-3xl font-black italic text-black uppercase tracking-tight">Estructura del día <span className="text-amber-500">lista</span></h3>
+                                           </div>
+                                           <Link 
+                                               href="/dashboard/entrenamiento" 
+                                               className="w-full flex justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 text-center items-center gap-3"
+                                           >
+                                               ▶ INICIAR ENTRENAMIENTO
+                                           </Link>
                                        </div>
                                    </div>
+                               ) : (
+                                    <div className="bg-gray-50 border border-dashed border-gray-300 p-6 rounded-[2rem] mb-12 text-center flex flex-col items-center justify-center">
+                                         <span className="text-2xl mb-2 block opacity-70">📅</span>
+                                         <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Visualizando Semana {viewingBiiProgram.week}</p>
+                                         <p className="text-[10px] text-gray-400 font-medium mt-1">El botón de entrenamiento solo se activa en tu semana en curso (Semana {activeBiiProgram?.week || '-'}).</p>
+                                    </div>
+                               )}
 
-                                   <div className="mt-auto border-t border-zinc-800 pt-6">
-                                      <p className="text-[10px] md:text-xs text-zinc-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2 group-hover:text-amber-500 transition-colors"><span>📓</span> Registro Fisiológico de Sesión</p>
-                                      <textarea 
-                                         className="w-full bg-[#050505] border border-zinc-800 rounded-xl p-4 text-zinc-300 text-xs md:text-sm font-medium outline-none focus:border-amber-500/50 resize-none h-28 md:h-32 placeholder:text-zinc-700 custom-scrollbar whitespace-pre-wrap shadow-inner transition-colors" 
-                                         placeholder="Ej: Sentadilla completada. RPE 8. Presencia de ligera fatiga sistémica..." 
-                                         value={logs[day.id as keyof typeof logs]} 
-                                         onChange={(e) => setLogs({...logs, [day.id]: e.target.value})} 
-                                      />
+                               {/* LOS 7 DÍAS DE LA SEMANA ELEGIDA */}
+                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20 px-2">
+                                   {viewingBiiProgram.days && viewingBiiProgram.days.map((day: any, dIdx: number) => {
+                                       if (day.isRestDay || !day.exercises || day.exercises.length === 0) {
+                                           return (
+                                               <div key={dIdx} className="bg-gray-50 border border-dashed border-gray-200 rounded-[2rem] p-6 flex flex-col items-center justify-center text-center opacity-60 min-h-[150px]">
+                                                   <span className="text-3xl mb-2">💤</span>
+                                                   <h4 className="font-black text-gray-500 uppercase tracking-widest text-[10px]">Día {dIdx + 1} - Descanso</h4>
+                                                   <p className="text-[10px] text-gray-400 mt-1 font-medium">Recuperación programada.</p>
+                                               </div>
+                                           );
+                                       }
+
+                                       return (
+                                           <div key={dIdx} className="bg-white border border-gray-200 rounded-[1.5rem] shadow-sm flex flex-col h-full overflow-hidden hover:border-amber-300 transition-colors group">
+                                               <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+                                                   <div>
+                                                       <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-0.5">Día {dIdx + 1}</p>
+                                                       <h4 className="font-black italic text-black uppercase tracking-tight text-sm">{day.title || 'Entrenamiento'}</h4>
+                                                   </div>
+                                                   <span className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] shadow-sm font-black text-gray-400 group-hover:text-amber-500 transition-colors">
+                                                       {dIdx + 1}
+                                                   </span>
+                                               </div>
+                                               
+                                               <div className="p-4 flex-1 space-y-3">
+                                                   {day.exercises.map((ex: any, eIdx: number) => (
+                                                       <div key={eIdx} className="border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                                                           <p className="font-black text-gray-800 text-[11px] mb-1.5 leading-tight uppercase tracking-tight">
+                                                               <span className="text-amber-500 mr-1">{eIdx + 1}.</span> {ex.name}
+                                                           </p>
+                                                           <div className="flex flex-wrap gap-1.5">
+                                                               <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-black text-[8px] uppercase tracking-widest">{Array.isArray(ex.sets) ? ex.sets.length : ex.sets} SERIES</span>
+                                                               <span className="bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-black text-[8px] uppercase tracking-widest border border-amber-100">RPE {ex.rpe}</span>
+                                                               {ex.rest && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-black text-[8px] uppercase tracking-widest border border-blue-100">{ex.rest}</span>}
+                                                           </div>
+                                                           {ex.notes && (
+                                                               <p className="text-[9px] text-gray-500 italic mt-1.5 bg-gray-50 p-1.5 rounded-lg border-l-2 border-gray-300">
+                                                                   "{ex.notes}"
+                                                               </p>
+                                                           )}
+                                                       </div>
+                                                   ))}
+                                               </div>
+                                           </div>
+                                       );
+                                   })}
+                               </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* MODAL BOTON DE PANICO */}
+                    {showPanicModal && (
+                       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                           <div className="bg-[#0a0a0c] border border-red-900/50 p-8 md:p-10 rounded-[2.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(239,68,68,0.25)] relative overflow-hidden animate-in zoom-in duration-300">
+                               <div className="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
+                               <button onClick={() => setShowPanicModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white font-bold text-xl">✕</button>
+                               
+                               <h3 className="text-2xl md:text-3xl font-black italic text-red-500 uppercase tracking-tighter mb-2 flex items-center gap-3">🚨 Botón de Pánico</h3>
+                               <p className="text-zinc-400 text-xs md:text-sm mb-8 font-medium leading-relaxed">Informe de inmediato la alteración logística o fisiológica para que la IA recalibre la sesión respetando el patrón motor.</p>
+                               
+                               {!panicResponse ? (
+                                   <form onSubmit={handlePanicRequest} className="space-y-5 relative z-10">
+                                       <div>
+                                           <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Ejercicio a sustituir</label>
+                                           <input type="text" required value={panicExercise} onChange={e=>setPanicExercise(e.target.value)} placeholder="Ej: Prensa a 45 grados" className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
+                                       </div>
+                                       <div>
+                                           <label className="text-[10px] md:text-xs font-black text-red-400 uppercase tracking-widest mb-2 block">Motivo clínico o logístico</label>
+                                           <input type="text" required value={panicProblem} onChange={e=>setPanicProblem(e.target.value)} placeholder="Ej: Presento molestia aguda en el tendón rotuliano..." className="w-full bg-black border border-zinc-800 p-4 md:p-5 rounded-xl text-sm md:text-base text-white outline-none focus:border-red-500 transition-colors" />
+                                       </div>
+                                       <button type="submit" disabled={panicLoading} className="w-full bg-red-600 hover:bg-red-500 text-white py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(239,68,68,0.4)] mt-4 disabled:opacity-50 active:scale-95">
+                                           {panicLoading ? 'PROCESANDO ESTRUCTURA...' : 'SOLICITAR REEMPLAZO 🔄'}
+                                       </button>
+                                   </form>
+                               ) : (
+                                   <div className="space-y-6 animate-in zoom-in duration-300">
+                                       <div className="bg-red-950/20 border border-red-500/30 p-6 rounded-2xl shadow-inner">
+                                           <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Determinación del Sistema</p>
+                                           <p className="text-red-50 text-sm md:text-base font-medium leading-relaxed whitespace-pre-wrap">{panicResponse}</p>
+                                       </div>
+                                       <button onClick={() => {setShowPanicModal(false); setPanicResponse(""); setPanicExercise(""); setPanicProblem("");}} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Comprendido. Retomando entrenamiento.</button>
                                    </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                               )}
+                           </div>
                        </div>
-
-                       {/* BOTÓN FLOTANTE DE GUARDADO */}
-                       <div className="fixed bottom-24 md:bottom-10 left-0 w-full flex justify-center z-[45] pointer-events-none px-4">
-                          <button 
-                             onClick={handleSaveLogs} 
-                             disabled={savingLogs} 
-                             className="bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 md:px-14 py-4 md:py-6 rounded-full font-black uppercase tracking-[0.2em] shadow-[0_10px_40px_rgba(245,158,11,0.5)] transition-all transform hover:-translate-y-1 active:scale-95 pointer-events-auto text-[10px] md:text-sm border-2 border-amber-200"
-                          >
-                             {savingLogs ? "SINCRONIZANDO..." : "💾 GUARDAR MARCAS DE HOY"}
-                          </button>
-                       </div>
-                    </>
-                  )}
-                </>
+                    )}
+                </div>
             )}
           </div>
         )}
 
 {/* ─── PESTAÑA BOVEDA TÉCNICA ─── */}
-        {activeTab === "boveda" && (
-           <>
-             {!isElitePlan ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">🏛️</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La Bóveda Técnica y los manuales de calibración biomecánica están reservados exclusivamente para atletas de la Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
-                         AGENDAR LLAMADA DE ADMISIÓN 📞
-                     </a>
-                 </div>
-             ) : (
-                <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
-                   <div className="text-center mb-10">
-                      <h2 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Bóveda Técnica <span className="text-amber-500">BII-Vintage</span></h2>
-                      <p className="text-zinc-400 mt-4 text-sm md:text-base font-medium max-w-2xl mx-auto">Estudie rigurosamente el diseño de palancas y ejecución antes del abordaje práctico en el gimnasio.</p>
-                   </div>
+  {activeTab === "boveda" && (
+    <>
+      {!isElitePlan ? (
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-200 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+          <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10">🏛️</div>
+          <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+          <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">La Bóveda Técnica y los manuales de calibración biomecánica están reservados exclusivamente para atletas de la Mentoría Élite.</p>
+          <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-md hover:scale-105 active:scale-95 w-full sm:w-auto">
+              AGENDAR LLAMADA DE ADMISIÓN 📞
+          </a>
+        </div>
+      ) : (
+        <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
+          <div className="text-center mb-10">
+            <h2 className="text-4xl md:text-5xl font-black italic text-black uppercase tracking-tighter">Bóveda Técnica <span className="text-amber-500">BII-Vintage</span></h2>
+            <p className="text-gray-500 mt-4 text-sm md:text-base font-medium max-w-2xl mx-auto">Estudie rigurosamente el diseño de palancas y ejecución antes del abordaje práctico en el gimnasio.</p>
+          </div>
 
-                   {/* 🔥 BANNER DEL KIT ACELERADOR VIP 🔥 */}
-                   {(order?.has_kit || order?.wants_kit || order?.upsell_kit) && (
-                       <div className="bg-gradient-to-r from-amber-900/40 to-[#0a0a0c] border border-amber-500/50 p-6 md:p-10 rounded-[2rem] shadow-[0_0_40px_rgba(245,158,11,0.2)] flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden mb-12 group">
-                           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-amber-500/20 transition-all duration-700"></div>
-                           <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
-                               <div className="w-16 h-16 md:w-20 md:h-20 bg-black border border-amber-500/50 rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 group-hover:scale-110 transition-transform">📚</div>
-                               <div className="text-left">
-                                   <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-500 mb-1 block animate-pulse">Material Premium Desbloqueado</span>
-                                   <h3 className="text-2xl md:text-3xl font-black italic text-white tracking-tighter uppercase">Kit Acelerador BII-Vintage</h3>
-                                   <p className="text-zinc-300 font-medium text-sm mt-1">Guía definitiva de nutrición, descansos y mentalidad.</p>
-                               </div>
-                           </div>
-                           <button onClick={handleDownloadKit} className="relative z-10 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black px-8 py-5 rounded-xl font-black text-xs md:text-sm uppercase tracking-widest shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all active:scale-95 whitespace-nowrap w-full md:w-auto border border-amber-200">
-                               📥 DESCARGAR KIT
-                           </button>
-                       </div>
-                   )}
-
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-                      {[
-                        { id: 'squat', name: 'Sentadilla (Squat)', url: '' }, 
-                        { id: 'bench', name: 'Press Banca (Bench)', url: '' },
-                        { id: 'deadlift', name: 'Peso Muerto (Deadlift)', url: '' },
-                        { id: 'military', name: 'Press Militar (OHP)', url: '' },
-                        { id: 'dips', name: 'Fondos (Dips)', url: '' }
-                      ].map(video => (
-                         <div key={video.id} className="bg-[#050505] border border-zinc-800/80 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-xl hover:shadow-[0_0_40px_rgba(245,158,11,0.15)] hover:border-amber-500/30 transition-all group">
-                            <div className="p-6 md:p-8 border-b border-zinc-800 bg-[#0a0a0c]">
-                               <h3 className="font-black italic uppercase text-lg md:text-xl text-white tracking-tight group-hover:text-amber-400 transition-colors">{video.name}</h3>
-                            </div>
-                            {video.url ? (
-                               <div className="aspect-video w-full bg-black">
-                                  <iframe width="100%" height="100%" src={video.url} title={video.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-                               </div>
-                            ) : (
-                               <div className="aspect-video w-full bg-black flex flex-col items-center justify-center p-8 relative shadow-inner">
-                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center border border-zinc-800 mb-6 opacity-50 shadow-inner group-hover:scale-110 transition-transform"><span className="text-3xl">🔒</span></div>
-                                   <h4 className="text-zinc-500 font-black tracking-widest text-[10px] md:text-xs uppercase text-center">Clínica Técnica en Producción</h4>
-                                   <p className="text-zinc-600 text-[9px] md:text-[10px] mt-2 font-bold uppercase tracking-widest">Coach Luciano Tujague</p>
-                               </div>
-                            )}
-                         </div>
-                      ))}
-                   </div>
+          {/* 🔥 BANNER DEL KIT ACELERADOR VIP 🔥 */}
+          {(order?.has_kit || order?.wants_kit || order?.upsell_kit) && (
+            <div className="bg-amber-50 border border-amber-100 p-6 md:p-10 rounded-[2rem] flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden mb-12 group">
+              <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-white border border-amber-200 rounded-2xl flex items-center justify-center text-4xl shadow-sm shrink-0 group-hover:scale-110 transition-transform">📚</div>
+                <div className="text-left">
+                  <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-amber-600 mb-1 block animate-pulse">Material Premium Desbloqueado</span>
+                  <h3 className="text-2xl md:text-3xl font-black italic text-black tracking-tighter uppercase">Kit Acelerador BII-Vintage</h3>
+                  <p className="text-gray-600 font-medium text-sm mt-1">Guía definitiva de nutrición, descansos y mentalidad.</p>
                 </div>
-             )}
-           </>
-        )}
+              </div>
+              <button onClick={handleDownloadKit} className="relative z-10 bg-amber-500 hover:bg-amber-600 text-white px-8 py-5 rounded-xl font-black text-xs md:text-sm uppercase tracking-widest shadow-md transition-all active:scale-95 whitespace-nowrap w-full md:w-auto">
+                  📥 DESCARGAR KIT
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+            {[
+              { id: 'squat', name: 'Sentadilla (Squat)', url: '' }, 
+              { id: 'bench', name: 'Press Banca (Bench)', url: '' },
+              { id: 'deadlift', name: 'Peso Muerto (Deadlift)', url: '' },
+              { id: 'military', name: 'Press Militar (OHP)', url: '' },
+              { id: 'dips', name: 'Fondos (Dips)', url: '' }
+            ].map(video => (
+              <div key={video.id} className="bg-white border border-gray-200 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-md transition-all group">
+                <div className="p-6 md:p-8 border-b border-gray-100 bg-gray-50">
+                    <h3 className="font-black italic uppercase text-lg md:text-xl text-black tracking-tight">{video.name}</h3>
+                </div>
+                {video.url ? (
+                    <div className="aspect-video w-full bg-black">
+                      <iframe width="100%" height="100%" src={video.url} title={video.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                    </div>
+                ) : (
+                    <div className="aspect-video w-full bg-gray-100 flex flex-col items-center justify-center p-8 relative">
+                        <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-[2rem] flex items-center justify-center border border-gray-200 mb-6 shadow-sm"><span className="text-3xl opacity-50">🔒</span></div>
+                        <h4 className="text-gray-400 font-black tracking-widest text-[10px] md:text-xs uppercase text-center">Clínica Técnica en Producción</h4>
+                        <p className="text-gray-300 text-[9px] md:text-[10px] mt-2 font-bold uppercase tracking-widest">Coach Luciano Tujague</p>
+                    </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )}
 
 {/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS ─── */}
         {activeTab === "videos" && (
            <>
              {!canViewVideos ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">📹</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">Tu plan actual no incluye auditoría en video. Esta herramienta de precisión biomecánica es exclusiva para los atletas bajo Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-100 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-sm">📹</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">Tu plan actual no incluye auditoría en video. Esta herramienta de precisión biomecánica es exclusiva para los atletas bajo Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-sm hover:scale-105 active:scale-95 w-full sm:w-auto">
                          AGENDAR LLAMADA DE ADMISIÓN 📞
                      </a>
                  </div>
@@ -2130,40 +2263,40 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                       {/* VIDEOS PRINCIPALES */}
                       <div>
                          <div className="text-center md:text-left mb-10">
-<h3 className="text-3xl md:text-4xl font-black italic text-amber-500 uppercase tracking-tighter drop-shadow-md">Auditoría <span className="text-white">Biomecánica</span></h3>
-                            <p className="text-zinc-400 font-medium text-sm md:text-base mt-2">Módulo clínico de corrección. Aporte su ejecución para recibir el dictamen técnico del Head Coach.</p>
+                            <h3 className="text-3xl md:text-4xl font-black italic text-amber-500 uppercase tracking-tighter drop-shadow-sm">Auditoría <span className="text-black">Biomecánica</span></h3>
+                            <p className="text-gray-500 font-medium text-sm md:text-base mt-2">Módulo clínico de corrección. Aporte su ejecución para recibir el dictamen técnico del Head Coach.</p>
                          </div>
                          
                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
                            {mainLifts.map(lift => (
-                              <div key={lift.id} className="bg-[#0a0a0c] border border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-amber-500/30 transition-colors group">
-                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
-                                    <h3 className="text-2xl font-black italic text-white uppercase tracking-tight">{lift.label}</h3>
+                              <div key={lift.id} className="bg-white border border-gray-100 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:border-amber-200 transition-colors group">
+                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-gray-100 pb-6">
+                                    <h3 className="text-2xl font-black italic text-black uppercase tracking-tight">{lift.label}</h3>
                                     {order[`video_${lift.id}`] 
-                                        ? <span className="bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-amber-500/30 shadow-inner w-full sm:w-auto text-center">Evidencia Cargada</span> 
-                                        : <span className="bg-[#050505] border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">En Espera</span>
+                                        ? <span className="bg-amber-50 text-amber-600 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-amber-200 shadow-sm w-full sm:w-auto text-center">Evidencia Cargada</span> 
+                                        : <span className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">En Espera</span>
                                     }
                                  </div>
 
-                                 <div className="mb-8 bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
+                                 <div className="mb-8 bg-gray-50 border border-gray-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm">
                                     <div>
-                                       <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Serie Efectiva</p>
-                                       <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                       <p className="text-xs md:text-sm text-gray-800 font-bold mb-2 uppercase tracking-widest">Aportar Serie Efectiva</p>
+                                       <p className="text-[10px] text-gray-400 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
                                     </div>
-                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200 hover:scale-105 active:scale-95'}`}>
+                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-sm border ${uploading === lift.id ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-black border-black text-white hover:bg-gray-900 hover:scale-105 active:scale-95'}`}>
                                        {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
                                        <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
                                     </label>
                                  </div>
 
-                                 <div className="bg-amber-950/20 border border-amber-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
-                                    <h4 className="flex items-center gap-3 text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
+                                 <div className="bg-amber-50 border border-amber-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm">
+                                    <h4 className="flex items-center gap-3 text-amber-600 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
                                       <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Auditoría del Coach
                                     </h4>
                                     {order[`feedback_${lift.id}`] ? (
-                                      <p className="text-amber-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
+                                      <p className="text-gray-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
                                     ) : (
-                                      <p className="text-amber-500/40 text-xs md:text-sm italic font-medium">Se requiere material visual para iniciar la evaluación técnica.</p>
+                                      <p className="text-amber-600/60 text-xs md:text-sm italic font-medium">Se requiere material visual para iniciar la evaluación técnica.</p>
                                     )}
                                  </div>
                               </div>
@@ -2172,48 +2305,48 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                       </div>
 
                       {/* VIDEOS EXTRAS */}
-                      <div className="pt-10 border-t border-white/5">
+                      <div className="pt-10 border-t border-gray-200">
                          <div className="text-center md:text-left mb-10">
-                            <h3 className="text-3xl md:text-4xl font-black italic text-zinc-400 uppercase tracking-tighter drop-shadow-md">Módulo de Accesorios</h3>
-                            <p className="text-zinc-500 font-medium text-sm md:text-base mt-2">Aporte visual para variantes y máquinas.</p>
+                            <h3 className="text-3xl md:text-4xl font-black italic text-gray-400 uppercase tracking-tighter drop-shadow-sm">Módulo de <span className="text-black">Accesorios</span></h3>
+                            <p className="text-gray-500 font-medium text-sm md:text-base mt-2">Aporte visual para variantes y máquinas.</p>
                          </div>
                          
                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
                            {extraLifts.map(lift => (
-                              <div key={lift.id} className="bg-black border border-dashed border-zinc-800/80 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-xl hover:border-blue-500/30 transition-colors">
-                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-zinc-800/50 pb-6">
+                              <div key={lift.id} className="bg-white border border-dashed border-gray-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:border-blue-300 transition-colors">
+                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-gray-100 pb-6">
                                     <input 
                                        type="text"
                                        placeholder="Nomenclatura (Ej: Hack Squat)..."
                                        value={order[`name_${lift.id}`] || ''}
                                        onChange={(e) => handleUpdateExtraName(lift.id, e.target.value)}
-                                       className="bg-transparent text-xl md:text-2xl font-black italic text-white uppercase outline-none placeholder:text-zinc-700 w-full sm:w-2/3 focus:text-blue-400 transition-colors"
+                                       className="bg-transparent text-xl md:text-2xl font-black italic text-black uppercase outline-none placeholder:text-gray-300 w-full sm:w-2/3 focus:text-blue-500 transition-colors"
                                     />
                                     {order[`video_${lift.id}`] 
-                                        ? <span className="bg-blue-500/20 text-blue-400 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-blue-500/30 shadow-inner w-full sm:w-auto text-center mt-4 sm:mt-0">Evidencia Cargada</span> 
-                                        : <span className="bg-zinc-900 border border-zinc-800 text-zinc-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center mt-4 sm:mt-0">En Espera</span>
+                                        ? <span className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-blue-200 shadow-sm w-full sm:w-auto text-center mt-4 sm:mt-0">Evidencia Cargada</span> 
+                                        : <span className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center mt-4 sm:mt-0">En Espera</span>
                                     }
                                  </div>
 
-                                 <div className="mb-8 bg-zinc-900/40 border border-zinc-800/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-inner">
+                                 <div className="mb-8 bg-gray-50 border border-gray-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm">
                                     <div>
-                                       <p className="text-xs md:text-sm text-zinc-300 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
-                                       <p className="text-[10px] text-zinc-500 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
+                                       <p className="text-xs md:text-sm text-gray-800 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
+                                       <p className="text-[10px] text-gray-400 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
                                     </div>
-                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-md ${uploading === lift.id ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-105 active:scale-95'}`}>
+                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-sm border ${uploading === lift.id ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:scale-105 active:scale-95'}`}>
                                        {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
                                        <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
                                     </label>
                                  </div>
 
-                                 <div className="bg-blue-950/20 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-inner">
-                                    <h4 className="flex items-center gap-3 text-blue-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
+                                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm">
+                                    <h4 className="flex items-center gap-3 text-blue-600 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
                                       <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Auditoría del Coach
                                     </h4>
                                     {order[`feedback_${lift.id}`] ? (
-                                      <p className="text-blue-50 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
+                                      <p className="text-gray-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
                                     ) : (
-                                      <p className="text-blue-500/40 text-xs md:text-sm italic font-medium">Complete la nomenclatura y aporte el material para obtener asistencia.</p>
+                                      <p className="text-blue-600/60 text-xs md:text-sm italic font-medium">Complete la nomenclatura y aporte el material para obtener asistencia.</p>
                                     )}
                                  </div>
                               </div>
@@ -2227,239 +2360,393 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
            </>
         )}
 
-{/* ─── PESTAÑA RM Y TROFEOS ÉPICOS ─── */}
-        {activeTab === "rm" && (
-           <>
-             {!canViewRMs ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">📈</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El seguimiento biométrico de tus Marcas (RMs) y la red neuronal de análisis de proporciones pertenecen al sistema Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
-                         POSTULARME A MENTORÍA ÉLITE 🚀
-                     </a>
-                 </div>
-             ) : (
-                <div className="max-w-7xl mx-auto space-y-12 md:space-y-16 animate-in fade-in duration-500">
-                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-6 sm:p-10 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
-                      <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
-                      
-                      <h2 className="text-4xl md:text-6xl font-black italic text-center mb-10 md:mb-16 text-white relative z-10 tracking-tighter drop-shadow-md">
-                        MÉTRICAS BASE DE <span className="text-amber-500 block sm:inline">1RM</span>
-                      </h2>
-                      
-                      <div className="relative z-10 bg-[#050505] border border-zinc-800 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 mb-12 md:mb-16 shadow-inner">
-                          <div className="flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-6">
-                              <div className="text-center md:text-left">
-                                  <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-amber-500 mb-2">Rango Actual</p>
-                                  <h3 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">{levelInfo.current}</h3>
-                              </div>
-                              <div className="text-center md:text-right">
-                                  <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-500 mb-2">Próximo Rango</p>
-                                  <p className="text-2xl md:text-3xl font-black italic text-zinc-300 uppercase tracking-tighter">{levelInfo.next}</p>
-                              </div>
-                          </div>
+{/* ─── PESTAÑA EVOLUCIÓN (Métricas, RM y Logros) ─── */}
+        {activeTab === "rm" && (() => {
+           // 🔥 CÁLCULOS AUTOMÁTICOS PARA EL GRÁFICO DE OBJETIVOS
+           const initialWeight = Number(order?.body_weight) || 70;
+           const currentWeight = Number(checkin.weight) || initialWeight;
+           const isCut = order?.goal === 'deficit' || order?.plan_title?.toLowerCase().includes('cut');
+           const targetWeight = isCut ? initialWeight - 5 : initialWeight + 5;
+           
+           let progressPercent = Math.round(((initialWeight - currentWeight) / (initialWeight - targetWeight)) * 100);
+           if (isNaN(progressPercent) || progressPercent < 0) progressPercent = 0;
+           if (progressPercent > 100) progressPercent = 100;
 
-                          <div className="w-full bg-zinc-900 rounded-full h-4 md:h-6 mb-6 border border-zinc-800 relative overflow-hidden shadow-inner">
-                              <div 
-                                 className="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full transition-all duration-1000 ease-out relative"
-                                 style={{ width: `${progressPercent}%` }}
-                              >
-                                 <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
-                              </div>
-                          </div>
+           // Datos para la gráfica de línea (Si no hay historial, armamos una de muestra)
+// 🔥 MOTOR DE GRÁFICA INTELIGENTE BII-VINTAGE 🔥
+           let weightChartData = [];
+           if (checkinHistory && checkinHistory.length > 1) {
+               weightChartData = checkinHistory.map((entry, index) => ({
+                   date: entry.created_at ? new Date(entry.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : `Semana ${index + 1}`,
+                   weight: Number(entry.weight) || initialWeight
+               }));
+           } else {
+               const isGaining = targetWeight > initialWeight;
+               const isCutting = targetWeight < initialWeight;
+               
+               let midWeight = initialWeight;
+               if (isCutting) {
+                   midWeight = initialWeight - ((initialWeight - currentWeight) * 0.5);
+               } else if (isGaining) {
+                   midWeight = initialWeight + ((currentWeight - initialWeight) * 0.5);
+               }
 
-                          <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] md:text-xs font-black uppercase tracking-widest gap-4">
-                              <span className="text-zinc-400 bg-black/50 px-4 py-2 rounded-xl border border-zinc-800">{totalAbsoluto} KG Totales Absolutos</span>
-                              {kgLeft > 0 ? (
-                                  <span className="text-amber-400 bg-amber-500/10 px-5 py-2.5 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]">Faltan {kgLeft} KG para ascender</span>
-                              ) : (
-                                  <span className="text-yellow-400 bg-yellow-500/10 px-5 py-2.5 rounded-xl border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]">Nivel Máximo Desbloqueado 👑</span>
-                              )}
-                          </div>
-                      </div>
+               weightChartData = [
+                 { date: 'Día 1', weight: initialWeight },
+                 { date: 'Progreso', weight: Number(midWeight.toFixed(1)) },
+                 { date: 'Hoy', weight: currentWeight }
+               ];
+           }
 
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6 mb-12 md:mb-16 relative z-10">
-                         {['squat', 'bench', 'deadlift', 'dips', 'military'].map(lift => {
-                             const liftName = lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Press Banca' : lift === 'deadlift' ? 'Peso Muerto' : lift === 'dips' ? 'Fondos' : 'Militar';
-                             return (
-                                <div key={lift} className="bg-black/60 p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-zinc-800 text-center relative focus-within:border-amber-500/50 transition-all hover:bg-zinc-900/40 shadow-inner group">
-                                    <p className="text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-4 md:mb-6 group-hover:text-amber-500/80 transition-colors">{liftName}</p>
-                                    <div className="relative inline-block w-full">
-                                       <input 
-                                          type="number"
-                                          inputMode="numeric"
-                                          value={rms[lift as keyof typeof rms] || ""} 
-                                          onChange={e => setRms(prev => ({...prev, [lift]: e.target.value}))}
-                                          className="bg-transparent text-center text-4xl md:text-5xl lg:text-6xl font-black text-white w-full outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
-                                          placeholder="0"
-                                       />
-                                       <span className="absolute top-1/2 -translate-y-1/2 right-0 md:-right-2 text-zinc-700 text-[10px] md:text-sm font-black">KG</span>
-                                    </div>
-                                </div>
-                             );
-                         })}
-                      </div>
-
-                      <button 
-                        onClick={saveRMs}
-                        disabled={savingRm}
-                        className="relative z-10 w-full bg-gradient-to-r from-amber-500 to-amber-400 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:from-amber-400 hover:to-amber-300 hover:scale-[1.02] transition-all disabled:opacity-50 shadow-[0_10px_40px_rgba(245,158,11,0.3)] active:scale-95 border border-amber-200"
-                      >
-                        {savingRm ? 'SINCRONIZANDO CON BASE DE DATOS...' : 'CONFIRMAR NUEVAS MÉTRICAS ⚡'}
-                      </button>
-
-                      <div className="bg-gradient-to-r from-blue-950/40 to-[#0a0a0c] border border-blue-900/50 p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] relative overflow-hidden mt-12 md:mt-16 shadow-xl">
-                         <div className="absolute top-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-                         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-                            <div>
-                               <h3 className="text-2xl md:text-3xl font-black italic text-white uppercase flex items-center gap-3 tracking-tight mb-2">
-                                  <span className="text-3xl md:text-4xl drop-shadow-md">🤖</span> Análisis Estructural <span className="text-blue-500">Tujague AI</span>
-                               </h3>
-                               <p className="text-zinc-400 text-sm md:text-base font-medium max-w-xl">Detectá desbalances biomecánicos y puntos de estancamiento evaluando las proporciones de tus levantamientos actuales.</p>
-                            </div>
-                            <button
-                               onClick={handleAnalyzeRMs}
-                               disabled={rmAiLoading}
-                               className="bg-blue-600 hover:bg-blue-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)] disabled:opacity-50 flex-shrink-0 w-full sm:w-auto hover:scale-105 active:scale-95"
-                            >
-                               {rmAiLoading ? 'PROCESANDO RED NEURAL...' : 'AUDITAR MARCAS'}
-                            </button>
-                         </div>
-                         
-                         {rmAiFeedback && (
-                            <div className="mt-8 bg-black/60 border border-blue-500/30 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] animate-in slide-in-from-top-4 shadow-inner">
-                               <p className="text-[10px] md:text-xs text-blue-400 font-black uppercase tracking-widest mb-4 flex items-center gap-3 border-b border-blue-500/20 pb-3">
-                                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> Reporte Biomecánico
-                               </p>
-                               <p className="text-sm md:text-base text-blue-50 font-medium leading-relaxed whitespace-pre-wrap">{rmAiFeedback}</p>
-                            </div>
-                         )}
-                      </div>
-
+           return (
+             <>
+               {!canViewRMs ? (
+                   <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-200 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                       <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10">📈</div>
+                       <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                       <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El seguimiento de métricas y la red neuronal de análisis de proporciones pertenecen al sistema Élite.</p>
+                       <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-md hover:scale-105 active:scale-95 w-full sm:w-auto">
+                           POSTULARME A MENTORÍA ÉLITE 🚀
+                       </a>
                    </div>
+               ) : (
+                  <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+                     
+                     {/* ─── SUB-MENÚ (Estilo foto 2) ─── */}
+                     <div className="flex justify-center border-b border-gray-200 mb-8 pt-4">
+                        <button className="px-6 py-3 border-b-2 border-black font-bold text-black text-sm transition-all">Métricas</button>
+                        <button className="px-6 py-3 font-medium text-gray-400 hover:text-gray-600 text-sm transition-all">Fotos</button>
+                        <button className="px-6 py-3 font-medium text-gray-400 hover:text-gray-600 text-sm transition-all">Logros</button>
+                     </div>
 
-                   <div className="bg-[#0a0a0c] border border-amber-900/40 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl transform-gpu">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.05)_0%,transparent_70%)] pointer-events-none -translate-y-1/2 transform-gpu"></div>
-                      
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 md:mb-20 gap-8 text-left relative z-10">
-                          <div>
-                              <h3 className="text-4xl md:text-6xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Inventario de Logros <span className="text-amber-500 block sm:inline">Élite</span></h3>
-                              <p className="text-zinc-400 text-xs md:text-sm mt-4 font-medium tracking-wide">Acumulado del trabajo de fuerza a largo plazo. TOTAL ABSOLUTO: <span className="text-amber-400 font-black text-xl md:text-2xl ml-1 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">{totalAbsoluto} KG</span></p>
-                          </div>
-                          <button 
-                              onClick={shareTrophies}
-                              className="bg-[#050505] hover:bg-amber-500 hover:text-black text-white border border-zinc-700 hover:border-amber-500 px-8 md:px-10 py-4 md:py-5 rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 w-full sm:w-auto"
-                          >
-                              <span>Compartir Legado</span>
-                              <svg className="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.067 3.204.146 4.833 1.79 4.98 5.01.054 1.266.066 1.645.066 4.849 0 3.205-.012 3.584-.066 4.85-.147 3.22-1.776 4.864-4.98 5.01-1.266.054-1.646.066-4.85.066-3.204 0-3.584-.012-4.85-.066-3.204-.146-4.833-1.79-4.98-5.01-.054-1.266-.066-1.645-.066-4.85 0-3.205.012-3.584.066-4.85.147-3.22 1.776-4.864 4.98-5.01 1.266-.054 1.646-.066 4.85-.066m0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 1.848-6.98 6.208-.058 1.28-.072 1.688-.072 4.948s.014 3.668.072 4.948c.2 4.358 2.618 6.008 6.98 6.208 1.281.058 1.689.072 4.947.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-1.848 6.979-6.208.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.004-6.979-6.209C15.668.014 15.259 0 12 0zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                          </button>
-                      </div>
+                     {/* ─── GRÁFICA DE PROGRESO CORPORAL ─── */}
+                     <div className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm">
+                        <h3 className="text-xl font-bold text-black mb-6">Progreso</h3>
+                        <div className="h-[200px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={weightChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+<YAxis domain={['auto', 'auto']} stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} dx={-10} tickFormatter={(value) => `${value}kg`} />
+                              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} itemStyle={{ color: '#000', fontWeight: 'bold' }} />
+<Line type="monotone" dataKey="weight" stroke="#1A1A1A" strokeWidth={3} dot={{ r: 5, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 7, fill: '#1A1A1A' }} isAnimationActive={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                     </div>
 
-                      <div className="space-y-16 md:space-y-24 relative z-10">
-                         {Object.entries(groupedTrophies).map(([category, items], index) => (
-                            <div key={index} className="animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${index * 50}ms` }}>
-                               <h4 className="text-amber-500 font-black tracking-[0.2em] text-xs md:text-sm uppercase mb-6 md:mb-8 border-b border-zinc-800/80 pb-4">
-                                  {category}
-                               </h4>
-                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 md:gap-6">
-                                  {items.map(trophy => (
-                                      <div key={trophy.id} className={`p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all duration-500 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden ${trophy.unlocked ? 'bg-gradient-to-br from-amber-950/40 to-black border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] scale-[1.02] hover:scale-105' : 'bg-black/40 border-zinc-800/80 opacity-60 grayscale'}`}>
-                                          
-                                          {trophy.unlocked && <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full blur-[25px] pointer-events-none"></div>}
-                                          
-                                          <div className="flex justify-between items-start mb-4 md:mb-6 relative z-10">
-                                             <span className={`text-4xl md:text-5xl drop-shadow-md ${trophy.unlocked ? 'animate-pulse' : ''}`}>{trophy.icon}</span>
-                                             {trophy.unlocked ? (
-                                                <span className="text-black font-black text-[10px] md:text-xs bg-amber-500 px-2.5 py-1 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.6)]">✓</span>
-                                             ) : (
-                                                <span className="text-zinc-600 text-[10px] md:text-xs bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">🔒</span>
-                                             )}
-                                          </div>
-                                          <div className="relative z-10">
-                                             <h4 className={`font-black italic uppercase text-[11px] md:text-[13px] tracking-tight leading-tight mb-1 md:mb-1.5 ${trophy.unlocked ? 'text-white' : 'text-zinc-500'}`}>{trophy.title}</h4>
-                                             <p className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest ${trophy.unlocked ? 'text-amber-400' : 'text-zinc-600'}`}>{trophy.desc}</p>
-                                          </div>
-                                      </div>
-                                  ))}
+                     {/* ─── TARJETAS DE OBJETIVO Y CUMPLIMIENTO ─── */}
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                        {/* Tarjeta Objetivo */}
+                        <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm flex flex-col justify-center">
+                           <h3 className="text-xl font-bold text-black mb-6">Objetivo</h3>
+                           <div className="space-y-4">
+                              <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                                <span className="text-gray-500 font-medium">Peso Inicial</span>
+                                <span className="font-bold text-gray-800">{initialWeight} kg</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                                <span className="text-gray-500 font-medium">Peso Actual</span>
+                                <span className="font-bold text-black">{currentWeight} kg</span>
+                              </div>
+                              <div className="flex justify-between items-center pt-1">
+                                <span className="text-gray-500 font-medium">Peso Objetivo</span>
+                                <span className="font-black text-emerald-600">{targetWeight} kg</span>
+                              </div>
+                           </div>
+                        </div>
+
+                        {/* Tarjeta Cumplimiento (Donut Chart) */}
+                        <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm flex flex-col items-center justify-center">
+                           <h3 className="text-xl font-bold text-black mb-4 w-full text-center">Cumplimiento</h3>
+                           <div className="relative w-32 h-32 mt-2">
+                              {/* SVG Mágico para el círculo */}
+                              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                 <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f3f4f6" strokeWidth="10" />
+                                 <circle cx="50" cy="50" r="40" fill="transparent" stroke="#1A1A1A" strokeWidth="10" strokeDasharray={`${progressPercent * 2.51} 251`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                 <span className="text-3xl font-black text-black">{progressPercent}%</span>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* ─── ACÁ ABAJO RESTAURAMOS TUS RM Y LOGROS ─── */}
+                     <div className="mt-16 pt-10 border-t border-gray-200">
+                        <h2 className="text-3xl md:text-4xl font-black italic text-center mb-10 text-black tracking-tighter">
+                          CALIBRACIÓN <span className="text-amber-500 block sm:inline">1RM</span>
+                        </h2>
+{/* 🔥 GRÁFICO DE PERFIL DE FUERZA (RM) - VERSIÓN FINAL CORREGIDA 🔥 */}
+                        <div className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm mb-10 text-left relative overflow-hidden">
+                           
+                           {/* HEADER ALINEADO */}
+                           <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-100">
+                               <div>
+                                   <h3 className="text-xl font-black text-black tracking-tight leading-tight">
+                                        Perfil de Fuerza <br />
+                                        <span className="text-gray-400 font-medium">Absoluta (1RM)</span>
+                                   </h3>
+                                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mt-2">
+                                      Auditoría Biomecánica
+                                   </p>
                                </div>
+                               <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 border border-gray-100 text-gray-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+                               </div>
+                           </div>
+                           
+                           <div className="h-[280px] w-full">
+                             <ResponsiveContainer width="100%" height="100%">
+                               <BarChart 
+                                 data={[
+                                   { name: 'Sentadilla', peso: Number(rms.squat) || 0 },
+                                   { name: 'Banca', peso: Number(rms.bench) || 0 },
+                                   { name: 'P. Muerto', peso: Number(rms.deadlift) || 0 },
+                                   { name: 'Fondos', peso: Number(rms.dips) || 0 },
+                                   { name: 'Militar', peso: Number(rms.military) || 0 }
+                                 ]} 
+                                 margin={{ top: 25, right: 10, left: -15, bottom: 5 }}
+                               >
+                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                 <XAxis 
+                                    dataKey="name" 
+                                    stroke="#9ca3af" 
+                                    fontSize={10} 
+                                    fontWeight="bold" 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    dy={10} 
+                                 />
+                                 <YAxis 
+                                    domain={[0, 'auto']} 
+                                    stroke="#9ca3af" 
+                                    fontSize={10} 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    tickFormatter={(val) => val > 0 ? `${val}kg` : ""} 
+                                 />
+                                 <Tooltip 
+                                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    isAnimationActive={false}
+                                 />
+                                 <Bar dataKey="peso" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={40} isAnimationActive={false}>
+                                    <LabelList dataKey="peso" position="top" content={renderCustomBarLabel} />
+                                 </Bar>
+                               </BarChart>
+                             </ResponsiveContainer>
+                           </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6 mb-10 relative z-10">
+                           {['squat', 'bench', 'deadlift', 'dips', 'military'].map(lift => {
+                               const liftName = lift === 'squat' ? 'Sentadilla' : lift === 'bench' ? 'Press Banca' : lift === 'deadlift' ? 'Peso Muerto' : lift === 'dips' ? 'Fondos' : 'Militar';
+                               return (
+                                  <div key={lift} className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-gray-200 text-center relative focus-within:border-amber-500/50 transition-all shadow-sm group">
+                                      <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mb-4 md:mb-6 group-hover:text-amber-500 transition-colors">{liftName}</p>
+                                      <div className="relative inline-block w-full">
+                                         <input 
+                                            type="number"
+                                            inputMode="numeric"
+                                            value={rms[lift as keyof typeof rms] || ""} 
+                                            onChange={e => setRms(prev => ({...prev, [lift]: e.target.value}))}
+                                            className="bg-transparent text-center text-4xl md:text-5xl lg:text-6xl font-black text-black w-full outline-none focus:text-amber-500 transition-colors placeholder:text-gray-200"
+                                            placeholder="0"
+                                         />
+                                         <span className="absolute top-1/2 -translate-y-1/2 right-0 md:-right-2 text-gray-300 text-[10px] md:text-sm font-black">KG</span>
+                                      </div>
+                                  </div>
+                               );
+                           })}
+                        </div>
+  
+                        <button 
+                          onClick={saveRMs}
+                          disabled={savingRm}
+                          className="w-full bg-amber-500 hover:bg-amber-400 text-white py-6 md:py-8 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all disabled:opacity-50 shadow-md active:scale-95"
+                        >
+                          {savingRm ? 'SINCRONIZANDO...' : 'CONFIRMAR NUEVAS MÉTRICAS ⚡'}
+                        </button>
+                     </div>
+
+                     {/* ─── ANÁLISIS DE LA IA (RMS) ─── */}
+                     <div className="bg-blue-50 border border-blue-100 p-8 md:p-12 rounded-[2rem] relative overflow-hidden mt-10 shadow-sm">
+                        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+                           <div>
+                              <h3 className="text-2xl font-black italic text-black uppercase flex items-center gap-3 tracking-tight mb-2">
+                                 <span className="text-3xl">🤖</span> Análisis Estructural <span className="text-blue-500">AI</span>
+                              </h3>
+                              <p className="text-gray-500 text-sm font-medium">Detectá desbalances evaluando las proporciones de tus levantamientos.</p>
+                           </div>
+                           <button
+                              onClick={handleAnalyzeRMs}
+                              disabled={rmAiLoading}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 flex-shrink-0 w-full sm:w-auto active:scale-95"
+                           >
+                              {rmAiLoading ? 'PROCESANDO...' : 'AUDITAR MARCAS'}
+                           </button>
+                        </div>
+                        
+                        {rmAiFeedback && (
+                           <div className="mt-8 bg-white border border-blue-200 p-6 rounded-[1.5rem] animate-in slide-in-from-top-4 shadow-sm">
+                              <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-3 flex items-center gap-3">
+                                 <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> Reporte Biomecánico
+                              </p>
+                              <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{rmAiFeedback}</p>
+                           </div>
+                        )}
+                     </div>
+
+{/* ─── CALCULADORA DE PORCENTAJES Y CALENTAMIENTO IA ─── */}
+                     <div className="bg-white border border-gray-100 p-8 md:p-10 rounded-[2rem] shadow-sm relative overflow-hidden mt-10">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 border-b border-gray-100 pb-6">
+                           <div>
+                              <h3 className="text-2xl font-black italic text-black uppercase tracking-tight flex items-center gap-3">
+                                 <span className="text-3xl">🔥</span> Calculadora de <span className="text-amber-500">Porcentajes</span>
+                              </h3>
+                              <p className="text-gray-500 text-sm font-medium mt-1">Calculá tus series efectivas y generá un calentamiento específico con IA.</p>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                           <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                              <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">1. Movimiento</label>
+                              <select value={calcLift} onChange={(e) => setCalcLift(e.target.value)} className="w-full bg-white border border-gray-200 p-4 rounded-xl text-sm font-black text-black uppercase tracking-widest outline-none focus:border-amber-500 shadow-sm">
+                                 <option value="squat">Sentadilla</option>
+                                 <option value="bench">Press Banca</option>
+                                 <option value="deadlift">Peso Muerto</option>
+                                 <option value="military">Press Militar</option>
+                                 <option value="dips">Fondos</option>
+                              </select>
+                           </div>
+                           
+                           <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                              <div className="flex justify-between items-center mb-3">
+                                 <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest block">2. Intensidad</label>
+                                 <span className="text-amber-600 font-black text-lg bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">{calcPercent}%</span>
+                              </div>
+                              <input type="range" min="40" max="100" step="2.5" value={calcPercent} onChange={(e) => setCalcPercent(Number(e.target.value))} className="w-full accent-amber-500 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer mt-2" />
+                           </div>
+
+                           <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex flex-col items-center justify-center shadow-md">
+                              <span className="text-[10px] md:text-xs font-black uppercase text-zinc-400 tracking-widest mb-1">Carga a utilizar</span>
+                              <div className="flex items-baseline gap-1">
+                                 <span className="text-4xl md:text-5xl font-black text-white">{calculatedWeight}</span>
+                                 <span className="text-amber-500 font-black text-sm">KG</span>
+                              </div>
+                           </div>
+                        </div>
+
+                        <button 
+                           onClick={handleGenerateWarmup}
+                           disabled={generatingWarmup || calculatedWeight === 0}
+                           className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50 flex justify-center items-center gap-3"
+                        >
+                           {generatingWarmup ? 'DISEÑANDO APROXIMACIÓN...' : '🤖 GENERAR PROTOCOLO DE CALENTAMIENTO AI'}
+                        </button>
+
+                        {warmupPlan && (
+                           <div className="mt-8 bg-amber-50/50 border border-amber-200 p-6 md:p-8 rounded-[1.5rem] animate-in slide-in-from-top-4">
+                              <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span> Protocolo de Aproximación
+                              </p>
+                              <p className="text-sm text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">{warmupPlan}</p>
+                           </div>
+                        )}
+                     </div>
+
+                     {/* ─── TROFEOS (LOGROS) ─── */}
+                     <div className="pt-16 mt-16 border-t border-gray-200">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
+                            <div>
+                                <h3 className="text-3xl md:text-4xl font-black italic text-black uppercase tracking-tighter">Logros <span className="text-amber-500">Élite</span></h3>
+                                <p className="text-gray-500 text-xs mt-2 font-medium tracking-wide">TOTAL ABSOLUTO: <span className="text-amber-600 font-black text-lg ml-1 bg-amber-50 px-2 py-1 rounded-md border border-amber-100">{totalAbsoluto} KG</span></p>
                             </div>
-                         ))}
-                      </div>
-                   </div>
+                            <button 
+                                onClick={shareTrophies}
+                                className="bg-black hover:bg-amber-500 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-3 w-full sm:w-auto"
+                            >
+                                <span>Compartir Legado</span>
+                            </button>
+                        </div>
 
-                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-12 lg:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-                      <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">TRAYECTORIA DE <span className="text-amber-500 block sm:inline">FUERZA PROYECTADA</span></h3>
-                      <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                            <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                            <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
-                            <Tooltip 
-                               contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', fontSize: '12px', fontWeight: 'bold', padding: '12px' }}
-                               itemStyle={{ color: '#fff' }}
-                            />
-                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
-                            <Line type="monotone" dataKey="Sentadilla" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                            <Line type="monotone" dataKey="Banca" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                            <Line type="monotone" dataKey="PesoMuerto" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                            <Line type="monotone" dataKey="Fondos" stroke="#10b981" strokeWidth={4} dot={{ r: 5, strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                   </div>
-                </div>
-             )}
-           </>
-        )}
+                        <div className="space-y-12">
+                           {Object.entries(groupedTrophies).map(([category, items], index) => (
+                              <div key={index} className="animate-in fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+                                 <h4 className="text-amber-500 font-black tracking-[0.2em] text-xs uppercase mb-6 border-b border-gray-200 pb-3">
+                                    {category}
+                                 </h4>
+                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {items.map(trophy => (
+                                        <div key={trophy.id} className={`p-5 rounded-[1.5rem] border transition-all flex flex-col justify-between min-h-[140px] relative overflow-hidden ${trophy.unlocked ? 'bg-white border-amber-200 shadow-sm scale-[1.02]' : 'bg-gray-50 border-gray-200 opacity-60 grayscale'}`}>
+                                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                               <span className={`text-4xl ${trophy.unlocked ? 'animate-pulse' : ''}`}>{trophy.icon}</span>
+                                               {trophy.unlocked ? (
+                                                  <span className="text-white font-black text-[10px] bg-amber-500 px-2 py-0.5 rounded-sm">✓</span>
+                                               ) : (
+                                                  <span className="text-gray-400 text-[10px] bg-gray-200 px-2 py-0.5 rounded-sm">🔒</span>
+                                               )}
+                                            </div>
+                                            <div className="relative z-10">
+                                               <h4 className={`font-black italic uppercase text-[11px] tracking-tight leading-tight mb-1 ${trophy.unlocked ? 'text-black' : 'text-gray-500'}`}>{trophy.title}</h4>
+                                               <p className={`text-[9px] font-bold uppercase tracking-widest ${trophy.unlocked ? 'text-amber-600' : 'text-gray-400'}`}>{trophy.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
 
-{/* ─── PESTAÑA CHECKIN ─── */}
+                  </div>
+               )}
+             </>
+           );
+        })()}
+{/* ─── PESTAÑA DE AUDITORÍA DE RECUPERACIÓN (CHECK-IN) ─── */}
         {activeTab === "checkin" && (
            <>
              {!canViewSNC ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-zinc-900/40 border border-red-900/30 rounded-[3rem] shadow-2xl relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-black/50 border border-red-500/20 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-inner">⚡</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-white mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-zinc-400 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El análisis de fatiga sistémica (SNC) y la comunicación diaria de variables biológicas están habilitadas únicamente para la Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-600 hover:bg-red-500 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105 active:scale-95 w-full sm:w-auto">
+                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-100 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
+                     <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-sm">⚡</div>
+                     <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
+                     <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El análisis de fatiga sistémica (SNC) y la comunicación diaria de variables biológicas están habilitadas únicamente para la Mentoría Élite.</p>
+                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-sm hover:scale-105 active:scale-95 w-full sm:w-auto">
                          POSTULARME A MENTORÍA ÉLITE 🚀
                      </a>
                  </div>
              ) : (
                 <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
-                   <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-xl">
-                      <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none -mr-20 -mt-20"></div>
+                   <div className="bg-white border border-gray-100 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-sm relative overflow-hidden">
                       
                       <div className="text-center mb-10 md:mb-14 relative z-10">
-                         <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
-                         <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-white tracking-tighter uppercase mb-4 drop-shadow-md">AUDITORÍA DE <span className="text-amber-500 block sm:inline">RECUPERACIÓN</span></h2>
-                         <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
+                         <span className="bg-amber-50 text-amber-600 border border-amber-200 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
+                         <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-black tracking-tighter uppercase mb-4">AUDITORÍA DE <span className="text-amber-500 block sm:inline">RECUPERACIÓN</span></h2>
+                         <p className="text-gray-500 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
                       </div>
 
-                      <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto">
+                      <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto pb-10">
                          
                          {/* PILAR 1: BIO-MARCADORES */}
-                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
-                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
+                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-amber-200 transition-colors">
+                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-amber-500/50 transition-colors">
-                                   <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Peso Corporal (KG)</label>
+                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl hover:border-amber-300 transition-colors">
+                                   <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Peso Corporal (KG)</label>
                                    <input 
                                       type="number" step="0.1" required
                                       value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
-                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-amber-400 transition-colors placeholder:text-zinc-800"
+                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-black outline-none focus:text-amber-500 transition-colors placeholder:text-gray-300"
                                       placeholder="Ej: 80.5"
                                    />
                                 </div>
-                                <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl hover:border-blue-500/50 transition-colors">
-                                   <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Sueño Efectivo (Horas)</label>
+                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl hover:border-blue-300 transition-colors">
+                                   <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Sueño Efectivo (Horas)</label>
                                    <input 
                                       type="number" step="0.5" required
                                       value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
-                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-white outline-none focus:text-blue-400 transition-colors placeholder:text-zinc-800"
+                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-black outline-none focus:text-blue-500 transition-colors placeholder:text-gray-300"
                                       placeholder="Ej: 7.5"
                                    />
                                 </div>
@@ -2467,75 +2754,75 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                          </div>
 
                          {/* PILAR 2: METABOLISMO Y NUTRICIÓN */}
-                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-orange-500/30 transition-colors">
-                            <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
+                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-orange-200 transition-colors">
+                            <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
                             
                             <div className="space-y-8">
-                                <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
-                                    <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                <div className="bg-gray-50 border border-gray-200 p-6 rounded-2xl">
+                                    <div className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
                                       <span>Adherencia Nutricional (Semana)</span>
-                                      <span className="text-orange-500 text-xl md:text-2xl font-black italic bg-orange-500/10 px-3 py-1 rounded-xl border border-orange-500/20">{checkin.adherence}%</span>
+                                      <span className="text-orange-600 text-xl md:text-2xl font-black italic bg-orange-100 px-3 py-1 rounded-xl border border-orange-200">{checkin.adherence}%</span>
                                     </div>
                                     <input 
                                        type="range" min="0" max="100" step="5" required
                                        value={checkin.adherence} onChange={e => setCheckin({...checkin, adherence: e.target.value})}
-                                       className="w-full accent-orange-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800"
+                                       className="w-full accent-orange-500 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer border border-gray-300"
                                     />
-                                    <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest">
+                                    <div className="flex justify-between text-[9px] text-gray-400 mt-3 font-black uppercase tracking-widest">
                                       <span>0% (Desastre)</span>
                                       <span>100% (Perfecto)</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
                                           <span>Nivel de Hambre</span>
-                                          <span className="text-white font-black">{checkin.hunger}/10</span>
+                                          <span className="text-black font-black">{checkin.hunger}/10</span>
                                         </div>
-                                        <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-white h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
+                                        <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-black h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
                                     </div>
                                     
-                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
                                           <span>Energía General</span>
-                                          <span className="text-yellow-400 font-black">{checkin.energy}/10</span>
+                                          <span className="text-amber-500 font-black">{checkin.energy}/10</span>
                                         </div>
-                                        <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-yellow-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
+                                        <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-amber-500 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
                                     </div>
                                 </div>
                             </div>
                          </div>
 
                          {/* PILAR 3: RENDIMIENTO Y FATIGA */}
-                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-red-500/30 transition-colors">
-                            <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
+                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-red-200 transition-colors">
+                            <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
                             
                             <div className="space-y-8">
-                                <div className="bg-zinc-900/50 border border-red-900/30 p-6 rounded-2xl hover:border-red-500/50 transition-all">
-                                    <div className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                <div className="bg-red-50 border border-red-100 p-6 rounded-2xl hover:border-red-200 transition-all">
+                                    <div className="text-[10px] md:text-xs font-black uppercase text-red-500 tracking-widest mb-4 flex justify-between items-center">
                                       <span>Estrés Sistémico General</span>
-                                      <span className="text-red-500 text-xl md:text-2xl font-black italic bg-red-500/10 px-3 py-1 rounded-xl border border-red-500/20">{checkin.stress}/10</span>
+                                      <span className="text-red-600 text-xl md:text-2xl font-black italic bg-red-100 px-3 py-1 rounded-xl border border-red-200">{checkin.stress}/10</span>
                                     </div>
-                                    <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-black rounded-full appearance-none cursor-pointer border border-zinc-800" />
-                                    <div className="flex justify-between text-[9px] text-zinc-600 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
+                                    <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-white rounded-full appearance-none cursor-pointer border border-red-200" />
+                                    <div className="flex justify-between text-[9px] text-red-400 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-4 flex justify-between items-center">
+                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
                                           <span>Recuperación Muscular</span>
-                                          <span className="text-blue-400 font-black">{checkin.recovery}/10</span>
+                                          <span className="text-blue-500 font-black">{checkin.recovery}/10</span>
                                         </div>
-                                        <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-400 h-1.5 bg-black rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-zinc-600 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
+                                        <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-500 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
+                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
                                     </div>
 
-                                    <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl">
-                                        <label className="text-[9px] md:text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
-                                        <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-black border border-zinc-700 p-3 rounded-xl text-xs text-white outline-none focus:border-red-500 transition-colors">
+                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
+                                        <label className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
+                                        <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs text-black font-bold outline-none focus:border-red-500 transition-colors shadow-sm">
                                             <option value="ninguno">Ninguno (Todo OK)</option>
                                             <option value="rodillas">Rodilla / Tendón Rotuliano</option>
                                             <option value="lumbares">Espalda Baja / Lumbares</option>
@@ -2549,46 +2836,46 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                          </div>
 
                          {/* PILAR 4: EJECUCIÓN */}
-                         <div className="bg-[#050505] border border-zinc-800/80 p-6 md:p-8 rounded-[2rem] shadow-lg group hover:border-amber-500/30 transition-colors">
-                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
+                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-amber-200 transition-colors">
+                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
                             
-                            <div className="bg-zinc-900/80 border border-zinc-700 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div className="bg-gray-50 border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                                 <div>
-                                    <p className="text-sm md:text-base font-black text-white uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
-                                    <p className="text-[10px] md:text-xs text-zinc-400 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
+                                    <p className="text-sm md:text-base font-black text-black uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
+                                    <p className="text-[10px] md:text-xs text-gray-500 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
                                 </div>
                                 
                                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" checked={checkin.hit_failure} onChange={(e) => setCheckin({...checkin, hit_failure: e.target.checked})} className="sr-only peer" />
-                                    <div className="w-16 h-8 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
-                                    <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-amber-500' : 'text-zinc-500'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
+                                    <div className="w-16 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-amber-500 shadow-sm"></div>
+                                    <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-amber-500' : 'text-gray-400'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
                                 </label>
                             </div>
 
-                            <div className="mt-6 bg-zinc-900/50 border border-zinc-800 p-5 rounded-2xl focus-within:border-amber-500/50 transition-colors">
-                               <label className="text-[10px] md:text-xs font-black uppercase text-zinc-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
+                            <div className="mt-6 bg-gray-50 border border-gray-200 p-5 rounded-2xl focus-within:border-amber-400 transition-colors">
+                               <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
                                <textarea 
                                   value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
-                                  placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana', 'Tuve mucho trabajo y comí mal un día'..."
-                                  className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm md:text-base font-medium text-zinc-300 outline-none resize-none h-24 md:h-32 placeholder:text-zinc-700 custom-scrollbar shadow-inner focus:border-amber-500"
+                                  placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana'..."
+                                  className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm md:text-base font-medium text-black outline-none resize-none h-24 md:h-32 placeholder:text-gray-400 custom-scrollbar shadow-sm focus:border-amber-400"
                                />
                             </div>
                          </div>
 
-                         <div className="pt-4 md:pt-6 pb-20">
+                         <div className="pt-4 md:pt-6">
                              <button 
                                 type="submit"
                                 disabled={savingCheckin}
-                                className="w-full bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_rgba(245,158,11,0.3)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 border border-amber-200"
+                                className="w-full bg-black hover:bg-zinc-800 text-white py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-md hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                              >
                                 {savingCheckin ? 'COMUNICANDO DATOS AL SISTEMA...' : 'ENVIAR REPORTE AL HEAD COACH 🚀'}
                              </button>
                          </div>
 
-                         {/* 🔥 NUEVO: VEREDICTO DEL COACH EN TIEMPO REAL 🔥 */}
+                         {/* 🔥 VEREDICTO DEL COACH EN TIEMPO REAL (CLEAN) 🔥 */}
                          {(analyzingFatigue || fatigueVerdict) && (
-                             <div className="mt-8 mb-4 bg-gradient-to-r from-amber-950/40 to-black border border-amber-500/30 p-6 md:p-8 rounded-[2rem] shadow-inner animate-in slide-in-from-top-4">
-                                 <p className="text-[10px] md:text-xs font-black text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <div className="mt-8 mb-4 bg-amber-50 border border-amber-100 p-6 md:p-8 rounded-[2rem] shadow-sm animate-in slide-in-from-top-4">
+                                 <p className="text-[10px] md:text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                                      {analyzingFatigue ? (
                                          <><span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></span> El Coach IA está auditando tu SNC...</>
                                      ) : (
@@ -2596,7 +2883,7 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                                      )}
                                  </p>
                                  {fatigueVerdict && (
-                                     <p className="text-sm md:text-base text-amber-50 font-medium leading-relaxed whitespace-pre-wrap">
+                                     <p className="text-sm md:text-base text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">
                                          {fatigueVerdict}
                                      </p>
                                  )}
@@ -2606,24 +2893,25 @@ const handleSaveCheckin = async (e: React.FormEvent) => {
                       </form>
                    </div>
 
+                   {/* GRÁFICO DE FATIGA SEMANAL (CLEAN) */}
                    {checkinHistory.length > 0 && (
-                      <div className="bg-[#0a0a0c] border border-zinc-800/80 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-500 backdrop-blur-xl mb-24">
-                         <h3 className="text-2xl md:text-4xl font-black italic text-white mb-10 md:mb-12 text-center md:text-left drop-shadow-md">Gráfico de <span className="text-amber-500 block sm:inline">Fatiga Semanal</span></h3>
+                      <div className="bg-white border border-gray-100 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-sm animate-in fade-in zoom-in duration-500 mb-24">
+                         <h3 className="text-2xl md:text-4xl font-black italic text-black mb-10 md:mb-12 text-center md:text-left">Gráfico de <span className="text-amber-500 block sm:inline">Fatiga Semanal</span></h3>
                          
-                         <div className="h-[300px] md:h-[400px] w-full bg-[#050505] p-4 md:p-6 rounded-[2rem] border border-zinc-800/80 shadow-inner">
+                         <div className="h-[300px] md:h-[400px] w-full bg-white p-2 md:p-6 rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden min-w-0">
                            <ResponsiveContainer width="100%" height="100%">
-                             <LineChart data={checkinHistory} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                               <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                               <YAxis yAxisId="left" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} dx={-10} />
-                               <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={[0, 10]} dx={10} />
+                             <LineChart data={checkinHistory} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                               <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} dy={10} />
+                               <YAxis yAxisId="left" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} dx={-10} />
+                               <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} domain={[0, 10]} dx={10} />
                                
-                               <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px', padding: '12px' }} itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }} />
-                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold' }} iconType="circle" />
+                               <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '16px', padding: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} itemStyle={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }} />
+                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold', color: '#4b5563' }} iconType="circle" />
                                
-                               <Line yAxisId="left" type="monotone" dataKey="weight" name="Peso Corporal (kg)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                               <Line yAxisId="right" type="monotone" dataKey="stress" name="Nivel de Estrés (1-10)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                               <Line yAxisId="right" type="monotone" dataKey="sleep" name="Horas de Sueño" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5 }} activeDot={{ r: 8 }} />
+                               <Line yAxisId="left" type="monotone" dataKey="weight" name="Peso (kg)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
+                               <Line yAxisId="right" type="monotone" dataKey="stress" name="Estrés (1-10)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
+                               <Line yAxisId="right" type="monotone" dataKey="sleep" name="Sueño (h)" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
                              </LineChart>
                            </ResponsiveContainer>
                          </div>

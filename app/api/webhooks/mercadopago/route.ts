@@ -361,6 +361,53 @@ const rawRef = external_reference
               return NextResponse.json({ error: 'Error DB' }, { status: 500 });
             }
 
+            // 🔥 NUEVO: CREACIÓN AUTOMÁTICA DEL ATLETA EN SUPABASE AUTH 🔥
+            if (orderData && orderData.customer_email) {
+                try {
+                    const email = orderData.customer_email.trim().toLowerCase();
+                    // Si no tiene contraseña en la orden, le generamos una segura
+                    const plainPassword = orderData.password || `Atleta${Math.floor(1000 + Math.random() * 9000)}!`; 
+
+                    let authUserId = null;
+
+                    // 1. Intentamos crear el usuario en la bóveda de Supabase
+                    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                        email: email,
+                        password: plainPassword,
+                        email_confirm: true, // Lo confirmamos para que entre directo
+                        user_metadata: { name: orderData.customer_name || 'Atleta BII' }
+                    });
+
+                    if (authError) {
+                        console.log(`⚠️ Aviso Auth: El usuario ${email} ya existe o hubo error:`, authError.message);
+                        // Si ya existe, lo buscamos en la lista de usuarios para sacar su ID
+                        const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+                        const existingUser = listData?.users.find(u => u.email === email);
+                        if (existingUser) authUserId = existingUser.id;
+                    } else if (authData?.user) {
+                        authUserId = authData.user.id;
+                        console.log(`✅ Nuevo Atleta creado en Auth VIP. ID: ${authUserId}`);
+                    }
+
+                    // 2. Si conseguimos el ID (nuevo o existente), lo pegamos en la orden
+                    if (authUserId) {
+                        await supabaseAdmin
+                            .from('orders')
+                            .update({ 
+                                user_id: authUserId, 
+                                password: plainPassword // Guardamos la pass para que el Admin la vea
+                            })
+                            .eq('id', orderData.id);
+                        
+                        console.log(`🔗 Atleta vinculado exitosamente a su Orden.`);
+                    }
+
+                } catch (err) {
+                    console.error('❌ Error fatal creando usuario en Auth:', err);
+                }
+            }
+            // 🔥 FIN CREACIÓN AUTOMÁTICA 🔥
+
 // 🔥 CÁLCULO DE CADUCIDAD AUTOMÁTICA (IDEMPOTENTE Y SEGURO) 🔥
 if (orderData && orderData.plan_id && !orderData.expires_at) {
   const planId = orderData.plan_id.toLowerCase().trim();

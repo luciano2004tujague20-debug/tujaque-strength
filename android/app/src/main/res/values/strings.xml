@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tujague Strength</string>
+    <string name="title_activity_main">Tujague Strength</string>
+    <string name="package_name">com.tujague.app</string>
+    <string name="custom_url_scheme">com.tujague.app</string>
+</resources>

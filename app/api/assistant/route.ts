@@ -77,7 +77,6 @@ export async function POST(req: Request) {
             Solicito un protocolo de sustitución biomecánica inmediata para no interrumpir la sesión.`;
             
         } else if (action === 'fatigue_analysis') {
-            // NUEVO MÓDULO AGREGADO: Ideal para evaluar si el cliente está sobreentrenando.
             systemPrompt = `Eres el auditor de recuperación del sistema BII-Vintage a cargo de Luciano Tujague.
             El atleta está reportando sus marcadores de recuperación. Tu objetivo es evaluar su Sistema Nervioso Central (SNC) y ratio estímulo-fatiga.
             
@@ -110,7 +109,7 @@ export async function POST(req: Request) {
       messages: formattedMessages,
       model: "llama-3.3-70b-versatile",
       temperature: 0.10, 
-      max_tokens: 1000,
+      max_tokens: 3000, // 🔥 MAGIA: AUMENTAMOS DE 1000 A 3000 TOKENS PARA QUE NO SE CORTE NUNCA MÁS 🔥
     });
 
     let replyContent = response.choices[0]?.message?.content || "";

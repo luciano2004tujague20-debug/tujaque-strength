@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     // 1. Iniciamos Supabase con PODERES DE ADMIN (Service Role Key)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!, // <-- Esta clave es la que hace la magia
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, 
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
@@ -17,13 +17,25 @@ export async function POST(req: Request) {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email.trim(),
       password: password,
-      email_confirm: true, // ✅ ¡ESTO HACE QUE ENTRE DIRECTO SIN VERIFICAR NADA!
+      email_confirm: true,
       user_metadata: { name: name }
     });
 
-    // Ignoramos el error si el usuario ya existía de pruebas anteriores
-    if (authError && !authError.message.includes("already registered") && !authError.message.includes("already exists")) {
-      throw authError;
+    let userId = authData?.user?.id;
+
+    // Ignoramos el error si el usuario ya existía, pero RECUPERAMOS su ID real
+    if (authError) {
+      if (authError.message.includes("already registered") || authError.message.includes("already exists")) {
+         const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+         const foundUser = existingUsers.users.find(u => u.email === email.trim());
+         if (foundUser) {
+             userId = foundUser.id;
+         } else {
+             throw authError;
+         }
+      } else {
+         throw authError;
+      }
     }
 
     // 3. Creamos su ficha visual en tu tabla 'orders'
@@ -31,13 +43,14 @@ export async function POST(req: Request) {
       .from("orders")
       .insert([{
         order_id: `MANUAL-${Date.now()}`,
+        user_id: userId, // 🔥 ESTE ES EL ESLABÓN PERDIDO 🔥
         customer_name: name,
         customer_email: email.trim(),
         plan_id: planCode,
         amount_ars: price || 0,
-        status: "paid", // Entra activo y pagado
+        status: "paid", 
         payment_method: "alta_manual",
-        password: password // Guardamos la clave para que vos la veas
+        password: password 
       }]);
 
     if (dbError) throw dbError;

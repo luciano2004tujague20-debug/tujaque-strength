@@ -11,43 +11,44 @@ export default function CustomLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // 🆕 EL OJITO
 
-  // 🆕 ESTADOS PARA ERRORES Y RECUPERACIÓN DE CLAVE
+  // ESTADOS PARA ERRORES Y RECUPERACIÓN DE CLAVE
   const [errorMsg, setErrorMsg] = useState("");
   const [resetSent, setResetSent] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
   const router = useRouter();
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setErrorMsg("");
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
 
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setErrorMsg("Credenciales incorrectas. Verificá tu email y contraseña.");
-      return;
+      if (error) {
+        setErrorMsg("Credenciales incorrectas. Verificá tu email y contraseña.");
+        return;
+      }
+
+      if (email === "luciano2004tujague20@gmail.com") {
+        document.cookie =
+          "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
+        window.location.href = "/admin/athletes";
+      } else {
+        router.push("/dashboard");
+      }
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (email === "luciano2004tujague20@gmail.com") {
-      document.cookie =
-        "ts_admin_session=true; path=/; max-age=604800; samesite=lax";
-      window.location.href = "/admin/athletes";
-    } else {
-      router.push("/dashboard");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // 🆕 FUNCIÓN PARA RECUPERAR CONTRASEÑA
+  // FUNCIÓN PARA RECUPERAR CONTRASEÑA
   const handleResetPassword = async () => {
     if (!email) {
       setErrorMsg(
@@ -74,81 +75,76 @@ const handleLogin = async (e: React.FormEvent) => {
   };
 
   return (
-    <main className="min-h-screen bg-[#050505] flex items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-black">
-      {/* ─── FONDO ÉPICO ─── */}
-      <div className="fixed inset-0 bg-[url('/grid.svg')] opacity-[0.03] pointer-events-none z-0"></div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none"></div>
-
+    <main className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-amber-500 selection:text-white">
+      
       {/* 🔥 BOTÓN PARA VOLVER A LA WEB PRINCIPAL 🔥 */}
       <div className="absolute top-6 left-4 md:left-6 z-50">
         <Link
           href="/"
-          className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900/80 px-4 py-2 rounded-xl border border-white/5 text-[10px] md:text-xs font-black uppercase tracking-widest shadow-lg backdrop-blur-md"
+          className="flex items-center gap-2 text-gray-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-xl border border-gray-200 text-[10px] md:text-xs font-black uppercase tracking-widest shadow-sm active:scale-95"
         >
           <span className="text-sm">🏠</span> Volver al Inicio
         </Link>
       </div>
 
-      <div className="relative z-10 w-full max-w-md animate-in fade-in zoom-in duration-500">
-        <div className="bg-zinc-900/60 border border-zinc-800 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl">
+      <div className="relative z-10 w-full max-w-md animate-in fade-in zoom-in duration-500 mt-12">
+        <div className="bg-white border border-gray-200 p-8 md:p-10 rounded-[2.5rem] shadow-xl">
           <header className="text-center mb-10">
-            <div className="w-16 h-16 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <span className="text-emerald-500 text-2xl font-black italic">
+            <div className="w-16 h-16 bg-black border border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md">
+              <span className="text-white text-3xl font-black italic">
                 T
               </span>
             </div>
-            <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">
+            <h1 className="text-3xl sm:text-4xl font-black text-black italic tracking-tighter leading-none">
               TUJAGUE
               <br />
-              <span className="text-emerald-500 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <span className="text-gray-400">
                 STRENGTH
               </span>
             </h1>
-            <p className="text-[9px] font-black text-zinc-500 tracking-[0.4em] uppercase mt-4">
-              Protocolo de Acceso Elite
+            <p className="text-[9px] font-black text-amber-500 tracking-[0.4em] uppercase mt-4 bg-amber-50 py-1.5 px-3 rounded-md inline-block border border-amber-100">
+              Terminal de Acceso
             </p>
           </header>
 
-          {/* 🆕 MENSAJES DE ERROR O ÉXITO */}
+          {/* 🆕 MENSAJES DE ERROR O ÉXITO NATIVOS */}
           {errorMsg && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
-              <span className="text-red-500 text-lg leading-none mt-0.5">
-                ⚠️
-              </span>
-              <p className="text-xs font-bold text-red-200/80">{errorMsg}</p>
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-in shake">
+              <span className="text-red-500 text-lg leading-none mt-0.5">⚠️</span>
+              <p className="text-xs font-bold text-red-600">{errorMsg}</p>
             </div>
           )}
 
           {resetSent && (
-            <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-3">
-              <span className="text-emerald-500 text-lg leading-none mt-0.5">
-                ✓
-              </span>
-              <p className="text-xs font-bold text-emerald-200/80">
-                Te enviamos un enlace de recuperación. Revisá tu bandeja de
-                entrada (y el correo no deseado).
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-3 animate-in fade-in">
+              <span className="text-emerald-500 text-lg leading-none mt-0.5">✓</span>
+              <p className="text-xs font-bold text-emerald-700">
+                Te enviamos un enlace de recuperación. Revisá tu bandeja de entrada (y el correo no deseado).
               </p>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
                 Email del Atleta
               </label>
               <input
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="email"
                 placeholder="atleta@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white font-medium outline-none focus:border-emerald-500 focus:bg-zinc-900 transition-all placeholder:text-zinc-700"
+                className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm text-black font-bold outline-none focus:border-amber-500 focus:bg-white transition-all placeholder:text-gray-400 shadow-inner"
                 required
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Contraseña
                 </label>
                 {/* 🆕 ENLACE DE RECUPERACIÓN */}
@@ -156,53 +152,66 @@ const handleLogin = async (e: React.FormEvent) => {
                   type="button"
                   onClick={handleResetPassword}
                   disabled={isResetting}
-                  className="text-[10px] font-bold text-emerald-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                  className="text-[10px] font-bold text-gray-500 hover:text-black transition-colors disabled:opacity-50"
                 >
                   {isResetting ? "Enviando..." : "¿Olvidaste tu clave?"}
                 </button>
               </div>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/50 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white font-medium outline-none focus:border-emerald-500 focus:bg-zinc-900 transition-all placeholder:text-zinc-700 tracking-widest"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 pr-12 text-sm text-black font-bold outline-none focus:border-amber-500 focus:bg-white transition-all placeholder:text-gray-400 tracking-widest shadow-inner"
+                  required
+                />
+                {/* BOTÓN DEL OJITO */}
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors p-1"
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-500 text-black font-black text-xs py-5 rounded-2xl tracking-[0.2em] uppercase hover:bg-emerald-400 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
+              className="w-full bg-black text-white font-black text-xs py-5 rounded-2xl tracking-[0.2em] uppercase hover:bg-gray-900 transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-2 disabled:opacity-50 shadow-md"
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-                  <span>INICIANDO...</span>
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                  <span>AUTENTICANDO...</span>
                 </>
               ) : (
-                "INICIAR SESIÓN 🦍"
+                "ACCEDER AL PANEL ➔"
               )}
             </button>
           </form>
 
-          <footer className="mt-10 text-center border-t border-zinc-800 pt-8 space-y-6">
+          <footer className="mt-8 text-center pt-6 space-y-6">
             {/* 🆕 ENLACE PARA APLICAR (VENTAS) */}
-            <div className="bg-black/30 p-4 rounded-xl border border-zinc-800/50">
-              <p className="text-xs text-zinc-400 font-medium mb-2">
-                ¿Aún no sos parte del equipo?
+            <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+              <p className="text-xs text-gray-500 font-medium mb-3">
+                ¿Aún no tenés tu estructura base?
               </p>
               <Link
                 href="/"
-                className="text-[10px] font-black text-white uppercase tracking-widest hover:text-emerald-400 transition-colors flex items-center justify-center gap-1"
+                className="text-[10px] font-black text-black uppercase tracking-widest hover:text-amber-600 transition-colors flex items-center justify-center gap-1 bg-white border border-gray-200 py-3 rounded-xl shadow-sm active:scale-95"
               >
-                Aplicar al Protocolo{" "}
-                <span className="text-emerald-500">→</span>
+                Aplicar a la Mentoría <span className="text-amber-500">→</span>
               </Link>
             </div>
 
-            <p className="text-[8px] font-black text-zinc-600 tracking-[0.3em] uppercase">
+            <p className="text-[8px] font-black text-gray-400 tracking-[0.3em] uppercase">
               Sistemas de Entrenamiento BII-Vintage
             </p>
           </footer>

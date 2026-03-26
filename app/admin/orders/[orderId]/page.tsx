@@ -41,11 +41,12 @@ export default function AdminOrderPaymentPage() {
   }, [orderId]);
 
   async function fetchOrder() {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, plans(*)") 
-      .eq("order_id", orderId) // <--- VUELTO A LA NORMALIDAD
-      .single();
+const { data, error } = await supabase
+  .from("orders")
+  .select("*")
+  .eq("order_id", orderId)
+  .limit(1) // <-- ESTO MATA EL ERROR
+  .single();
 
     if (error) {
         console.error("Error buscando orden:", error.message);

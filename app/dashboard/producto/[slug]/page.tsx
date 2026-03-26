@@ -58,9 +58,9 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
 
   if (!entitlementCode) {
     return (
-      <main className="min-h-screen bg-black text-white p-10">
-        <h1 className="text-2xl font-bold mb-4">Producto no configurado</h1>
-        <p>No existe un entitlement asociado al slug <strong>{slug}</strong>.</p>
+      <main className="min-h-screen bg-[#F8F9FA] text-black p-10 flex flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-black mb-2">Producto no configurado</h1>
+        <p className="text-gray-500 font-medium">No existe un entitlement asociado al slug <strong>{slug}</strong>.</p>
       </main>
     );
   }
@@ -73,9 +73,9 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
 
   if (entitlementError || !entitlement) {
     return (
-      <main className="min-h-screen bg-black text-white p-10">
-        <h1 className="text-2xl font-bold mb-4">Error interno</h1>
-        <p>No se pudo consultar el entitlement.</p>
+      <main className="min-h-screen bg-[#F8F9FA] text-black p-10 flex flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-black mb-2">Error interno</h1>
+        <p className="text-gray-500 font-medium">No se pudo consultar el entitlement.</p>
       </main>
     );
   }
@@ -92,9 +92,9 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
 
   if (userEntitlementError) {
     return (
-      <main className="min-h-screen bg-black text-white p-10">
-        <h1 className="text-2xl font-bold mb-4">Error interno</h1>
-        <p>No se pudo consultar el acceso del usuario.</p>
+      <main className="min-h-screen bg-[#F8F9FA] text-black p-10 flex flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-black mb-2">Error interno</h1>
+        <p className="text-gray-500 font-medium">No se pudo consultar el acceso del usuario.</p>
       </main>
     );
   }
@@ -124,8 +124,9 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
 
   if (productError || !product) {
     return (
-      <main className="min-h-screen bg-black text-white p-10">
-        <h1 className="text-2xl font-bold mb-4">Producto no encontrado</h1>
+      <main className="min-h-screen bg-[#F8F9FA] text-black p-10 flex flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-black mb-2">Producto no encontrado</h1>
+        <p className="text-gray-500 font-medium">La URL no es válida.</p>
       </main>
     );
   }
@@ -139,26 +140,29 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
   // PANTALLA BLOQUEADA
   if (!hasAccess) {
     return (
-      <main className="min-h-screen bg-[#050505] text-white p-8 md:p-12">
-        <div className="max-w-5xl mx-auto border border-zinc-800 bg-zinc-900/50 rounded-[2rem] p-8 md:p-10">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-black mb-3">
+      <main className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] p-4 pt-10 pb-20 md:p-12 font-sans selection:bg-red-500 selection:text-white">
+        <div className="max-w-3xl mx-auto border border-gray-200 bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm text-center">
+          <div className="w-20 h-20 bg-gray-50 border border-gray-200 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-sm opacity-50">
+             🔒
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-black mb-3">
             Acceso bloqueado
           </p>
-          <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter mb-4">
+          <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter mb-4 text-black">
             {metadata.headline || product.name} no habilitado
           </h1>
-          <p className="text-zinc-400 text-sm md:text-base leading-relaxed">
+          <p className="text-gray-500 text-sm md:text-base font-medium leading-relaxed max-w-md mx-auto">
             Tu usuario todavía no tiene acceso activo a este producto.
           </p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
-              <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-2">Producto</p>
-              <p className="text-sm text-white">{product.name}</p>
+          <div className="mt-10 grid gap-4 md:grid-cols-2 text-left">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-1">Producto</p>
+              <p className="text-sm font-bold text-black">{product.name}</p>
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
-              <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-2">Precio</p>
-              <p className="text-sm text-white">${Number(product.price).toLocaleString()} {product.currency}</p>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-1">Precio Oficial</p>
+              <p className="text-sm font-bold text-black">${Number(product.price).toLocaleString()} {product.currency}</p>
             </div>
           </div>
         </div>
@@ -171,111 +175,130 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
 
   // PANTALLA DESBLOQUEADA
   return (
-    <main className="min-h-screen bg-[#050505] text-white p-8 md:p-12">
-      <div className="max-w-5xl mx-auto border border-emerald-500/20 bg-zinc-900/50 rounded-[2rem] p-8 md:p-10">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-500 font-black mb-3">
-          Acceso desbloqueado
-        </p>
+    <main className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] p-4 pt-8 pb-20 md:p-12 font-sans selection:bg-emerald-500 selection:text-white">
+      
+      {/* Botón de volver */}
+      <div className="max-w-3xl mx-auto mb-6">
+        <a href="/dashboard" className="inline-flex items-center gap-2 text-gray-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-xl border border-gray-200 text-[10px] md:text-xs font-black uppercase tracking-widest shadow-sm active:scale-95">
+          <span>←</span> Volver a la Bóveda
+        </a>
+      </div>
 
-        <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter mb-4">
+      <div className="max-w-3xl mx-auto border border-gray-200 bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm relative overflow-hidden">
+        
+        {/* Etiqueta de Acceso */}
+        <div className="inline-block bg-emerald-50 border border-emerald-100 px-4 py-1.5 rounded-full mb-6">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-emerald-600 font-black flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+            Acceso Desbloqueado
+          </p>
+        </div>
+
+        <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter mb-4 text-black">
           {metadata.headline || product.name}
         </h1>
 
-        <p className="text-zinc-300 text-sm md:text-base leading-relaxed mb-8">
-          {metadata.goal || "Producto desbloqueado correctamente."}
+        <p className="text-gray-500 font-medium text-sm md:text-base leading-relaxed mb-10 max-w-xl">
+          {metadata.goal || "Producto desbloqueado correctamente. Ya podés descargar tu material oficial."}
         </p>
 
-        <div className="grid gap-4 md:grid-cols-2 mb-8">
-          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
-            <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-2">Usuario</p>
-            <p className="text-sm text-white">{user.email}</p>
+        {/* Info del usuario */}
+        <div className="grid gap-4 md:grid-cols-2 mb-10">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 flex items-center gap-4">
+            <div className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">👤</div>
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-0.5">Usuario Vinculado</p>
+              <p className="text-xs md:text-sm font-bold text-black truncate">{user.email}</p>
+            </div>
           </div>
-          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-5">
-            <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-2">Duración</p>
-            <p className="text-sm text-white">{metadata.duration || "—"}</p>
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 flex items-center gap-4">
+            <div className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">⏱️</div>
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-0.5">Duración del Plan</p>
+              <p className="text-xs md:text-sm font-bold text-black">{metadata.duration || "Vitalicio"}</p>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-6">
-            <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-4">Qué incluye</p>
-            <div className="space-y-3">
+        {/* Listas de Detalles */}
+        <div className="grid gap-6 md:grid-cols-2 mb-10">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+            <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-4">Qué incluye</p>
+            <div className="space-y-2.5">
               {includes.length > 0 ? (
                 includes.map((item, index) => (
-                  <div key={index} className="text-sm text-zinc-200 border border-zinc-800 rounded-xl p-3">
-                    {item}
+                  <div key={index} className="text-xs font-medium text-gray-700 flex items-start gap-2">
+                    <span className="text-emerald-500 font-bold">✓</span> {item}
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-zinc-500">Todavía no se cargaron ítems.</p>
+                <p className="text-xs text-gray-400 font-medium">Contenido base desbloqueado.</p>
               )}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-black/40 p-6">
-            <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] font-black mb-4">Notas importantes</p>
-            <div className="space-y-3">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
+            <p className="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-4">Notas importantes</p>
+            <div className="space-y-2.5">
               {importantNotes.length > 0 ? (
                 importantNotes.map((item, index) => (
-                  <div key={index} className="text-sm text-zinc-200 border border-zinc-800 rounded-xl p-3">
-                    {item}
+                  <div key={index} className="text-xs font-medium text-gray-700 flex items-start gap-2">
+                    <span className="text-amber-500 font-bold">•</span> {item}
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-zinc-500">Todavía no se cargaron notas.</p>
+                <p className="text-xs text-gray-400 font-medium">Ninguna nota adicional.</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* ACÁ ESTÁ LA MAGIA DE LOS BOTONES */}
+        {/* ACÁ ESTÁ LA MAGIA DE LOS BOTONES DE DESCARGA */}
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           
           {/* LÓGICA DE BOTÓN DIFERENCIADA */}
           {slug === "especializacion-brazos-mutantes" ? (
-            <div className="rounded-2xl border border-blue-500/30 bg-black/40 p-6 flex flex-col items-center sm:items-start justify-between relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[40px] pointer-events-none"></div>
-              <div className="w-full relative z-10">
-                <p className="text-xs text-blue-400 uppercase tracking-[0.2em] font-black mb-4">
-                  Material Descargable
+            <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50/50 p-6 flex flex-col items-center sm:items-start justify-between">
+              <div className="w-full mb-4">
+                <p className="text-[10px] text-blue-600 uppercase tracking-[0.2em] font-black flex items-center gap-2">
+                  <span className="text-base">💪</span> Material Descargable
                 </p>
               </div>
               <a
                 href={LINK_BRAZOS_MUTANTES}
                 target="_blank"
                 rel="noreferrer"
-                className="relative z-10 inline-flex items-center justify-center w-full px-8 py-4 rounded-xl bg-blue-600 text-white font-black uppercase tracking-[0.1em] text-sm hover:bg-blue-500 hover:scale-105 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                className="inline-flex items-center justify-center w-full px-6 py-4 rounded-xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
               >
                 📥 Descargar Especialización
               </a>
             </div>
           ) : (
-            <div className="rounded-2xl border border-emerald-500/30 bg-black/40 p-6 flex flex-col items-center sm:items-start justify-between">
-              <div className="w-full">
-                <p className="text-xs text-emerald-500 uppercase tracking-[0.2em] font-black mb-4">
-                  Tu Material Principal
+            <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50/50 p-6 flex flex-col items-center sm:items-start justify-between">
+              <div className="w-full mb-4">
+                <p className="text-[10px] text-emerald-600 uppercase tracking-[0.2em] font-black flex items-center gap-2">
+                  <span className="text-base">📄</span> Tu Material Principal
                 </p>
               </div>
               <a
                 href={`/pdf?plan=${planType}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center w-full px-8 py-4 rounded-xl bg-emerald-500 text-black font-black uppercase tracking-[0.1em] text-sm hover:bg-emerald-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                className="inline-flex items-center justify-center w-full px-6 py-4 rounded-xl bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-emerald-600 active:scale-95 transition-all shadow-sm"
               >
                 🖨️ Generar Rutina (PDF)
               </a>
-              <p className="text-[10px] text-zinc-500 mt-3 font-semibold uppercase text-center sm:text-left">
-                * El documento se generará con tu email como licencia.
+              <p className="text-[9px] text-emerald-700/60 mt-3 font-bold uppercase text-center sm:text-left w-full">
+                * Licencia vinculada a tu email.
               </p>
             </div>
           )}
 
           {/* BOTÓN 2: KIT ACELERADOR (Solo visible si compró el Order Bump) */}
           {boughtOrderBump && (
-            <div className="rounded-2xl border border-amber-500/30 bg-black/40 p-6 flex flex-col items-center sm:items-start justify-between relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[50px] pointer-events-none"></div>
-              <div className="w-full relative z-10">
-                <p className="text-xs text-amber-500 uppercase tracking-[0.2em] font-black mb-4 flex items-center gap-2">
+            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50/50 p-6 flex flex-col items-center sm:items-start justify-between">
+              <div className="w-full mb-4">
+                <p className="text-[10px] text-amber-600 uppercase tracking-[0.2em] font-black flex items-center gap-2">
                   <span className="text-base">🎁</span> Bonus Exclusivo Adquirido
                 </p>
               </div>
@@ -283,11 +306,11 @@ export default async function ProductoDinamicoPage({ params }: PageProps) {
                 href={LINK_DEL_KIT_ACELERADOR}
                 target="_blank"
                 rel="noreferrer"
-                className="relative z-10 inline-flex items-center justify-center w-full px-8 py-4 rounded-xl bg-amber-500 text-black font-black uppercase tracking-[0.1em] text-sm hover:bg-amber-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                className="inline-flex items-center justify-center w-full px-6 py-4 rounded-xl bg-amber-500 text-white font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-amber-600 active:scale-95 transition-all shadow-sm"
               >
                 ⚡ Descargar Kit BII
               </a>
-              <p className="text-[10px] text-zinc-500 mt-3 font-semibold uppercase text-center sm:text-left relative z-10">
+              <p className="text-[9px] text-amber-700/60 mt-3 font-bold uppercase text-center sm:text-left w-full">
                 * Protocolo articular y suplementación.
               </p>
             </div>

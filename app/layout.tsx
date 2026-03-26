@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-// 🔥 NUEVO: Color de la barra de estado del celular para que parezca App nativa
+// 🔥 NUEVO: Color de la barra de estado y bloqueo de zoom (Nivel App Nativa)
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#F8F9FA", // El mismo gris ultra-claro de tu Dashboard
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1, // Esto evita que el usuario haga zoom al tocar rápido
+  userScalable: false, // Bloquea el pellizco para acercar (como una app real)
 };
 
 export const metadata: Metadata = {
@@ -15,7 +19,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default", // "default" le dice a iOS que ponga letras oscuras sobre fondo claro
     title: "Tujague",
   },
   formatDetection: {
@@ -48,7 +52,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="scroll-smooth">
-      <body className="antialiased">
+      <body className="antialiased bg-[#F8F9FA]"> {/* Fondo inyectado directo al body */}
         <div className="bg-noise" />
         {children}
       </body>

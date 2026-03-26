@@ -84,3 +84,10 @@
 .admin-btn {
   @apply w-full bg-white text-black font-black py-4 rounded-full hover:bg-emerald-400 transition-all uppercase tracking-widest text-sm shadow-xl mt-4 active:scale-95;
 }
+/* 🔥 BLOQUEO DE REBOTE NATIVO (APK & iOS) 🔥 */
+html, body {
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
+  /* Esto le da el deslizamiento súper suave y fluido exclusivo de iPhone: */
+  -webkit-overflow-scrolling: touch; 
+}
