@@ -890,7 +890,7 @@ export default function Home() {
              <h4 className="text-amber-500 font-black tracking-[0.2em] text-[10px] lg:text-xs border-b border-amber-500/20 pb-2 lg:pb-3 uppercase">Contacto Directo</h4>
              <div className="flex flex-col gap-3 lg:gap-4 text-xs lg:text-sm font-bold text-white tracking-wide">
                 <a href="mailto:luciano2004tujague20@gmail.com" className="hover:text-amber-400 transition-colors flex items-center gap-3"><span className="text-lg">✉️</span> Email Oficial</a>
-                <a href="https://www.instagram.com/tujague.strength/" target="_blank" className="hover:text-amber-400 transition-colors flex items-center gap-3"><span className="text-lg">📱</span> Instagram</a>
+                <a href="https://www.instagram.com/tujague.luciano/" target="_blank" className="hover:text-amber-400 transition-colors flex items-center gap-3"><span className="text-lg">📱</span> Instagram</a>
                 <a href={whatsappUrl} target="_blank" className="hover:text-amber-400 transition-colors flex items-center gap-3"><span className="text-lg">💬</span> WhatsApp</a>
              </div>
           </div>
