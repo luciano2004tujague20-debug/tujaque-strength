@@ -1,5 +1,10 @@
 "use client";
 
+import { generateAndDownloadPDF, mergeAndDownload12WeekPDF } from '@/utils/pdfGenerator';
+import TabEvolucionDashboard from '@/components/TabEvolucionDashboard';
+import TabCheckin from '@/components/TabCheckin';
+import TabVideos from '@/components/TabVideos';
+import TabNutricion from '@/components/TabNutricion';
 import PushNotificationManager from '@/components/notifications/PushNotificationManager';
 import TabEvolucion from "@/components/dashboard/TabEvolucion";
 import AffiliateDashboard from "@/components/dashboard/afiliados/AffiliateDashboard"; // 🔥 ESTA ES LA LÍNEA NUEVA
@@ -7,6 +12,8 @@ import AthleteNutritionDashboard from "@/components/dashboard/nutrition/AthleteN
 import AthleteMacroPlanner from '@/components/AthleteMacroPlanner';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'; // 🔥 Línea 3 unificada y limpia
 import React from 'react';
+import FeatureCard from '@/components/FeatureCard'; // 🔥 NUEVO: Tarjeta con Candado
+import UpgradeModal from '@/components/UpgradeModal'; // 🔥 NUEVO: Ventana Emergente
 // ... el resto de las importaciones siguen igual ...
 import { resolvePlan } from '@/lib/permissions';
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -62,7 +69,7 @@ export default function DashboardAtleta() {
   
   const [rms, setRms] = useState({ squat: "", bench: "", deadlift: "", dips: "", military: "" });
 
-  const [savingCheckin, setSavingCheckin] = useState(false);
+const [savingCheckin, setSavingCheckin] = useState(false);
   
   const [checkin, setCheckin] = useState({ 
     weight: "", 
@@ -76,6 +83,14 @@ export default function DashboardAtleta() {
     joint_pain: "ninguno",
     hit_failure: true
   });
+
+  // 🔥 NUEVO: ESTADO DEL MODAL DE UPGRADE (SEGURIDAD) 🔥
+  const [upgradeModalData, setUpgradeModalData] = useState({ isOpen: false, featureName: '' });
+
+  // Función que dispara el Modal cuando tocan un candado
+  const handleRestrictedClick = (featureName: string) => {
+    setUpgradeModalData({ isOpen: true, featureName });
+  };
   
   const [checkinHistory, setCheckinHistory] = useState<any[]>([]);
 
@@ -410,19 +425,19 @@ export default function DashboardAtleta() {
           setDbNotifications(fetchNotifs);
       }
 
+// -------------------------------------------------------------------------
+      // 🔥 MAGIA RELACIONAL Y EVOLUCIÓN (SaaS BII) 🔥
+      // 🚀 FASE 4 (OPTIMIZACIÓN): EL PEAJE DE SUPABASE 🚀
       // -------------------------------------------------------------------------
-      // 🔥 MAGIA RELACIONAL: TRAEMOS LA RUTINA CON SUS DÍAS Y EJERCICIOS 🔥
-      // -------------------------------------------------------------------------
-      if (user.id) {
+      // 🔥 Corrección 1: Usamos order?. en lugar de currentOrder
+      const userPlanId = (order?.plan_id || "").toLowerCase();
+      const isUserElite = userPlanId.includes('elite') || userPlanId.includes('leyenda') || userPlanId.includes('vip');
+
+      // Solo gastamos recursos de Supabase si el usuario pagó un plan de alto rendimiento
+      if (user.id && isUserElite) {
           const { data: dbRoutineData, error: dbRoutineErr } = await supabase
             .from('routines')
-            .select(`
-              *,
-              workouts (
-                *,
-                workout_exercises (*)
-              )
-            `)
+            .select('*, workouts(*, workout_exercises(*))') // 🔥 Corrección 2: Todo en una sola línea para evitar el ParserError
             .eq('user_id', user.id)
             .eq('is_active', true)
             .order('created_at', { ascending: false })
@@ -437,21 +452,17 @@ export default function DashboardAtleta() {
                       w.workout_exercises.sort((a: any, b: any) => a.order_index - b.order_index);
                   }
               });
-              // Guardamos la rutina estructurada en la memoria que creamos en el Paso 1
               setActiveDbRoutine(dbRoutineData);
           }
+
           // 🔥 MOTOR DE EVOLUCIÓN AUTOMÁTICA (ALGORITMO DE BRZYCKI) 🔥
           const { data: sweatData } = await supabase
               .from('logged_sets')
-              .select(`
-                  weight_kg,
-                  reps_achieved,
-                  workout_exercises ( exercise_name )
-              `)
+              .select('weight_kg, reps_achieved, workout_exercises(exercise_name)') // 🔥 Todo en una línea aquí también
               .eq('user_id', user.id);
 
           if (sweatData && sweatData.length > 0) {
-// Empezamos con los valores manuales viejos, por si en algún ejercicio no hay datos nuevos
+              // 🔥 Corrección 1: Usamos order?. en lugar de currentOrder
               let maxSquat = Number(order?.rm_squat || 0);
               let maxBench = Number(order?.rm_bench || 0);
               let maxDeadlift = Number(order?.rm_deadlift || 0);
@@ -463,7 +474,6 @@ export default function DashboardAtleta() {
                   const weight = Number(set.weight_kg);
                   const reps = Number(set.reps_achieved);
                   
-                  // Fórmula de Brzycki para estimar 1RM
                   const e1RM = reps === 1 ? weight : Math.round(weight * (36 / (37 - reps)));
 
                   if (exName.includes('sentadilla') || exName.includes('squat')) {
@@ -479,7 +489,6 @@ export default function DashboardAtleta() {
                   }
               });
 
-              // Sobreescribimos la memoria de la pantalla con los RMs reales auto-calculados
               setRms({
                   squat: maxSquat > 0 ? maxSquat.toString() : "",
                   bench: maxBench > 0 ? maxBench.toString() : "",
@@ -801,116 +810,12 @@ export default function DashboardAtleta() {
   };
 const downloadPDF = async () => {
       setGeneratingPDF(true);
-
       try {
-          const response = await fetch('/plantilla-blanco.pdf');
-          if (!response.ok) throw new Error("No se pudo cargar la plantilla PDF del servidor.");
-          const existingPdfBytes = await response.arrayBuffer();
-
-          const pdfDoc = await PDFDocument.load(existingPdfBytes);
-          const pages = pdfDoc.getPages();
-          const firstPage = pages[0]; 
-
-          const cleanText = (str: string | undefined | null) => {
-              if (!str) return "";
-              let s = str.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, "-").replace(/[\u2026]/g, "...");
-              return s.replace(/[^\x20-\x7E\xA0-\xFF]/g, ""); 
-          };
-
-          const macro = order?.macrocycle || '1';
-          const meso = viewingBiiProgram?.mesocycle || order?.mesocycle || '1';
-          const week = viewingBiiProgram?.week || order?.microcycle || '1';
-
-          // ─── HOJA 1: PORTADA ───
-          const nameText = cleanText(order?.customer_name) || 'ATLETA TUJAGUE';
-          firstPage.drawText(nameText.toUpperCase(), { x: 120, y: 665, size: 10, color: rgb(0, 0, 0) });
-          
-          const weightText = cleanText(checkin?.weight || order?.body_weight) || '-';
-          firstPage.drawText(weightText, { x: 420, y: 665, size: 10, color: rgb(0, 0, 0) });
-
-          const goalText = cleanText(order?.goal) || 'FUERZA / HIPERTROFIA';
-          firstPage.drawText(goalText.toUpperCase(), { x: 120, y: 635, size: 10, color: rgb(0, 0, 0) });
-          
-          firstPage.drawText(`Macro: ${macro} | Meso: ${meso} | Semana: ${week}`, { x: 380, y: 635, size: 10, color: rgb(0, 0, 0) });
-
-          // ─── HOJAS DE RUTINA (2 a 8) ───
-          const drawDayData = (pageIdx: number, dayIndex: number) => {
-              const page = pages[pageIdx];
-              if (!page) return;
-
-              const dayData = viewingBiiProgram?.days?.[dayIndex];
-
-              if (!dayData || dayData.isRestDay || !dayData.exercises || dayData.exercises.length === 0) {
-                  page.drawText("DESCANSO / RECUPERACION", { x: 65, y: 720, size: 12, color: rgb(0, 0, 0) });
-                  return;
-              }
-
-              // 1. ZONA GRIS (Arriba): LA PIZARRA DEL COACH
-              let summaryY = 720; 
-              page.drawText(`FOCO DEL DÍA: ${cleanText(dayData.title?.toUpperCase() || 'ENTRENAMIENTO')}`, { x: 60, y: summaryY, size: 11, color: rgb(0, 0, 0) });
-              summaryY -= 25; // Espacio bajo el título
-
-              dayData.exercises.forEach((ex: any, i: number) => {
-                  const exName = cleanText(ex.name?.toUpperCase() || 'EJERCICIO');
-                  const setsCount = Array.isArray(ex?.sets) ? ex.sets.length : (ex?.sets || '-');
-                  // Buscamos el objetivo de reps de la primera serie como referencia
-                  const targetReps = Array.isArray(ex?.sets) ? (ex.sets[0]?.targetReps || '-') : '-';
-                  
-                  // Nombre del Ejercicio
-                  page.drawText(`${i + 1}. ${exName}`, { x: 60, y: summaryY, size: 10, color: rgb(0, 0, 0) });
-                  summaryY -= 14;
-                  
-                  // Detalles técnicos
-                  page.drawText(`    > Series: ${setsCount}  |  Reps Obj: ${targetReps}  |  RPE: ${ex?.rpe || '-'}  |  Descanso: ${ex?.rest || '-'}`, { x: 60, y: summaryY, size: 9, color: rgb(0.2, 0.2, 0.2) });
-                  summaryY -= 14;
-
-                  // Notas (si existen)
-                  if (ex.notes || ex.technique) {
-                      page.drawText(`    - Notas: ${cleanText(ex.notes || ex.technique)}`, { x: 60, y: summaryY, size: 8, color: rgb(0.4, 0.4, 0.4) });
-                      summaryY -= 14;
-                  }
-                  summaryY -= 10; // Espacio entre ejercicios
-              });
-
-              // 2. TABLA INFERIOR (Abajo): LA HOJA DE TRABAJO DEL ATLETA
-              let tableStartY = 398; // 🎯 Bajamos un pelín para que el texto se apoye justo en la línea
-              const rowHeight = 22.5; 
-              
-              dayData.exercises.forEach((ex: any, i: number) => {
-                  if (i > 7) return; // Tu tabla tiene maximo 8 renglones
-
-                  const exName = cleanText(ex.name?.toUpperCase() || 'EJERCICIO');
-                  
-                  // 🎯 IMPRIMIMOS SOLO EL NOMBRE EN LA COLUMNA 1. TODO LO DEMÁS QUEDA EN BLANCO PARA LA LAPICERA.
-                  page.drawText(`${i+1}. ${exName}`, { x: 65, y: tableStartY, size: 8, color: rgb(0, 0, 0) });
-
-                  tableStartY -= rowHeight; 
-              });
-          };
-
-          drawDayData(2, 0); 
-          drawDayData(3, 1);
-          drawDayData(4, 2); 
-          drawDayData(5, 3); 
-          drawDayData(6, 4); 
-          drawDayData(7, 5); 
-          drawDayData(8, 6); 
-
-          const pdfBytes = await pdfDoc.save();
-          const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
-          const link = document.createElement('a');
-          link.href = window.URL.createObjectURL(blob);
-          
-          const safeName = cleanText(order?.customer_name)?.replace(/\s+/g, '_') || 'Plan';
-          link.download = `Tujague_Strength_${safeName}_Semana_${week}.pdf`;
-          
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
+          // 🔥 Le pasamos "supabase" (tu conexión segura) a nuestro trabajador
+          await mergeAndDownload12WeekPDF(supabase, order?.customer_name);
       } catch (error: any) {
-          console.error("Error generando PDF:", error);
-          alert(`❌ Ocurrió un error al generar el PDF:\n${error.message}`);
+          console.error("Error unificando PDF:", error);
+          alert(`❌ Ocurrió un error de seguridad al armar tu plan:\n${error.message}`);
       } finally {
           setGeneratingPDF(false);
       }
@@ -1995,35 +1900,37 @@ const downloadPDF = async () => {
         {activeTab === "rutina" && (
           <div className="relative pb-24 max-w-[100vw] overflow-x-hidden md:max-w-6xl mx-auto"> 
 
-            {isStaticPlan ? (
-                <div className="bg-white border border-emerald-200 p-10 md:p-20 rounded-[3rem] text-center shadow-sm relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500">
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+{isStaticPlan ? (
+                // 🔥 NUEVA VISTA ULTRA SIMPLE PARA BÓVEDA ESTÁTICA (12 SEMANAS) 🔥
+                <div className="bg-white border border-gray-200 p-10 md:p-16 rounded-[3rem] text-center shadow-sm relative overflow-hidden my-10 max-w-4xl mx-auto animate-in zoom-in duration-500 flex flex-col items-center">
+                    <div className="w-20 h-20 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center text-4xl mb-6 shadow-sm">📄</div>
                     
-                    {safePlanId.includes('calculadora') ? (
-                        <>
-                            <h2 className="text-4xl md:text-6xl font-black italic text-black mb-6 tracking-tighter uppercase relative z-10">JUNK VOLUME <span className="text-amber-500">KILLER</span></h2>
-                            <p className="text-gray-500 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Tu software de diagnóstico está listo. Ingresá a la herramienta interactiva para auditar tu rutina y descargar el Material de Rescate.</p>
-                            
-                            <Link href="/dashboard/producto/calculadora-volumen-basura" className="relative z-10 inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95">
-                                🧮 INICIAR SOFTWARE DE DIAGNÓSTICO
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            <h2 className="text-4xl md:text-6xl font-black italic text-black mb-6 tracking-tighter uppercase relative z-10">TU ESTRUCTURA ESTÁ <span className="text-emerald-500">LISTA</span></h2>
-                            <p className="text-gray-500 font-medium text-sm md:text-lg max-w-2xl mx-auto mb-10 relative z-10">Has adquirido el programa estático. El documento PDF oficial contiene toda la planificación y parámetros a seguir.</p>
-                            
-                            <button 
-                                onClick={handleDownloadSecureMeso}
-                                disabled={isDownloadingMeso}
-                                className="relative z-10 inline-flex items-center justify-center bg-emerald-500 hover:bg-emerald-400 text-white px-12 py-6 rounded-2xl font-black text-sm md:text-base uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 disabled:opacity-50"
-                            >
-                                {isDownloadingMeso ? '🔐 ENCRIPTANDO DOCUMENTO...' : '📥 DESCARGAR PDF OFICIAL'}
-                            </button>
-                        </>
-                    )}
+                    <h2 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter uppercase">
+                        TU PLAN <span className="text-amber-500">MAESTRO</span>
+                    </h2>
+                    
+                    <p className="text-gray-500 font-medium text-sm md:text-lg max-w-xl mx-auto mb-10 leading-relaxed px-4">
+                        Aquí tienes tu estructura BII-Vintage de 12 semanas. Descarga el archivo, imprímelo y llévalo al gimnasio para dominar tus marcas. Este modo es 100% independiente.
+                    </p>
+                    
+                    <button 
+                        onClick={downloadPDF}
+                        disabled={generatingPDF}
+                        className="bg-black hover:bg-zinc-800 text-white px-10 py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest transition-all shadow-md hover:scale-105 active:scale-95 disabled:opacity-50 w-full sm:w-auto flex items-center justify-center gap-3"
+                    >
+                        {generatingPDF ? 'GENERANDO PDF...' : '⬇ DESCARGAR PDF (12 SEMANAS)'}
+                    </button>
+
+                    {/* SECCIÓN DE UPSELL */}
+                    <div className="mt-12 pt-8 border-t border-gray-100 w-full max-w-md">
+                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">¿Buscas herramientas interactivas y Tujague AI?</p>
+                         <a href={whatsappUpsellUrl} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-600 font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+                             Mejorar a Mentoría Élite 🚀
+                         </a>
+                    </div>
                 </div>
             ) : (
+
                 /* 🔥 VISOR DE AGENDA PARA MENTORÍA ÉLITE 🔥 */
                 <div className="animate-in fade-in duration-500 mt-6 space-y-12">
 
@@ -2057,14 +1964,8 @@ const downloadPDF = async () => {
                         </div>
 
                         <div className="flex flex-col md:flex-row w-full gap-3 relative z-10 mt-2">
-                            <button 
-                                onClick={downloadPDF}
-                                disabled={generatingPDF}
-                                className="w-full md:w-auto flex justify-center bg-black hover:bg-zinc-800 text-white px-6 py-4 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest items-center gap-3 transition-all disabled:opacity-50 shadow-md active:scale-95"
-                            >
-                                {generatingPDF ? 'GENERANDO...' : '📄 EXPORTAR A PDF'}
-                            </button>
-
+                            {/* 🔥 BOTÓN DE PDF ELIMINADO PARA MENTORÍA ÉLITE 🔥 */}
+                            
                             {isElitePlan && (
                                 <button 
                                     onClick={() => setShowPanicModal(true)}
@@ -2373,593 +2274,72 @@ const downloadPDF = async () => {
     </>
   )}
 
-{/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS ─── */}
+{/* ─── PESTAÑA DE AUDITORÍA DE VIDEOS (REFACTORIZADA) ─── */}
         {activeTab === "videos" && (
-           <>
-             {!canViewVideos ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-100 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-sm">📹</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">Tu plan actual no incluye auditoría en video. Esta herramienta de precisión biomecánica es exclusiva para los atletas bajo Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-sm hover:scale-105 active:scale-95 w-full sm:w-auto">
-                         AGENDAR LLAMADA DE ADMISIÓN 📞
-                     </a>
-                 </div>
-             ) : (
-                <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
-                   <div className="space-y-16">
-                      {/* VIDEOS PRINCIPALES */}
-                      <div>
-                         <div className="text-center md:text-left mb-10">
-                            <h3 className="text-3xl md:text-4xl font-black italic text-amber-500 uppercase tracking-tighter drop-shadow-sm">Auditoría <span className="text-black">Biomecánica</span></h3>
-                            <p className="text-gray-500 font-medium text-sm md:text-base mt-2">Módulo clínico de corrección. Aporte su ejecución para recibir el dictamen técnico del Head Coach.</p>
-                         </div>
-                         
-                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                           {mainLifts.map(lift => (
-                              <div key={lift.id} className="bg-white border border-gray-100 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:border-amber-200 transition-colors group">
-                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-gray-100 pb-6">
-                                    <h3 className="text-2xl font-black italic text-black uppercase tracking-tight">{lift.label}</h3>
-                                    {order[`video_${lift.id}`] 
-                                        ? <span className="bg-amber-50 text-amber-600 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-amber-200 shadow-sm w-full sm:w-auto text-center">Evidencia Cargada</span> 
-                                        : <span className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center">En Espera</span>
-                                    }
-                                 </div>
-
-                                 <div className="mb-8 bg-gray-50 border border-gray-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm">
-                                    <div>
-                                       <p className="text-xs md:text-sm text-gray-800 font-bold mb-2 uppercase tracking-widest">Aportar Serie Efectiva</p>
-                                       <p className="text-[10px] text-gray-400 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
-                                    </div>
-                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-sm border ${uploading === lift.id ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-black border-black text-white hover:bg-gray-900 hover:scale-105 active:scale-95'}`}>
-                                       {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
-                                       <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
-                                    </label>
-                                 </div>
-
-                                 <div className="bg-amber-50 border border-amber-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm">
-                                    <h4 className="flex items-center gap-3 text-amber-600 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
-                                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Auditoría del Coach
-                                    </h4>
-                                    {order[`feedback_${lift.id}`] ? (
-                                      <p className="text-gray-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
-                                    ) : (
-                                      <p className="text-amber-600/60 text-xs md:text-sm italic font-medium">Se requiere material visual para iniciar la evaluación técnica.</p>
-                                    )}
-                                 </div>
-                              </div>
-                           ))}
-                         </div>
-                      </div>
-
-                      {/* VIDEOS EXTRAS */}
-                      <div className="pt-10 border-t border-gray-200">
-                         <div className="text-center md:text-left mb-10">
-                            <h3 className="text-3xl md:text-4xl font-black italic text-gray-400 uppercase tracking-tighter drop-shadow-sm">Módulo de <span className="text-black">Accesorios</span></h3>
-                            <p className="text-gray-500 font-medium text-sm md:text-base mt-2">Aporte visual para variantes y máquinas.</p>
-                         </div>
-                         
-                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                           {extraLifts.map(lift => (
-                              <div key={lift.id} className="bg-white border border-dashed border-gray-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:border-blue-300 transition-colors">
-                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 border-b border-gray-100 pb-6">
-                                    <input 
-                                       type="text"
-                                       placeholder="Nomenclatura (Ej: Hack Squat)..."
-                                       value={order[`name_${lift.id}`] || ''}
-                                       onChange={(e) => handleUpdateExtraName(lift.id, e.target.value)}
-                                       className="bg-transparent text-xl md:text-2xl font-black italic text-black uppercase outline-none placeholder:text-gray-300 w-full sm:w-2/3 focus:text-blue-500 transition-colors"
-                                    />
-                                    {order[`video_${lift.id}`] 
-                                        ? <span className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase border border-blue-200 shadow-sm w-full sm:w-auto text-center mt-4 sm:mt-0">Evidencia Cargada</span> 
-                                        : <span className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-2 rounded-lg text-[9px] md:text-[10px] font-black tracking-widest uppercase w-full sm:w-auto text-center mt-4 sm:mt-0">En Espera</span>
-                                    }
-                                 </div>
-
-                                 <div className="mb-8 bg-gray-50 border border-gray-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm">
-                                    <div>
-                                       <p className="text-xs md:text-sm text-gray-800 font-bold mb-2 uppercase tracking-widest">Aportar Ejecución</p>
-                                       <p className="text-[10px] text-gray-400 font-medium">Extensión: MP4/MOV (Máx 50MB)</p>
-                                    </div>
-                                    <label className={`cursor-pointer px-8 py-4 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all text-center shrink-0 w-full sm:w-auto shadow-sm border ${uploading === lift.id ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:scale-105 active:scale-95'}`}>
-                                       {uploading === lift.id ? 'TRANSMITIENDO...' : 'CARGAR VIDEO 📹'}
-                                       <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, lift.id)} disabled={uploading === lift.id} />
-                                    </label>
-                                 </div>
-
-                                 <div className="bg-blue-50 border border-blue-100 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm">
-                                    <h4 className="flex items-center gap-3 text-blue-600 font-black text-[10px] md:text-xs uppercase tracking-widest mb-4">
-                                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Auditoría del Coach
-                                    </h4>
-                                    {order[`feedback_${lift.id}`] ? (
-                                      <p className="text-gray-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-medium">{order[`feedback_${lift.id}`]}</p>
-                                    ) : (
-                                      <p className="text-blue-600/60 text-xs md:text-sm italic font-medium">Complete la nomenclatura y aporte el material para obtener asistencia.</p>
-                                    )}
-                                 </div>
-                              </div>
-                           ))}
-                         </div>
-                      </div>
-
-                   </div>
-                </div>
-             )}
-           </>
+            <TabVideos 
+                canViewVideos={canViewVideos}
+                whatsappUpsellUrl={whatsappUpsellUrl}
+                handleRestrictedClick={handleRestrictedClick}
+                mainLifts={mainLifts}
+                extraLifts={extraLifts}
+                order={order}
+                uploading={uploading}
+                handleFileUpload={handleFileUpload}
+                handleUpdateExtraName={handleUpdateExtraName}
+            />
         )}
 
-{/* ─── PESTAÑA EVOLUCIÓN (Métricas, RM y Logros) ─── */}
-        {activeTab === "rm" && (() => {
-           // 🔥 CÁLCULOS AUTOMÁTICOS PARA EL GRÁFICO DE OBJETIVOS
-           const initialWeight = Number(order?.body_weight) || 70;
-           const currentWeight = Number(checkin.weight) || initialWeight;
-           const isCut = order?.goal === 'deficit' || order?.plan_title?.toLowerCase().includes('cut');
-           const targetWeight = isCut ? initialWeight - 5 : initialWeight + 5;
-           
-           let progressPercent = Math.round(((initialWeight - currentWeight) / (initialWeight - targetWeight)) * 100);
-           if (isNaN(progressPercent) || progressPercent < 0) progressPercent = 0;
-           if (progressPercent > 100) progressPercent = 100;
+{/* ─── PESTAÑA EVOLUCIÓN Y MÉTRICAS (REFACTORIZADA) ─── */}
+        {activeTab === "rm" && (
+            <TabEvolucionDashboard 
+                canViewRMs={canViewRMs}
+                whatsappUpsellUrl={whatsappUpsellUrl}
+                handleRestrictedClick={handleRestrictedClick}
+                order={order}
+                checkin={checkin}
+                checkinHistory={checkinHistory}
+                rms={rms}
+                totalAbsoluto={totalAbsoluto}
+                rmAiLoading={rmAiLoading}
+                rmAiFeedback={rmAiFeedback}
+                handleAnalyzeRMs={handleAnalyzeRMs}
+                calcLift={calcLift}
+                setCalcLift={setCalcLift}
+                calcPercent={calcPercent}
+                setCalcPercent={setCalcPercent}
+                calculatedWeight={calculatedWeight}
+                handleGenerateWarmup={handleGenerateWarmup}
+                generatingWarmup={generatingWarmup}
+                warmupPlan={warmupPlan}
+                groupedTrophies={groupedTrophies}
+                shareTrophies={shareTrophies}
+            />
+        )}
 
-           // Datos para la gráfica de línea (Si no hay historial, armamos una de muestra)
-// 🔥 MOTOR DE GRÁFICA INTELIGENTE BII-VINTAGE 🔥
-           let weightChartData = [];
-           if (checkinHistory && checkinHistory.length > 1) {
-               weightChartData = checkinHistory.map((entry, index) => ({
-                   date: entry.created_at ? new Date(entry.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : `Semana ${index + 1}`,
-                   weight: Number(entry.weight) || initialWeight
-               }));
-           } else {
-               const isGaining = targetWeight > initialWeight;
-               const isCutting = targetWeight < initialWeight;
-               
-               let midWeight = initialWeight;
-               if (isCutting) {
-                   midWeight = initialWeight - ((initialWeight - currentWeight) * 0.5);
-               } else if (isGaining) {
-                   midWeight = initialWeight + ((currentWeight - initialWeight) * 0.5);
-               }
-
-               weightChartData = [
-                 { date: 'Día 1', weight: initialWeight },
-                 { date: 'Progreso', weight: Number(midWeight.toFixed(1)) },
-                 { date: 'Hoy', weight: currentWeight }
-               ];
-           }
-
-           return (
-             <>
-               {!canViewRMs ? (
-                   <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-200 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                       <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10">📈</div>
-                       <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                       <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El seguimiento de métricas y la red neuronal de análisis de proporciones pertenecen al sistema Élite.</p>
-                       <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-md hover:scale-105 active:scale-95 w-full sm:w-auto">
-                           POSTULARME A MENTORÍA ÉLITE 🚀
-                       </a>
-                   </div>
-               ) : (
-                  <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-                     
-                     {/* ─── SUB-MENÚ (Estilo foto 2) ─── */}
-                     <div className="flex justify-center border-b border-gray-200 mb-8 pt-4">
-                        <button className="px-6 py-3 border-b-2 border-black font-bold text-black text-sm transition-all">Métricas</button>
-                        <button className="px-6 py-3 font-medium text-gray-400 hover:text-gray-600 text-sm transition-all">Fotos</button>
-                        <button className="px-6 py-3 font-medium text-gray-400 hover:text-gray-600 text-sm transition-all">Logros</button>
-                     </div>
-
-                     {/* ─── GRÁFICA DE PROGRESO CORPORAL ─── */}
-                     <div className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm">
-                        <h3 className="text-xl font-bold text-black mb-6">Progreso</h3>
-                        <div className="h-[200px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={weightChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                              <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-<YAxis domain={['auto', 'auto']} stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} dx={-10} tickFormatter={(value) => `${value}kg`} />
-                              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} itemStyle={{ color: '#000', fontWeight: 'bold' }} />
-<Line type="monotone" dataKey="weight" stroke="#1A1A1A" strokeWidth={3} dot={{ r: 5, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 7, fill: '#1A1A1A' }} isAnimationActive={false} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                     </div>
-
-                     {/* ─── TARJETAS DE OBJETIVO Y CUMPLIMIENTO ─── */}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                        {/* Tarjeta Objetivo */}
-                        <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm flex flex-col justify-center">
-                           <h3 className="text-xl font-bold text-black mb-6">Objetivo</h3>
-                           <div className="space-y-4">
-                              <div className="flex justify-between items-center border-b border-gray-50 pb-3">
-                                <span className="text-gray-500 font-medium">Peso Inicial</span>
-                                <span className="font-bold text-gray-800">{initialWeight} kg</span>
-                              </div>
-                              <div className="flex justify-between items-center border-b border-gray-50 pb-3">
-                                <span className="text-gray-500 font-medium">Peso Actual</span>
-                                <span className="font-bold text-black">{currentWeight} kg</span>
-                              </div>
-                              <div className="flex justify-between items-center pt-1">
-                                <span className="text-gray-500 font-medium">Peso Objetivo</span>
-                                <span className="font-black text-emerald-600">{targetWeight} kg</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        {/* Tarjeta Cumplimiento (Donut Chart) */}
-                        <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm flex flex-col items-center justify-center">
-                           <h3 className="text-xl font-bold text-black mb-4 w-full text-center">Cumplimiento</h3>
-                           <div className="relative w-32 h-32 mt-2">
-                              {/* SVG Mágico para el círculo */}
-                              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                 <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f3f4f6" strokeWidth="10" />
-                                 <circle cx="50" cy="50" r="40" fill="transparent" stroke="#1A1A1A" strokeWidth="10" strokeDasharray={`${progressPercent * 2.51} 251`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                              </svg>
-                              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                 <span className="text-3xl font-black text-black">{progressPercent}%</span>
-                              </div>
-                           </div>
-                        </div>
-                     </div>
-
-{/* ─── ACÁ ABAJO RESTAURAMOS TUS RM Y LOGROS ─── */}
-                    <TabEvolucion rms={rms} />
-
-                     {/* ─── ANÁLISIS DE LA IA (RMS) ─── */}
-                     <div className="bg-blue-50 border border-blue-100 p-8 md:p-12 rounded-[2rem] relative overflow-hidden mt-10 shadow-sm">
-                        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-                           <div>
-                              <h3 className="text-2xl font-black italic text-black uppercase flex items-center gap-3 tracking-tight mb-2">
-                                 <span className="text-3xl">🤖</span> Análisis Estructural <span className="text-blue-500">AI</span>
-                              </h3>
-                              <p className="text-gray-500 text-sm font-medium">Detectá desbalances evaluando las proporciones de tus levantamientos.</p>
-                           </div>
-                           <button
-                              onClick={handleAnalyzeRMs}
-                              disabled={rmAiLoading}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 flex-shrink-0 w-full sm:w-auto active:scale-95"
-                           >
-                              {rmAiLoading ? 'PROCESANDO...' : 'AUDITAR MARCAS'}
-                           </button>
-                        </div>
-                        
-                        {rmAiFeedback && (
-                           <div className="mt-8 bg-white border border-blue-200 p-6 rounded-[1.5rem] animate-in slide-in-from-top-4 shadow-sm">
-                              <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-3 flex items-center gap-3">
-                                 <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> Reporte Biomecánico
-                              </p>
-                              <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{rmAiFeedback}</p>
-                           </div>
-                        )}
-                     </div>
-
-{/* ─── CALCULADORA DE PORCENTAJES Y CALENTAMIENTO IA ─── */}
-                     <div className="bg-white border border-gray-100 p-8 md:p-10 rounded-[2rem] shadow-sm relative overflow-hidden mt-10">
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 border-b border-gray-100 pb-6">
-                           <div>
-                              <h3 className="text-2xl font-black italic text-black uppercase tracking-tight flex items-center gap-3">
-                                 <span className="text-3xl">🔥</span> Calculadora de <span className="text-amber-500">Porcentajes</span>
-                              </h3>
-                              <p className="text-gray-500 text-sm font-medium mt-1">Calculá tus series efectivas y generá un calentamiento específico con IA.</p>
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                           <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                              <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">1. Movimiento</label>
-                              <select value={calcLift} onChange={(e) => setCalcLift(e.target.value)} className="w-full bg-white border border-gray-200 p-4 rounded-xl text-sm font-black text-black uppercase tracking-widest outline-none focus:border-amber-500 shadow-sm">
-                                 <option value="squat">Sentadilla</option>
-                                 <option value="bench">Press Banca</option>
-                                 <option value="deadlift">Peso Muerto</option>
-                                 <option value="military">Press Militar</option>
-                                 <option value="dips">Fondos</option>
-                              </select>
-                           </div>
-                           
-                           <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                              <div className="flex justify-between items-center mb-3">
-                                 <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest block">2. Intensidad</label>
-                                 <span className="text-amber-600 font-black text-lg bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">{calcPercent}%</span>
-                              </div>
-                              <input type="range" min="40" max="100" step="2.5" value={calcPercent} onChange={(e) => setCalcPercent(Number(e.target.value))} className="w-full accent-amber-500 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer mt-2" />
-                           </div>
-
-                           <div className="bg-black border border-zinc-800 p-5 rounded-2xl flex flex-col items-center justify-center shadow-md">
-                              <span className="text-[10px] md:text-xs font-black uppercase text-zinc-400 tracking-widest mb-1">Carga a utilizar</span>
-                              <div className="flex items-baseline gap-1">
-                                 <span className="text-4xl md:text-5xl font-black text-white">{calculatedWeight}</span>
-                                 <span className="text-amber-500 font-black text-sm">KG</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        <button 
-                           onClick={handleGenerateWarmup}
-                           disabled={generatingWarmup || calculatedWeight === 0}
-                           className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest transition-all shadow-md active:scale-95 disabled:opacity-50 flex justify-center items-center gap-3"
-                        >
-                           {generatingWarmup ? 'DISEÑANDO APROXIMACIÓN...' : '🤖 GENERAR PROTOCOLO DE CALENTAMIENTO AI'}
-                        </button>
-
-                        {warmupPlan && (
-                           <div className="mt-8 bg-amber-50/50 border border-amber-200 p-6 md:p-8 rounded-[1.5rem] animate-in slide-in-from-top-4">
-                              <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-                                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span> Protocolo de Aproximación
-                              </p>
-                              <p className="text-sm text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">{warmupPlan}</p>
-                           </div>
-                        )}
-                     </div>
-
-                     {/* ─── TROFEOS (LOGROS) ─── */}
-                     <div className="pt-16 mt-16 border-t border-gray-200">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
-                            <div>
-                                <h3 className="text-3xl md:text-4xl font-black italic text-black uppercase tracking-tighter">Logros <span className="text-amber-500">Élite</span></h3>
-                                <p className="text-gray-500 text-xs mt-2 font-medium tracking-wide">TOTAL ABSOLUTO: <span className="text-amber-600 font-black text-lg ml-1 bg-amber-50 px-2 py-1 rounded-md border border-amber-100">{totalAbsoluto} KG</span></p>
-                            </div>
-                            <button 
-                                onClick={shareTrophies}
-                                className="bg-black hover:bg-amber-500 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-3 w-full sm:w-auto"
-                            >
-                                <span>Compartir Legado</span>
-                            </button>
-                        </div>
-
-                        <div className="space-y-12">
-                           {Object.entries(groupedTrophies).map(([category, items], index) => (
-                              <div key={index} className="animate-in fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-                                 <h4 className="text-amber-500 font-black tracking-[0.2em] text-xs uppercase mb-6 border-b border-gray-200 pb-3">
-                                    {category}
-                                 </h4>
-                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                    {items.map(trophy => (
-                                        <div key={trophy.id} className={`p-5 rounded-[1.5rem] border transition-all flex flex-col justify-between min-h-[140px] relative overflow-hidden ${trophy.unlocked ? 'bg-white border-amber-200 shadow-sm scale-[1.02]' : 'bg-gray-50 border-gray-200 opacity-60 grayscale'}`}>
-                                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                               <span className={`text-4xl ${trophy.unlocked ? 'animate-pulse' : ''}`}>{trophy.icon}</span>
-                                               {trophy.unlocked ? (
-                                                  <span className="text-white font-black text-[10px] bg-amber-500 px-2 py-0.5 rounded-sm">✓</span>
-                                               ) : (
-                                                  <span className="text-gray-400 text-[10px] bg-gray-200 px-2 py-0.5 rounded-sm">🔒</span>
-                                               )}
-                                            </div>
-                                            <div className="relative z-10">
-                                               <h4 className={`font-black italic uppercase text-[11px] tracking-tight leading-tight mb-1 ${trophy.unlocked ? 'text-black' : 'text-gray-500'}`}>{trophy.title}</h4>
-                                               <p className={`text-[9px] font-bold uppercase tracking-widest ${trophy.unlocked ? 'text-amber-600' : 'text-gray-400'}`}>{trophy.desc}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
-
-                  </div>
-               )}
-             </>
-           );
-        })()}
-{/* ─── PESTAÑA DE AUDITORÍA DE RECUPERACIÓN (CHECK-IN) ─── */}
+{/* ─── PESTAÑA DE AUDITORÍA DE RECUPERACIÓN (REFACTORIZADA) ─── */}
         {activeTab === "checkin" && (
-           <>
-             {!canViewSNC ? (
-                 <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 md:p-16 bg-white border border-red-100 rounded-[3rem] shadow-sm relative overflow-hidden text-center h-[60vh] min-h-[400px]">
-                     <div className="w-20 h-20 md:w-24 md:h-24 bg-red-50 border border-red-100 rounded-full flex items-center justify-center text-4xl md:text-5xl mb-6 md:mb-8 relative z-10 shadow-sm">⚡</div>
-                     <h3 className="text-3xl md:text-5xl font-black italic text-black mb-4 tracking-tighter relative z-10 uppercase">MÓDULO <span className="text-red-500">RESTRINGIDO</span></h3>
-                     <p className="text-gray-500 font-medium max-w-xl mx-auto mb-10 text-sm md:text-lg relative z-10 leading-relaxed px-4">El análisis de fatiga sistémica (SNC) y la comunicación diaria de variables biológicas están habilitadas únicamente para la Mentoría Élite.</p>
-                     <a href={whatsappUpsellUrl} target="_blank" className="relative z-10 inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-8 md:px-12 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-sm hover:scale-105 active:scale-95 w-full sm:w-auto">
-                         POSTULARME A MENTORÍA ÉLITE 🚀
-                     </a>
-                 </div>
-             ) : (
-                <div className="max-w-6xl mx-auto space-y-10 md:space-y-12 animate-in fade-in duration-500">
-                   <div className="bg-white border border-gray-100 p-8 md:p-16 rounded-[2.5rem] md:rounded-[4rem] shadow-sm relative overflow-hidden">
-                      
-                      <div className="text-center mb-10 md:mb-14 relative z-10">
-                         <span className="bg-amber-50 text-amber-600 border border-amber-200 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Métricas de Alto Rendimiento</span>
-                         <h2 className="text-3xl md:text-5xl lg:text-6xl font-black italic text-black tracking-tighter uppercase mb-4">AUDITORÍA DE <span className="text-amber-500 block sm:inline">RECUPERACIÓN</span></h2>
-                         <p className="text-gray-500 text-sm md:text-base font-medium max-w-2xl mx-auto">Datos fundamentales para el ajuste auto-rregulado (RPE) y el cálculo de volumen semanal. La IA y el Coach analizarán su estado biológico.</p>
-                      </div>
-
-                      <form onSubmit={handleSaveCheckin} className="space-y-6 md:space-y-8 relative z-10 max-w-4xl mx-auto pb-10">
-                         
-                         {/* PILAR 1: BIO-MARCADORES */}
-                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-amber-200 transition-colors">
-                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>🧬</span> Pilar 1: Bio-Marcadores Diarios</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl hover:border-amber-300 transition-colors">
-                                   <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Peso Corporal (KG)</label>
-                                   <input 
-                                      type="number" step="0.1" required
-                                      value={checkin.weight} onChange={e => setCheckin({...checkin, weight: e.target.value})}
-                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-black outline-none focus:text-amber-500 transition-colors placeholder:text-gray-300"
-                                      placeholder="Ej: 80.5"
-                                   />
-                                </div>
-                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl hover:border-blue-300 transition-colors">
-                                   <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Sueño Efectivo (Horas)</label>
-                                   <input 
-                                      type="number" step="0.5" required
-                                      value={checkin.sleep} onChange={e => setCheckin({...checkin, sleep: e.target.value})}
-                                      className="w-full bg-transparent text-3xl md:text-4xl font-black text-black outline-none focus:text-blue-500 transition-colors placeholder:text-gray-300"
-                                      placeholder="Ej: 7.5"
-                                   />
-                                </div>
-                            </div>
-                         </div>
-
-                         {/* PILAR 2: METABOLISMO Y NUTRICIÓN */}
-                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-orange-200 transition-colors">
-                            <h3 className="text-orange-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>🥩</span> Pilar 2: Metabolismo y Nutrición</h3>
-                            
-                            <div className="space-y-8">
-                                <div className="bg-gray-50 border border-gray-200 p-6 rounded-2xl">
-                                    <div className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
-                                      <span>Adherencia Nutricional (Semana)</span>
-                                      <span className="text-orange-600 text-xl md:text-2xl font-black italic bg-orange-100 px-3 py-1 rounded-xl border border-orange-200">{checkin.adherence}%</span>
-                                    </div>
-                                    <input 
-                                       type="range" min="0" max="100" step="5" required
-                                       value={checkin.adherence} onChange={e => setCheckin({...checkin, adherence: e.target.value})}
-                                       className="w-full accent-orange-500 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer border border-gray-300"
-                                    />
-                                    <div className="flex justify-between text-[9px] text-gray-400 mt-3 font-black uppercase tracking-widest">
-                                      <span>0% (Desastre)</span>
-                                      <span>100% (Perfecto)</span>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
-                                          <span>Nivel de Hambre</span>
-                                          <span className="text-black font-black">{checkin.hunger}/10</span>
-                                        </div>
-                                        <input type="range" min="1" max="10" required value={checkin.hunger} onChange={e => setCheckin({...checkin, hunger: e.target.value})} className="w-full accent-black h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Saciado</span><span>Hambriento</span></div>
-                                    </div>
-                                    
-                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
-                                          <span>Energía General</span>
-                                          <span className="text-amber-500 font-black">{checkin.energy}/10</span>
-                                        </div>
-                                        <input type="range" min="1" max="10" required value={checkin.energy} onChange={e => setCheckin({...checkin, energy: e.target.value})} className="w-full accent-amber-500 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Agotado</span><span>Eléctrico</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                         </div>
-
-                         {/* PILAR 3: RENDIMIENTO Y FATIGA */}
-                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-red-200 transition-colors">
-                            <h3 className="text-red-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>⚠️</span> Pilar 3: Fatiga del SNC y Articular</h3>
-                            
-                            <div className="space-y-8">
-                                <div className="bg-red-50 border border-red-100 p-6 rounded-2xl hover:border-red-200 transition-all">
-                                    <div className="text-[10px] md:text-xs font-black uppercase text-red-500 tracking-widest mb-4 flex justify-between items-center">
-                                      <span>Estrés Sistémico General</span>
-                                      <span className="text-red-600 text-xl md:text-2xl font-black italic bg-red-100 px-3 py-1 rounded-xl border border-red-200">{checkin.stress}/10</span>
-                                    </div>
-                                    <input type="range" min="1" max="10" required value={checkin.stress} onChange={e => setCheckin({...checkin, stress: e.target.value})} className="w-full accent-red-500 h-2 bg-white rounded-full appearance-none cursor-pointer border border-red-200" />
-                                    <div className="flex justify-between text-[9px] text-red-400 mt-3 font-black uppercase tracking-widest"><span>1 (Calmado)</span><span>10 (Colapsado)</span></div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                                        <div className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-4 flex justify-between items-center">
-                                          <span>Recuperación Muscular</span>
-                                          <span className="text-blue-500 font-black">{checkin.recovery}/10</span>
-                                        </div>
-                                        <input type="range" min="1" max="10" required value={checkin.recovery} onChange={e => setCheckin({...checkin, recovery: e.target.value})} className="w-full accent-blue-500 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer" />
-                                        <div className="flex justify-between text-[8px] text-gray-400 mt-2 font-bold uppercase"><span>Destruido (DOMS)</span><span>Recuperado al 100%</span></div>
-                                    </div>
-
-                                    <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl">
-                                        <label className="text-[9px] md:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3 block">Molestia Articular Aguda</label>
-                                        <select value={checkin.joint_pain} onChange={e => setCheckin({...checkin, joint_pain: e.target.value})} className="w-full bg-white border border-gray-200 p-3 rounded-xl text-xs text-black font-bold outline-none focus:border-red-500 transition-colors shadow-sm">
-                                            <option value="ninguno">Ninguno (Todo OK)</option>
-                                            <option value="rodillas">Rodilla / Tendón Rotuliano</option>
-                                            <option value="lumbares">Espalda Baja / Lumbares</option>
-                                            <option value="hombros">Hombro / Manguito Rotador</option>
-                                            <option value="codos">Codos / Tendinitis</option>
-                                            <option value="muñecas">Muñecas</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                         </div>
-
-                         {/* PILAR 4: EJECUCIÓN */}
-                         <div className="bg-white border border-gray-100 p-6 md:p-8 rounded-[2rem] shadow-sm group hover:border-amber-200 transition-colors">
-                            <h3 className="text-amber-500 font-black text-[10px] md:text-xs uppercase tracking-widest mb-6 border-b border-gray-100 pb-3 flex items-center gap-2"><span>⚔️</span> Pilar 4: Disciplina BII-Vintage</h3>
-                            
-                            <div className="bg-gray-50 border border-gray-200 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                                <div>
-                                    <p className="text-sm md:text-base font-black text-black uppercase tracking-tight mb-1">¿Alcanzaste el Fallo Muscular?</p>
-                                    <p className="text-[10px] md:text-xs text-gray-500 font-medium">¿Tus Top Sets llegaron al fallo real (RIR 0) con técnica estricta, o te guardaste repeticiones?</p>
-                                </div>
-                                
-                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                                    <input type="checkbox" checked={checkin.hit_failure} onChange={(e) => setCheckin({...checkin, hit_failure: e.target.checked})} className="sr-only peer" />
-                                    <div className="w-16 h-8 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-200 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-amber-500 shadow-sm"></div>
-                                    <span className={`ml-4 text-xs font-black uppercase tracking-widest ${checkin.hit_failure ? 'text-amber-500' : 'text-gray-400'}`}>{checkin.hit_failure ? 'SÍ, FALLO REAL' : 'NO, ME GUARDÉ REPS'}</span>
-                                </label>
-                            </div>
-
-                            <div className="mt-6 bg-gray-50 border border-gray-200 p-5 rounded-2xl focus-within:border-amber-400 transition-colors">
-                               <label className="text-[10px] md:text-xs font-black uppercase text-gray-500 tracking-widest mb-3 block">Registro Clínico Libre</label>
-                               <textarea 
-                                  value={checkin.notes} onChange={e => setCheckin({...checkin, notes: e.target.value})}
-                                  placeholder="Anotaciones adicionales para el Coach. Ej: 'Sentí que la banca volaba esta semana'..."
-                                  className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm md:text-base font-medium text-black outline-none resize-none h-24 md:h-32 placeholder:text-gray-400 custom-scrollbar shadow-sm focus:border-amber-400"
-                               />
-                            </div>
-                         </div>
-
-                         <div className="pt-4 md:pt-6">
-                             <button 
-                                type="submit"
-                                disabled={savingCheckin}
-                                className="w-full bg-black hover:bg-zinc-800 text-white py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] transition-all shadow-md hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
-                             >
-                                {savingCheckin ? 'COMUNICANDO DATOS AL SISTEMA...' : 'ENVIAR REPORTE AL HEAD COACH 🚀'}
-                             </button>
-                         </div>
-
-                         {/* 🔥 VEREDICTO DEL COACH EN TIEMPO REAL (CLEAN) 🔥 */}
-                         {(analyzingFatigue || fatigueVerdict) && (
-                             <div className="mt-8 mb-4 bg-amber-50 border border-amber-100 p-6 md:p-8 rounded-[2rem] shadow-sm animate-in slide-in-from-top-4">
-                                 <p className="text-[10px] md:text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                     {analyzingFatigue ? (
-                                         <><span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></span> El Coach IA está auditando tu SNC...</>
-                                     ) : (
-                                         <><span className="text-xl">⚡</span> Dictamen de Entrenamiento (Tujague AI)</>
-                                     )}
-                                 </p>
-                                 {fatigueVerdict && (
-                                     <p className="text-sm md:text-base text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">
-                                         {fatigueVerdict}
-                                     </p>
-                                 )}
-                             </div>
-                         )}
-                         
-                      </form>
-                   </div>
-
-                   {/* GRÁFICO DE FATIGA SEMANAL (CLEAN) */}
-                   {checkinHistory.length > 0 && (
-                      <div className="bg-white border border-gray-100 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-sm animate-in fade-in zoom-in duration-500 mb-24">
-                         <h3 className="text-2xl md:text-4xl font-black italic text-black mb-10 md:mb-12 text-center md:text-left">Gráfico de <span className="text-amber-500 block sm:inline">Fatiga Semanal</span></h3>
-                         
-                         <div className="h-[300px] md:h-[400px] w-full bg-white p-2 md:p-6 rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden min-w-0">
-                           <ResponsiveContainer width="100%" height="100%">
-                             <LineChart data={checkinHistory} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
-                               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                               <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} dy={10} />
-                               <YAxis yAxisId="left" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} dx={-10} />
-                               <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} domain={[0, 10]} dx={10} />
-                               
-                               <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '16px', padding: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} itemStyle={{ color: '#000', fontSize: '12px', fontWeight: 'bold' }} />
-                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '20px', fontWeight: 'bold', color: '#4b5563' }} iconType="circle" />
-                               
-                               <Line yAxisId="left" type="monotone" dataKey="weight" name="Peso (kg)" stroke="#f59e0b" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
-                               <Line yAxisId="right" type="monotone" dataKey="stress" name="Estrés (1-10)" stroke="#ef4444" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
-                               <Line yAxisId="right" type="monotone" dataKey="sleep" name="Sueño (h)" stroke="#3b82f6" strokeWidth={4} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 8 }} />
-                             </LineChart>
-                           </ResponsiveContainer>
-                         </div>
-                      </div>
-                   )}
-                </div>
-             )}
-           </>
+            <TabCheckin 
+                canViewSNC={canViewSNC}
+                whatsappUpsellUrl={whatsappUpsellUrl}
+                handleRestrictedClick={handleRestrictedClick}
+                checkin={checkin}
+                setCheckin={setCheckin}
+                handleSaveCheckin={handleSaveCheckin}
+                savingCheckin={savingCheckin}
+                analyzingFatigue={analyzingFatigue}
+                fatigueVerdict={fatigueVerdict}
+                checkinHistory={checkinHistory}
+            />
         )}
 
-{/* ─── PESTAÑA NUTRICIÓN (NUEVA) ─── */}
+{/* ─── PESTAÑA NUTRICIÓN (REFACTORIZADA) ─── */}
         {activeTab === "nutricion" && (
-           <div className="animate-in fade-in duration-500">
-               <AthleteNutritionDashboard userId={user?.id} />
-           </div>
+            <TabNutricion 
+                isElitePlan={isElitePlan}
+                whatsappUpsellUrl={whatsappUpsellUrl}
+                handleRestrictedClick={handleRestrictedClick}
+                userId={user?.id}
+            />
         )}
 
 {/* ─── PESTAÑA AFILIADOS (NUEVA) ─── */}
@@ -2974,6 +2354,14 @@ const downloadPDF = async () => {
               commissionPct={order?.affiliate_commission || 20}
            />
         )}
+
+        {/* 🔥 EL MODAL INVISIBLE ESPERANDO SER ACTIVADO 🔥 */}
+<UpgradeModal 
+    isOpen={upgradeModalData.isOpen} 
+    featureName={upgradeModalData.featureName}
+    onClose={() => setUpgradeModalData({ isOpen: false, featureName: '' })}
+    whatsappUrl={whatsappUpsellUrl} // 🔥 Le pasamos la URL aquí
+/>
 
         </div>
 

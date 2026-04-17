@@ -28,7 +28,7 @@ interface CheckoutClientProps {
     title: string; 
     subtitle: string; 
     price: number;
-    currency?: "ARS" | "USD"; // <-- NUEVO: Recibe la moneda del PricingV2
+    currency?: "ARS" | "USD";
   };
   extraVideo: boolean;
   extraPrice: number;
@@ -86,31 +86,24 @@ export default function CheckoutClient({
   // ============================================================================
   // 🧠 MOTOR FINANCIERO UNIVERSAL (Detecta USD o ARS dinámicamente)
   // ============================================================================
-  // Si no viene la moneda, inferimos por el precio para que no se rompa nada viejo
   const planCurrency = selectedPlan.currency || (selectedPlan.price < 5000 ? "USD" : "ARS");
   
-  // Normalizamos el precio base a ambas monedas según su origen
   const basePriceARS = planCurrency === "USD" ? selectedPlan.price * TIPO_CAMBIO_USD : selectedPlan.price;
   const basePriceUSD = planCurrency === "USD" ? selectedPlan.price : Math.round(selectedPlan.price / TIPO_CAMBIO_USD);
 
-  // Extras (Order Bump + Video)
   const extrasARS = (orderBump ? ORDER_BUMP_PRICE_ARS : 0) + (finalExtraVideo ? extraPrice : 0);
   const extrasUSD = (orderBump ? ORDER_BUMP_PRICE_USD : 0) + (finalExtraVideo ? Math.round(extraPrice / TIPO_CAMBIO_USD) : 0);
 
-  // Subtotales puros
   const subtotalARS = basePriceARS + extrasARS;
   const subtotalUSD = basePriceUSD + extrasUSD;
 
-  // Aplicar Descuentos
   const discountMultiplier = discountApplied ? 1 - discountApplied.percentage / 100 : 1;
   
-  // Totales Finales
   const totalARS = Math.round(subtotalARS * discountMultiplier);
   const totalUSD = Math.round(subtotalUSD * discountMultiplier);
   
-  // Cotizaciones Crypto
-  const totalCrypto = totalUSD; // 1 USDT / USDC = 1 USD
-  const totalBTC = (totalUSD / 65000).toFixed(5); // Aprox BTC
+  const totalCrypto = totalUSD;
+  const totalBTC = (totalUSD / 65000).toFixed(5); 
   // ============================================================================
 
   const captureAbandon = async () => {
@@ -135,7 +128,7 @@ export default function CheckoutClient({
               email: formData.email,
               phone: formData.phone,
               plan_title: selectedPlan.title,
-              plan_price: totalARS, // Guardamos en pesos localmente
+              plan_price: totalARS, 
             },
           ])
           .select()
@@ -203,12 +196,12 @@ export default function CheckoutClient({
     e.preventDefault();
 
     if (!formData.name || !formData.email || !formData.password || !formData.phone) {
-      alert("Por favor, completá todos los campos obligatorios (*)");
+      alert("Fiera, completá todos los campos obligatorios (*) para avanzar.");
       return;
     }
 
     if (formData.password.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+      alert("La contraseña debe tener al menos 6 caracteres por seguridad.");
       return;
     }
 
@@ -243,7 +236,7 @@ export default function CheckoutClient({
         });
 
         if (signInError) {
-          alert("Ese email ya tiene cuenta pero la contraseña es incorrecta. Si ya eras alumno, usá tu contraseña anterior.");
+          alert("Ese email ya tiene cuenta pero la contraseña es incorrecta. Usá tu contraseña anterior para ingresar.");
           setLoading(false);
           return;
         }
@@ -253,7 +246,7 @@ export default function CheckoutClient({
         }
 
       } else if (authError) {
-        throw new Error("No pudimos crear tu cuenta de acceso: " + authError.message);
+        throw new Error("Fallo en la creación de bóveda: " + authError.message);
       }
 
       const methodMapping = {
@@ -263,7 +256,6 @@ export default function CheckoutClient({
         usd: "international_usd",
       };
 
-      // Si paga en Crypto o USD, mandamos el total en dólares al backend
       const finalApiPrice = (paymentMethod === "usd" || paymentMethod === "crypto") ? totalUSD : totalARS;
 
       if (isStaticPlan && paymentMethod === "mercadopago") {
@@ -282,7 +274,7 @@ export default function CheckoutClient({
           .single();
 
         if (productError || !dbProduct) {
-           throw new Error("No pudimos encontrar el producto en la base de datos. Avisá al Coach.");
+           throw new Error("Error interno al localizar el plan estructural. Avisá al Coach.");
         }
 
         const idempotencyKey = `checkout_${cleanEmail}_${Date.now()}`;
@@ -337,7 +329,7 @@ export default function CheckoutClient({
 
         const data = await response.json();
 
-        if (!response.ok) throw new Error(data.error || "Error al procesar la orden");
+        if (!response.ok) throw new Error(data.error || "Error al encriptar la orden");
 
         if (abandonIdRef.current) {
           await supabase.from("abandoned_checkouts").delete().eq("id", abandonIdRef.current);
@@ -352,14 +344,14 @@ export default function CheckoutClient({
 
     } catch (err: any) {
       console.error(err);
-      alert("⚠️ Error: " + err.message);
+      alert("⚠️ Error Clínico: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const inputClass =
-    "w-full bg-black/40 border-2 border-zinc-800/80 rounded-xl px-5 py-4 text-white font-bold text-sm focus:border-emerald-500 focus:bg-zinc-900 outline-none transition-all placeholder:text-zinc-600 placeholder:font-medium";
+    "w-full bg-black/40 border-2 border-zinc-800/80 rounded-xl px-5 py-4 text-white font-bold text-sm focus:border-amber-500 focus:bg-zinc-900 outline-none transition-all placeholder:text-zinc-600 placeholder:font-medium";
   const labelClass =
     "block text-[10px] font-black text-zinc-400 mb-2 uppercase tracking-widest ml-1";
 
@@ -372,21 +364,21 @@ export default function CheckoutClient({
               className={`w-12 h-12 rounded-2xl border flex items-center justify-center font-black text-xl shadow-lg shrink-0 ${
                 isStaticPlan
                   ? "bg-zinc-900 border-zinc-700 text-white"
-                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-500"
               }`}
             >
               1
             </div>
             <div>
               <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">
-                Ficha de Acceso
+                Ficha Biométrica
               </h3>
               <p
                 className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ${
-                  isStaticPlan ? "text-zinc-400" : "text-emerald-500"
+                  isStaticPlan ? "text-zinc-400" : "text-amber-500"
                 }`}
               >
-                Creación de cuenta privada
+                Creación de tu Bóveda Privada
               </p>
             </div>
           </div>
@@ -395,7 +387,7 @@ export default function CheckoutClient({
             <div className="grid grid-cols-1 gap-6">
               <div>
                 <label className={labelClass}>
-                  Nombre Completo <span className="text-emerald-500">*</span>
+                  Nombre Completo <span className="text-amber-500">*</span>
                 </label>
                 <input
                   required
@@ -413,7 +405,7 @@ export default function CheckoutClient({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={labelClass}>
-                  Email <span className="text-emerald-500">*</span>
+                  Email <span className="text-amber-500">*</span>
                 </label>
                 <input
                   required
@@ -429,11 +421,11 @@ export default function CheckoutClient({
               </div>
               <div>
                 <label className={labelClass}>
-                  Creá una Contraseña <span className="text-emerald-500">*</span>
+                  Creá una Contraseña <span className="text-amber-500">*</span>
                 </label>
                 <input
                   required
-                  type="text"
+                  type="password"
                   className={inputClass}
                   placeholder="Para entrar a tu panel"
                   value={formData.password}
@@ -447,7 +439,7 @@ export default function CheckoutClient({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={labelClass}>
-                  WhatsApp (Soporte) <span className="text-emerald-500">*</span>
+                  WhatsApp (Soporte) <span className="text-amber-500">*</span>
                 </label>
                 <input
                   required
@@ -478,17 +470,17 @@ export default function CheckoutClient({
               className={`p-4 border rounded-xl mt-6 text-center ${
                 isStaticPlan
                   ? "bg-zinc-950 border-zinc-800"
-                  : "bg-emerald-500/10 border-emerald-500/20"
+                  : "bg-amber-500/10 border-amber-500/20"
               }`}
             >
               <p
                 className={`text-[10px] font-bold uppercase tracking-widest ${
-                  isStaticPlan ? "text-zinc-500" : "text-emerald-400"
+                  isStaticPlan ? "text-zinc-500" : "text-amber-500"
                 }`}
               >
                 {isStaticPlan
                   ? "Obtendrás acceso automático al material al confirmar el pago."
-                  : "Al completar el pago accederás a tu panel para tu evaluación clínica."}
+                  : "Al completar el pago accederás a tu panel para tu evaluación biomecánica."}
               </p>
             </div>
           </div>
@@ -500,21 +492,21 @@ export default function CheckoutClient({
               className={`w-12 h-12 rounded-2xl border flex items-center justify-center font-black text-xl shadow-lg shrink-0 ${
                 isStaticPlan
                   ? "bg-zinc-900 border-zinc-700 text-white"
-                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                  : "bg-amber-500/10 border-amber-500/30 text-amber-500"
               }`}
             >
               2
             </div>
             <div>
               <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase">
-                Método de Pago
+                Motor de Pago
               </h3>
               <p
                 className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ${
-                  isStaticPlan ? "text-zinc-400" : "text-emerald-500"
+                  isStaticPlan ? "text-zinc-400" : "text-amber-500"
                 }`}
               >
-                Seleccioná tu divisa
+                Cifrado End-To-End
               </p>
             </div>
           </div>
@@ -525,7 +517,7 @@ export default function CheckoutClient({
               onClick={() => setPaymentMethod("mercadopago")}
               className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${
                 paymentMethod === "mercadopago"
-                  ? "border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-[0_0_20px_rgba(245,158,11,0.1)]"
                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30"
               }`}
             >
@@ -536,7 +528,7 @@ export default function CheckoutClient({
               onClick={() => setPaymentMethod("transferencia")}
               className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${
                 paymentMethod === "transferencia"
-                  ? "border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-[0_0_20px_rgba(245,158,11,0.1)]"
                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30"
               }`}
             >
@@ -547,7 +539,7 @@ export default function CheckoutClient({
               onClick={() => setPaymentMethod("crypto")}
               className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${
                 paymentMethod === "crypto"
-                  ? "border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-[0_0_20px_rgba(245,158,11,0.1)]"
                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30"
               }`}
             >
@@ -558,7 +550,7 @@ export default function CheckoutClient({
               onClick={() => setPaymentMethod("usd")}
               className={`p-4 rounded-xl border-2 text-[11px] font-black uppercase tracking-widest transition-all ${
                 paymentMethod === "usd"
-                  ? "border-emerald-500 bg-emerald-500/10 text-white shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                  ? "border-amber-500 bg-amber-500/10 text-white shadow-[0_0_20px_rgba(245,158,11,0.1)]"
                   : "border-zinc-800 text-zinc-500 hover:border-zinc-600 bg-black/30"
               }`}
             >
@@ -576,18 +568,18 @@ export default function CheckoutClient({
             {paymentMethod === "transferencia" && (
               <p className="text-sm font-medium text-zinc-300">
                 Generá tu pedido para ver el{" "}
-                <span className="text-emerald-400 font-bold">Alias/CBU</span> y
-                transferir en pesos.
+                <span className="text-amber-500 font-bold">Alias/CBU</span> y
+                transferir en pesos sin comisiones.
               </p>
             )}
             {paymentMethod === "crypto" && (
               <p className="text-sm font-medium text-zinc-300">
                 Generá tu pedido para ver las billeteras y enviar{" "}
-                <span className="font-mono text-emerald-400 font-bold">
+                <span className="font-mono text-amber-500 font-bold">
                   {totalCrypto} USDT/USDC
                 </span>{" "}
                 o{" "}
-                <span className="font-mono text-emerald-400 font-bold">
+                <span className="font-mono text-amber-500 font-bold">
                   {totalBTC} BTC
                 </span>.
               </p>
@@ -595,7 +587,7 @@ export default function CheckoutClient({
             {paymentMethod === "usd" && (
               <p className="text-sm font-medium text-zinc-300">
                 Generá tu pedido para ver los datos bancarios y transferir{" "}
-                <span className="font-mono text-emerald-400 font-bold">
+                <span className="font-mono text-amber-500 font-bold">
                   U$D {totalUSD}
                 </span>{" "}
                 (ACH o Local).
@@ -609,12 +601,12 @@ export default function CheckoutClient({
             </div>
             <div>
               <strong className="text-white text-sm block mb-1 tracking-wide">
-                Términos de Inscripción
+                Acuerdo de Disciplina
               </strong>
               <p className="text-xs text-zinc-400 leading-relaxed font-medium">
                 {selectedPlan.id === "bii-performance-mensual" 
-                  ? "Al continuar, aceptás suscribirte a este servicio. Podés cancelar tu suscripción en cualquier momento desde tu panel."
-                  : "Al continuar, aceptás que este es un servicio de pago único y declarás estar apto físicamente. No se realizan reembolsos por bajas anticipadas."
+                  ? "Al continuar, aceptás el compromiso de pago recurrente. Tu suscripción mantiene activo tu panel y la IA. Cancelable en cualquier momento."
+                  : "Al continuar, confirmas que este es un pago único por acceso a la estructura. Declarás estar apto físicamente y que tu compromiso es total. No hay reembolsos por abandono."
                 }
               </p>
             </div>
@@ -629,7 +621,7 @@ export default function CheckoutClient({
               className={`text-[10px] font-black mb-2 uppercase tracking-[0.2em] border-b pb-2 inline-block ${
                 isStaticPlan
                   ? "text-white border-white/20"
-                  : "text-emerald-500 border-emerald-500/20"
+                  : "text-amber-500 border-amber-500/20"
               }`}
             >
               Tu Selección
@@ -647,13 +639,13 @@ export default function CheckoutClient({
             className={`relative mb-8 rounded-2xl border-2 p-5 sm:p-6 cursor-pointer transition-all duration-300 shadow-xl
             ${
               orderBump
-                ? "border-emerald-500 bg-emerald-950/40"
-                : "border-dashed border-zinc-600 bg-zinc-950 hover:border-emerald-500/50 hover:bg-zinc-900/80"
+                ? "border-amber-500 bg-amber-950/40"
+                : "border-dashed border-zinc-600 bg-zinc-950 hover:border-amber-500/50 hover:bg-zinc-900/80"
             }`}
             onClick={() => setOrderBump(!orderBump)}
           >
             <div className="absolute -top-3 sm:-top-4 left-4 sm:left-6 bg-red-600 text-white text-[9px] sm:text-[10px] font-black px-3 sm:px-4 py-1 sm:py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-              🔥 Oferta única antes de pagar
+              🔥 Oferta única pre-checkout
             </div>
 
             <div className="flex items-start gap-4">
@@ -661,25 +653,25 @@ export default function CheckoutClient({
                 type="checkbox"
                 checked={orderBump}
                 onChange={() => setOrderBump(!orderBump)}
-                className="mt-1 w-5 h-5 sm:w-6 sm:h-6 accent-emerald-500 cursor-pointer shrink-0"
+                className="mt-1 w-5 h-5 sm:w-6 sm:h-6 accent-amber-500 cursor-pointer shrink-0"
               />
               <div>
                 <p className="font-black text-sm sm:text-base italic tracking-tight mb-1 text-white leading-tight">
-                  Sí, quiero blindar mi cuerpo y potenciar mis resultados
+                  Sí, quiero el Protocolo de Aceleración SNC y Blindaje Articular
                 </p>
                 <div className="flex items-center gap-3 mt-1 mb-2">
                   <span className="line-through text-zinc-500 text-xs sm:text-sm font-bold">
                     {paymentMethod === "usd" || paymentMethod === "crypto" ? "U$D 25" : "$25.000"}
                   </span>
-                  <span className="text-emerald-400 font-black text-sm sm:text-base tracking-widest">
+                  <span className="text-amber-500 font-black text-sm sm:text-base tracking-widest">
                     + {paymentMethod === "usd" || paymentMethod === "crypto" ? `U$D ${ORDER_BUMP_PRICE_USD}` : `$${ORDER_BUMP_PRICE_ARS.toLocaleString()} ARS`}
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-medium">
-                  Agrega el protocolo exacto de 8 minutos para evitar lesiones bajo la barra, suplementación científica y nutrición peri-entreno.
+                  Manual táctico de suplementación científica, nutrición peri-entreno y rutina de 8 min para prevenir roturas bajo carga pesada.
                   <br />
                   <span className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2 block">
-                    *Material informativo. No incluye asesoría.
+                    *Material adicional. No requiere asesoría directa.
                   </span>
                 </p>
               </div>
@@ -690,7 +682,7 @@ export default function CheckoutClient({
           <div className="space-y-4 mb-8 border-y border-zinc-800/80 py-6">
             <div className="flex justify-between items-center text-sm">
               <span className="text-zinc-300 font-medium">
-                Suscripción Base
+                {isStaticPlan ? "Bóveda Estática" : "Suscripción Élite BII"}
               </span>
               <span className="text-white font-mono text-lg">
                 {paymentMethod === "usd" || paymentMethod === "crypto"
@@ -701,11 +693,11 @@ export default function CheckoutClient({
             
             {orderBump && (
               <div className="flex justify-between items-center text-sm">
-                <span className="text-emerald-400 font-medium flex items-center gap-2">
-                  <span className="bg-emerald-500/20 px-1.5 rounded font-black">+</span>
-                  Kit Acelerador BII
+                <span className="text-amber-500 font-medium flex items-center gap-2">
+                  <span className="bg-amber-500/20 px-1.5 rounded font-black">+</span>
+                  Kit Acelerador SNC
                 </span>
-                <span className="text-emerald-400 font-mono text-lg">
+                <span className="text-amber-500 font-mono text-lg">
                   {paymentMethod === "usd" || paymentMethod === "crypto"
                     ? `+U$D ${ORDER_BUMP_PRICE_USD}`
                     : `+$${ORDER_BUMP_PRICE_ARS.toLocaleString()}`}
@@ -720,7 +712,7 @@ export default function CheckoutClient({
             }`}
           >
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 block">
-              ¿Código de Referido / Promoción?
+              ¿Código de Atleta Afiliado?
             </label>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -730,7 +722,7 @@ export default function CheckoutClient({
                   setReferralCode(e.target.value.toUpperCase())
                 }
                 placeholder="Ej: TUJAGUE15"
-                className="w-full sm:flex-1 bg-black border border-zinc-700 rounded-xl px-5 py-4 text-white font-bold text-sm outline-none focus:border-emerald-500 transition-all uppercase placeholder:text-zinc-600"
+                className="w-full sm:flex-1 bg-black border border-zinc-700 rounded-xl px-5 py-4 text-white font-bold text-sm outline-none focus:border-amber-500 transition-all uppercase placeholder:text-zinc-600"
                 disabled={discountApplied !== null || validatingCode}
               />
               {!discountApplied ? (
@@ -744,7 +736,7 @@ export default function CheckoutClient({
                   }
                   className="w-full sm:w-auto bg-zinc-800 hover:bg-zinc-700 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center whitespace-nowrap"
                 >
-                  {validatingCode ? "Validando..." : "Aplicar Código"}
+                  {validatingCode ? "Analizando..." : "Aplicar"}
                 </button>
               ) : (
                 <button
@@ -766,7 +758,7 @@ export default function CheckoutClient({
             )}
             {discountApplied && (
               <p className="text-emerald-400 text-xs font-black mt-4 bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 flex items-center gap-2">
-                <span className="text-xl">✅</span> ¡CÓDIGO APLICADO! (-
+                <span className="text-xl">✅</span> ¡PASE VIP APLICADO! (-
                 {discountApplied.percentage}%)
               </p>
             )}
@@ -774,7 +766,7 @@ export default function CheckoutClient({
 
           <div className="flex justify-between items-end mb-10">
             <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">
-              Inversión Final
+              Tonelaje Final
             </span>
             <div className="text-right">
               {discountApplied && (
@@ -788,7 +780,7 @@ export default function CheckoutClient({
                 className={`text-5xl font-black tracking-tighter ${
                   discountApplied
                     ? "text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]"
-                    : "text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400"
+                    : "text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-200"
                 }`}
               >
                 {paymentMethod === "usd" || paymentMethod === "crypto"
@@ -809,7 +801,7 @@ export default function CheckoutClient({
             className={`relative w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 overflow-hidden group border border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
               isStaticPlan
                 ? "bg-white hover:bg-zinc-200 text-black shadow-[0_0_40px_rgba(255,255,255,0.2)]"
-                : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_40px_rgba(16,185,129,0.3)]"
+                : "bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_40px_rgba(245,158,11,0.3)]"
             } active:scale-95`}
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
@@ -817,10 +809,10 @@ export default function CheckoutClient({
                 <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
               )}
               {loading
-                ? "PROCESANDO PEDIDO..."
+                ? "SISTEMA PROCESANDO..."
                 : paymentMethod === "mercadopago"
-                ? "IR A PAGAR DE FORMA SEGURA"
-                : "GENERAR PEDIDO AHORA"}
+                ? "IR A PAGAR Y MUTAR"
+                : "GENERAR ACCESO AHORA"}
             </span>
             {!loading && (
               <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>

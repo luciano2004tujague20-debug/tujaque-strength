@@ -10,7 +10,7 @@ interface FoodItem {
   protein: number;
   carbs: number;
   fats: number;
-  source: 'database' | 'api' | 'local'; // 🔥 NUEVO: Añadimos 'local'
+  source: 'database' | 'api' | 'local';
 }
 
 // 🔥 EL DICCIONARIO ÉLITE EXPANDIDO DEL HEAD COACH 🔥
@@ -98,12 +98,13 @@ const ELITE_FOODS: FoodItem[] = [
 
 export default function SmartFoodSearch({ onAddFood }: { onAddFood: (food: any) => void }) {
   const supabase = createClient();
+  
+  // 🔥 ESTADOS CORREGIDOS Y COMPLETOS 🔥
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false); 
-  
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [servingSize, setServingSize] = useState<number>(100);
 
@@ -135,7 +136,7 @@ export default function SmartFoodSearch({ onAddFood }: { onAddFood: (food: any) 
     }
   }
 
-  // 2. Buscador Inteligente HÍBRIDO (Diccionario Élite + API Global Fix)
+  // Buscador Inteligente HÍBRIDO (Diccionario Élite + API EDAMAM)
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (query.length >= 2) {
@@ -148,53 +149,54 @@ export default function SmartFoodSearch({ onAddFood }: { onAddFood: (food: any) 
     return () => clearTimeout(delayDebounceFn);
   }, [query]);
 
-  // 🔥 EL MOTOR DE BÚSQUEDA OPTIMIZADO 🔥
+  // 🔥 EL MOTOR DE BÚSQUEDA OPTIMIZADO (CONEXIÓN A TU SERVIDOR) 🔥
   async function searchCombined(searchTerm: string) {
     setIsSearching(true);
     
-    // Normalizamos el texto (quitamos tildes y mayúsculas para que "atun" = "atún" = "ATUN")
+    // Normalizamos el texto (quitamos tildes para que atun = atún)
     const normalizedTerm = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // PASO 1: Buscar en nuestra base de datos local (Súper rápido)
+    // PASO 1: Buscar en nuestra base de datos local (Súper rápido y sin internet)
     const localMatches = ELITE_FOODS.filter(food => 
       food.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalizedTerm)
     );
 
-    // PASO 2: Buscar en la API para códigos de barra o envasados
+    // PASO 2: Buscar en la API comercial (Edamam vía nuestro Backend seguro)
     let apiMatches: FoodItem[] = [];
+    
     try {
-      // 🔥 FIX DEL CTO: Volvemos a usar 'world.openfoodfacts' para evitar bloqueos de CORS en Brave.
-      const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchTerm)}&search_simple=1&action=process&json=1&page_size=10`);
-      const data = await res.json();
+      // Hacemos la petición a nuestra propia ruta /api/nutrition
+      const res = await fetch("/api/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodName: searchTerm })
+      });
 
-      if (data.products) {
-        const validProducts = data.products
-          .filter((p: any) => p.product_name && p.nutriments && p.nutriments['energy-kcal_100g'] > 0)
-          .map((p: any) => ({
-            id: p.id || Math.random().toString(),
-            name: p.product_name_es || p.product_name,
-            calories: Math.round(p.nutriments['energy-kcal_100g'] || 0),
-            protein: Math.round(p.nutriments['proteins_100g'] || 0),
-            carbs: Math.round(p.nutriments['carbohydrates_100g'] || 0),
-            fats: Math.round(p.nutriments['fat_100g'] || 0),
-            source: 'api'
-          }));
+      const json = await res.json();
 
-        // Limpiamos duplicados de la API
-        apiMatches = Array.from(new Map(validProducts.map((item: any) => [item.name, item])).values()) as FoodItem[];
+      // Si la API encontró el alimento y nos devuelve el JSON limpio
+      if (res.ok && json.success && json.data) {
+        apiMatches = [{
+          id: Math.random().toString(),
+          name: json.data.nombre,
+          calories: json.data.calorias,
+          protein: json.data.proteinas,
+          carbs: json.data.carbohidratos,
+          fats: json.data.grasas,
+          source: 'api'
+        }];
       }
     } catch (error) {
-      console.error("Error buscando en API externa:", error);
+      console.error("Error conectando con Edamam Backend:", error);
     }
 
-    // PASO 3: Unimos resultados (Primero los alimentos naturales, después los empaquetados)
-    // Mostramos todos los locales que coincidan, y hasta 6 de la API para rellenar
-    const finalResults = [...localMatches, ...apiMatches.slice(0, 6)];
+    // PASO 3: Unimos resultados (Primero los naturales del Coach, después el de la API)
+    const finalResults = [...localMatches, ...apiMatches];
     setResults(finalResults);
     setIsSearching(false);
   }
 
-  // 3. Lógica para guardar la comida
+  // Lógica para guardar la comida
   async function handleConfirmFood() {
     if (!selectedFood) return;
 
@@ -277,7 +279,7 @@ export default function SmartFoodSearch({ onAddFood }: { onAddFood: (food: any) 
                                 {food.source === 'local' ? (
                                     <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mt-1 w-max">🌿 Natural / Base</span>
                                 ) : (
-                                    <span className="text-[8px] font-black text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded mt-1 w-max">📦 Comercial</span>
+                                    <span className="text-[8px] font-black text-gray-400 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded mt-1 w-max">📦 Base de Datos Global</span>
                                 )}
                             </div>
                             <span className="text-[10px] text-gray-400 font-bold group-hover:text-amber-500 whitespace-nowrap shrink-0">
